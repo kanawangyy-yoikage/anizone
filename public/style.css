@@ -62,11 +62,24 @@ body {
 
 /* Google 4-color ring logo — pakai outline border biasa, aman semua browser */
 .top-logo {
-    width: 46px; height: 46px; border-radius: 50%;
-    object-fit: cover; flex-shrink: 0;
-    border: 3px solid #4285F4;
-    box-shadow: 0 0 0 1.5px #EA4335, 0 0 0 3px #FBBC05, 0 0 0 4.5px #34A853;
-    background: var(--bg-card);
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 3px solid transparent; 
+    background-image: conic-gradient(
+        from -45deg,      
+        #4285F4 0% 25%,   
+        #EA4335 25% 50%,  
+        #FBBC05 50% 75%,  
+        #34A853 75% 100%  
+    );
+    background-origin: border-box;
+    background-clip: border-box;
+    -webkit-background-clip: border-box;
+    padding: 0;
+    box-shadow: none;
 }
 
 /* ===== M3 SEARCH BAR ===== */
