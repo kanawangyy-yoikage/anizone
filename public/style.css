@@ -481,3 +481,123 @@ h2, h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
     animation: fadeInUp 0.35s both;
 }
 .mt-large { margin-top: 20px; }
+
+/* ===== PROFILE & LOGOUT ADDITIONS ===== */
+
+/* Avatar circle style for sidebar logo & top logo */
+.sidebar-user-avatar, .top-user-avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+    transition: border-color 0.2s, transform 0.2s;
+}
+.sidebar-user-avatar:hover, .top-user-avatar:hover {
+    border-color: var(--primary-hover, #60a5fa);
+    transform: scale(1.05);
+}
+
+/* Bottom nav avatar */
+.bottom-nav-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+    display: block;
+    margin: 0 auto 2px;
+}
+
+/* Sidebar logout button */
+.sidebar-logout-btn {
+    color: #ef4444 !important;
+}
+.sidebar-logout-btn:hover {
+    background: rgba(239,68,68,0.12) !important;
+}
+
+/* Profile banner gradient */
+.profile-banner-gradient {
+    background: linear-gradient(135deg, #1e3a8a 0%, #312e81 40%, #4c1d95 70%, #0f172a 100%);
+    min-height: 130px;
+}
+
+/* Profile logout button (top right of profile header) */
+.profile-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.35);
+    color: #ef4444;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    font-family: var(--font, 'Outfit', sans-serif);
+}
+.profile-logout-btn:hover {
+    background: rgba(239,68,68,0.22);
+    border-color: #ef4444;
+}
+
+/* Full-width logout button in info tab */
+.profile-logout-full-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px;
+    background: rgba(239,68,68,0.1);
+    border: 1.5px solid rgba(239,68,68,0.4);
+    border-radius: var(--shape-md, 12px);
+    color: #ef4444;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: var(--font, 'Outfit', sans-serif);
+}
+.profile-logout-full-btn:hover {
+    background: rgba(239,68,68,0.2);
+}
+
+/* Profile info rows */
+.profile-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.9rem;
+    gap: 12px;
+}
+.profile-info-row span:first-child {
+    color: var(--text-secondary, #9ca3af);
+    flex-shrink: 0;
+}
+.profile-info-row span:last-child {
+    color: var(--text-primary, #f9fafb);
+    word-break: break-all;
+    text-align: right;
+}
+
+/* Profile anime mini-grid */
+.profile-anime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    padding: 8px 0;
+}
+
+/* Profile view animation */
+#profile-view {
+    animation: fadeInUp 0.35s both;
+}
+
+/* Desktop: profile view padding like developer view */
+@media (min-width: 900px) {
+    #profile-view { padding: 0; }
+}

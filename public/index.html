@@ -14,8 +14,8 @@
 
 <!-- SIDEBAR (Desktop Only) -->
 <nav class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-        <img src="pp.png" alt="Logo" class="sidebar-logo" id="sidebarLogo">
+    <div class="sidebar-brand" onclick="switchTab('profile')" style="cursor:pointer;" title="Lihat Profil">
+        <img src="pp.png" alt="Foto Profil" class="sidebar-logo sidebar-user-avatar" id="sidebarLogo">
         <span class="sidebar-title">AniZone</span>
     </div>
     <div class="sidebar-nav">
@@ -45,12 +45,16 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
             <span>Ganti Tema</span>
         </button>
+        <button class="sidebar-item sidebar-logout-btn" onclick="handleLogout()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span>Keluar</span>
+        </button>
     </div>
 </nav>
 
 <!-- TOP NAVBAR -->
 <nav class="navbar">
-    <img src="pp.png" alt="Logo" class="top-logo">
+    <img src="pp.png" alt="Foto Profil" class="top-logo top-user-avatar" id="topLogo" onclick="switchTab('profile')" title="Profil Saya" style="cursor:pointer;">
     <div class="top-search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <input type="text" id="searchInput" placeholder="Cari anime...">
@@ -172,6 +176,59 @@
         <div class="server-label">Pilih Server:</div>
         <div class="server-list" id="server-options"></div>
     </div>
+
+    <!-- PROFILE VIEW -->
+    <div id="profile-view" class="hidden">
+        <div class="social-profile-container">
+            <div class="social-banner profile-banner-gradient"></div>
+            <div class="social-profile-header">
+                <div class="social-avatar-wrapper">
+                    <img src="pp.png" alt="Foto Profil" class="social-avatar" id="profileAvatar">
+                </div>
+                <button class="profile-logout-btn" onclick="handleLogout()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Keluar
+                </button>
+            </div>
+            <div class="social-info">
+                <div class="social-name-wrapper">
+                    <h2 class="social-name" id="profileName">Memuat...</h2>
+                </div>
+                <p class="social-handle" id="profileEmail">@user</p>
+                <p class="social-bio" id="profileBio">Selamat datang di AniZone! Nikmati streaming anime HD favoritmu.</p>
+                <div class="social-stats">
+                    <div class="stat-item"><span class="stat-num" id="profileFavCount">0</span> <span class="stat-label">Favorit</span></div>
+                    <div class="stat-item"><span class="stat-num" id="profileRecentCount">0</span> <span class="stat-label">Ditonton</span></div>
+                </div>
+            </div>
+            <div class="social-tabs">
+                <div class="social-tab active" onclick="switchProfileTab(this, 'fav')">Favorit</div>
+                <div class="social-tab" onclick="switchProfileTab(this, 'recent')">Riwayat</div>
+                <div class="social-tab" onclick="switchProfileTab(this, 'info')">Info Akun</div>
+            </div>
+            <div class="social-content">
+                <div id="profile-tab-fav">
+                    <div id="profile-fav-list" class="profile-anime-grid"></div>
+                </div>
+                <div id="profile-tab-recent" style="display:none">
+                    <div id="profile-recent-list" class="profile-anime-grid"></div>
+                </div>
+                <div id="profile-tab-info" style="display:none">
+                    <div class="doc-card">
+                        <h4>Detail Akun</h4>
+                        <div class="profile-info-row"><span>Nama</span><span id="infoName">-</span></div>
+                        <div class="profile-info-row"><span>Email</span><span id="infoEmail">-</span></div>
+                        <div class="profile-info-row"><span>Provider</span><span id="infoProvider">-</span></div>
+                        <div class="profile-info-row"><span>Bergabung</span><span id="infoJoined">-</span></div>
+                    </div>
+                    <button class="profile-logout-full-btn" onclick="handleLogout()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Keluar dari Akun
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </main>
 
 <!-- BOTTOM NAV (Mobile Only) -->
@@ -192,12 +249,96 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
         <span>Favorite</span>
     </button>
-    <button class="nav-item" onclick="switchTab('developer')" id="tab-developer">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        <span>Developer</span>
+    <button class="nav-item" onclick="switchTab('profile')" id="tab-profile">
+        <img src="pp.png" alt="Profil" class="bottom-nav-avatar" id="bottomNavAvatar">
+        <span>Profil</span>
     </button>
 </nav>
 
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+// ===== LOGOUT =====
+function handleLogout() {
+    if (typeof firebase !== 'undefined') {
+        firebase.auth().signOut().then(() => {
+            window.location.href = 'login.html';
+        }).catch(err => {
+            console.error('Logout error:', err);
+            window.location.href = 'login.html';
+        });
+    } else {
+        window.location.href = 'login.html';
+    }
+}
+
+// ===== PROFILE TAB SWITCHER =====
+function switchProfileTab(el, tab) {
+    document.querySelectorAll('#profile-view .social-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('profile-tab-fav').style.display = tab === 'fav' ? '' : 'none';
+    document.getElementById('profile-tab-recent').style.display = tab === 'recent' ? '' : 'none';
+    document.getElementById('profile-tab-info').style.display = tab === 'info' ? '' : 'none';
+}
+
+// ===== LOAD PROFILE DATA =====
+function loadProfileData(user) {
+    if (!user) return;
+
+    const displayName = user.displayName || 'Pengguna AniZone';
+    const email = user.email || '';
+    const photoURL = user.photoURL || 'pp.png';
+    const provider = user.providerData[0]?.providerId === 'google.com' ? 'Google' :
+                     user.providerData[0]?.providerId === 'phone' ? 'Nomor HP' : 'Email';
+    const joined = user.metadata?.creationTime
+        ? new Date(user.metadata.creationTime).toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})
+        : '-';
+
+    // Update avatar everywhere
+    const avatarSrcs = ['sidebarLogo','topLogo','profileAvatar','bottomNavAvatar'];
+    avatarSrcs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && photoURL) el.src = photoURL;
+    });
+
+    // Fill profile page
+    const setTxt = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    setTxt('profileName', displayName);
+    setTxt('profileEmail', email ? '@' + email.split('@')[0] : '@user');
+    setTxt('infoName', displayName);
+    setTxt('infoEmail', email);
+    setTxt('infoProvider', provider);
+    setTxt('infoJoined', joined);
+
+    // Count favorites & recent from IndexedDB
+    try {
+        const favReq = indexedDB.open('anizoneDB');
+        favReq.onsuccess = function(e) {
+            const db = e.target.result;
+            if (db.objectStoreNames.contains('favorites')) {
+                const tx = db.transaction('favorites','readonly');
+                const store = tx.objectStore('favorites');
+                const countReq = store.count();
+                countReq.onsuccess = () => setTxt('profileFavCount', countReq.result);
+            }
+            if (db.objectStoreNames.contains('history')) {
+                const tx2 = db.transaction('history','readonly');
+                const store2 = tx2.objectStore('history');
+                const countReq2 = store2.count();
+                countReq2.onsuccess = () => setTxt('profileRecentCount', countReq2.result);
+            }
+        };
+    } catch(e) {}
+}
+
+// Listen to auth and load profile
+if (typeof firebase !== 'undefined') {
+    firebase.auth().onAuthStateChanged(function(user) {
+        if (user) loadProfileData(user);
+    });
+}
+</script>
 <script src="app.js"></script>
 </body>
 </html>

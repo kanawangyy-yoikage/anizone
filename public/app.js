@@ -182,7 +182,7 @@ async function fetchWAFollowers() {
 // ===== SWITCH TAB =====
 function switchTab(tabName) {
     hide('home-view'); hide('anime-view'); hide('recent-view');
-    hide('favorite-view'); hide('developer-view'); hide('detail-view'); hide('watch-view');
+    hide('favorite-view'); hide('developer-view'); hide('detail-view'); hide('watch-view'); hide('profile-view');
     show('bottomNav');
 
     // Mobile bottom nav
@@ -233,6 +233,15 @@ function switchTab(tabName) {
         const mobileTab = document.getElementById('tab-developer');
         if (mobileTab) mobileTab.classList.add('active');
         fetchWAFollowers();
+    } else if (tabName === 'profile') {
+        show('profile-view');
+        const mobileTab = document.getElementById('tab-profile');
+        if (mobileTab) mobileTab.classList.add('active');
+        // Re-trigger profile data load
+        if (typeof firebase !== 'undefined') {
+            const user = firebase.auth().currentUser;
+            if (user && typeof loadProfileData === 'function') loadProfileData(user);
+        }
     }
 }
 
