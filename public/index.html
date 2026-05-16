@@ -255,20 +255,18 @@
     </button>
 </nav>
 
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
 <script>
 // ===== LOGOUT =====
+// Dipanggil setelah app.js (dan Firebase) sudah termuat
 function handleLogout() {
-    if (typeof firebase !== 'undefined') {
+    try {
         firebase.auth().signOut().then(() => {
             window.location.href = 'login.html';
-        }).catch(err => {
-            console.error('Logout error:', err);
+        }).catch(() => {
             window.location.href = 'login.html';
         });
-    } else {
+    } catch(e) {
         window.location.href = 'login.html';
     }
 }
@@ -295,15 +293,14 @@ function loadProfileData(user) {
         ? new Date(user.metadata.creationTime).toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})
         : '-';
 
-    // Update avatar everywhere
-    const avatarSrcs = ['sidebarLogo','topLogo','profileAvatar','bottomNavAvatar'];
-    avatarSrcs.forEach(id => {
+    // Update avatar di semua tempat
+    ['sidebarLogo','topLogo','profileAvatar','bottomNavAvatar'].forEach(id => {
         const el = document.getElementById(id);
         if (el && photoURL) el.src = photoURL;
     });
 
-    // Fill profile page
-    const setTxt = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    // Isi teks profil
+    const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
     setTxt('profileName', displayName);
     setTxt('profileEmail', email ? '@' + email.split('@')[0] : '@user');
     setTxt('infoName', displayName);
@@ -311,34 +308,22 @@ function loadProfileData(user) {
     setTxt('infoProvider', provider);
     setTxt('infoJoined', joined);
 
-    // Count favorites & recent from IndexedDB
+    // Hitung favorit & riwayat dari IndexedDB
     try {
-        const favReq = indexedDB.open('anizoneDB');
-        favReq.onsuccess = function(e) {
-            const db = e.target.result;
-            if (db.objectStoreNames.contains('favorites')) {
-                const tx = db.transaction('favorites','readonly');
-                const store = tx.objectStore('favorites');
-                const countReq = store.count();
-                countReq.onsuccess = () => setTxt('profileFavCount', countReq.result);
-            }
-            if (db.objectStoreNames.contains('history')) {
-                const tx2 = db.transaction('history','readonly');
-                const store2 = tx2.objectStore('history');
-                const countReq2 = store2.count();
-                countReq2.onsuccess = () => setTxt('profileRecentCount', countReq2.result);
-            }
-        };
+        initDB().then(db => {
+            const tx = db.transaction([STORE_FAV, STORE_HISTORY], 'readonly');
+            const favReq = tx.objectStore(STORE_FAV).count();
+            const recReq = tx.objectStore(STORE_HISTORY).count();
+            favReq.onsuccess = () => setTxt('profileFavCount', favReq.result);
+            recReq.onsuccess = () => setTxt('profileRecentCount', recReq.result);
+        });
     } catch(e) {}
 }
 
-// Listen to auth and load profile
-if (typeof firebase !== 'undefined') {
-    firebase.auth().onAuthStateChanged(function(user) {
-        if (user) loadProfileData(user);
-    });
-}
+// Jalankan setelah Firebase auth siap
+firebase.auth().onAuthStateChanged(function(user) {
+    if (user) loadProfileData(user);
+});
 </script>
-<script src="app.js"></script>
 </body>
 </html>
