@@ -657,3 +657,8 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('searchInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleSearch();
 });
+
+// Cek apakah user sudah login
+firebase.auth().onAuthStateChanged((user) => {
+  if (!user) window.location.href = 'login.html';
+});
