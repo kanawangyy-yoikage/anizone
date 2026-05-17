@@ -163,7 +163,6 @@ body {
         min-width: 0;
         animation: fadeInUp 0.4s both;
     }
-@media (min-width: 900px) {
     .bottom-nav { display: none !important; }
     .top-logo { display: none !important; }
     .top-user-avatar { display: none !important; }
