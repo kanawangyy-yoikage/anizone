@@ -9,14 +9,185 @@
     <title>AniZone</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── USER AVATAR (sidebar brand) ── */
+        .sidebar-user-avatar {
+            width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, #4285F4, #A8C7FA);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 17px; color: #fff;
+            cursor: pointer; overflow: hidden; border: 2.5px solid transparent;
+            background-clip: padding-box;
+            box-shadow: 0 0 0 2.5px #4285F4;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+        .sidebar-user-avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+        .sidebar-user-avatar:hover { transform: scale(1.08); box-shadow: 0 0 0 2.5px #A8C7FA; }
+        .sidebar-brand-info { display: flex; flex-direction: column; gap: 1px; }
+        .sidebar-username { font-size: 11px; color: var(--text-muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+
+        /* ── TOP NAV AVATAR (mobile) ── */
+        .top-user-avatar {
+            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, #4285F4, #A8C7FA);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 15px; color: #fff;
+            cursor: pointer; overflow: hidden; position: relative;
+            border: 2px solid #4285F4; transition: transform 0.2s;
+        }
+        .top-user-avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+        .top-user-avatar:hover { transform: scale(1.08); }
+
+        /* ── LOGOUT button style ── */
+        .sidebar-logout { color: #f87171 !important; }
+        .sidebar-logout:hover { background: rgba(248,113,113,0.1) !important; color: #f87171 !important; }
+        .sidebar-logout svg { stroke: #f87171 !important; }
+
+        /* ── LOGOUT CONFIRM MODAL ── */
+        .logout-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; opacity: 0; pointer-events: none;
+            transition: opacity 0.25s;
+        }
+        .logout-modal-overlay.show { opacity: 1; pointer-events: all; }
+        .logout-modal {
+            background: var(--bg-card, #161920); border: 1px solid var(--border-color, #2a2d37);
+            border-radius: 20px; padding: 28px 28px 24px;
+            width: 100%; max-width: 340px; margin: 20px;
+            transform: scale(0.9); transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            font-family: 'Outfit', sans-serif;
+        }
+        .logout-modal-overlay.show .logout-modal { transform: scale(1); }
+        .logout-modal-icon { font-size: 36px; text-align: center; margin-bottom: 12px; }
+        .logout-modal-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text-main, #E2E2E9); }
+        .logout-modal-desc { font-size: 13px; color: var(--text-muted, #9aa0b4); text-align: center; margin-bottom: 22px; line-height: 1.5; }
+        .logout-modal-btns { display: flex; gap: 10px; }
+        .logout-btn-cancel {
+            flex: 1; padding: 11px; border-radius: 12px;
+            background: var(--surface-high, #1e2129); border: 1px solid var(--border-color, #2a2d37);
+            color: var(--text-muted, #9aa0b4); font-family: 'Outfit', sans-serif;
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .logout-btn-cancel:hover { color: var(--text-main, #E2E2E9); }
+        .logout-btn-confirm {
+            flex: 1; padding: 11px; border-radius: 12px;
+            background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35);
+            color: #f87171; font-family: 'Outfit', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        }
+        .logout-btn-confirm:hover { background: rgba(248,113,113,0.22); }
+
+        /* ── PROFILE VIEW ── */
+        .profile-container {
+            max-width: 520px; margin: 0 auto; padding: 20px 20px 40px;
+            font-family: 'Outfit', sans-serif;
+        }
+        .profile-header-card {
+            background: var(--bg-card, #161920); border: 1px solid var(--border-color, #2a2d37);
+            border-radius: 20px; overflow: hidden; margin-bottom: 16px;
+            animation: fadeInUp 0.4s ease;
+        }
+        .profile-banner {
+            height: 90px;
+            background: linear-gradient(135deg, #1a237e 0%, #4285F4 50%, #A8C7FA 100%);
+            position: relative;
+        }
+        .profile-banner-pattern {
+            position: absolute; inset: 0; opacity: 0.15;
+            background-image: radial-gradient(circle at 20% 50%, white 1px, transparent 1px),
+                              radial-gradient(circle at 80% 20%, white 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        .profile-avatar-wrap {
+            position: absolute; bottom: -28px; left: 20px;
+            width: 64px; height: 64px; border-radius: 50%;
+            background: linear-gradient(135deg, #4285F4, #A8C7FA);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; font-weight: 800; color: #fff;
+            border: 3px solid var(--bg-card, #161920);
+            overflow: hidden;
+        }
+        .profile-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-info-body { padding: 38px 20px 20px; }
+        .profile-name { font-size: 20px; font-weight: 800; margin-bottom: 3px; color: var(--text-main, #E2E2E9); }
+        .profile-email { font-size: 13px; color: var(--text-muted, #9aa0b4); margin-bottom: 12px; }
+        .profile-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+        .profile-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700; padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .badge-role-admin { background: rgba(66,133,244,0.15); color: #7BAEF8; border: 1px solid rgba(66,133,244,0.3); }
+        .badge-role-user { background: rgba(154,160,180,0.1); color: var(--text-muted, #9aa0b4); border: 1px solid var(--border-color, #2a2d37); }
+        .badge-method { background: rgba(168,199,250,0.08); color: var(--text-muted, #9aa0b4); border: 1px solid var(--border-color, #2a2d37); }
+
+        .profile-stats-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-bottom: 16px;
+        }
+        .profile-stat-card {
+            background: var(--bg-card, #161920); border: 1px solid var(--border-color, #2a2d37);
+            border-radius: 14px; padding: 14px 10px; text-align: center;
+            animation: fadeInUp 0.4s ease both;
+        }
+        .profile-stat-num { font-size: 22px; font-weight: 800; background: linear-gradient(135deg,#4285F4,#A8C7FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .profile-stat-label { font-size: 11px; color: var(--text-muted, #9aa0b4); font-weight: 600; margin-top: 3px; }
+
+        .profile-info-card {
+            background: var(--bg-card, #161920); border: 1px solid var(--border-color, #2a2d37);
+            border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+            animation: fadeInUp 0.4s ease both;
+        }
+        .profile-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted, #9aa0b4); margin-bottom: 14px; }
+        .profile-info-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color, #2a2d37); }
+        .profile-info-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .profile-info-label { font-size: 12px; color: var(--text-muted, #9aa0b4); font-weight: 600; display: flex; align-items: center; gap: 7px; }
+        .profile-info-label svg { width: 14px; height: 14px; }
+        .profile-info-value { font-size: 13px; font-weight: 600; color: var(--text-main, #E2E2E9); text-align: right; max-width: 220px; word-break: break-all; }
+
+        .profile-logout-btn {
+            width: 100%; padding: 13px;
+            background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3);
+            border-radius: 14px; color: #f87171;
+            font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .profile-logout-btn:hover { background: rgba(248,113,113,0.18); transform: translateY(-1px); }
+
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    </style>
 </head>
 <body>
 
+<!-- ── LOGOUT CONFIRM MODAL ── -->
+<div class="logout-modal-overlay" id="logoutModal">
+    <div class="logout-modal">
+        <div class="logout-modal-icon">👋</div>
+        <div class="logout-modal-title">Keluar dari AniZone?</div>
+        <div class="logout-modal-desc">Kamu akan keluar dari sesi ini. Riwayat & favorit tetap tersimpan.</div>
+        <div class="logout-modal-btns">
+            <button class="logout-btn-cancel" onclick="closeLogoutModal()">Batal</button>
+            <button class="logout-btn-confirm" onclick="confirmLogout()">Ya, Keluar</button>
+        </div>
+    </div>
+</div>
+
 <!-- SIDEBAR (Desktop Only) -->
 <nav class="sidebar" id="sidebar">
-    <div class="sidebar-brand" onclick="switchTab('profile')" style="cursor:pointer;" title="Lihat Profil">
-        <img src="pp.png" alt="Foto Profil" class="sidebar-logo sidebar-user-avatar" id="sidebarLogo">
-        <span class="sidebar-title">AniZone</span>
+    <div class="sidebar-brand">
+        <!-- Foto profil user gantikan logo -->
+        <div class="sidebar-user-avatar" id="sidebarAvatar" onclick="switchTab('profile')" title="Lihat Profil">
+            <img id="sidebarAvatarImg" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover; position:absolute; inset:0;">
+            <span id="sidebarAvatarInitial">?</span>
+        </div>
+        <div class="sidebar-brand-info">
+            <span class="sidebar-title">AniZone</span>
+            <span class="sidebar-username" id="sidebarUsername">Memuat...</span>
+        </div>
     </div>
     <div class="sidebar-nav">
         <button class="sidebar-item active" onclick="switchTab('home')" id="stab-home">
@@ -39,13 +210,17 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             <span>Developer</span>
         </button>
+        <button class="sidebar-item" onclick="switchTab('profile')" id="stab-profile">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profil Saya</span>
+        </button>
     </div>
     <div class="sidebar-footer">
         <button class="sidebar-item" onclick="toggleTheme()" id="themeBtnSidebar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
             <span>Ganti Tema</span>
         </button>
-        <button class="sidebar-item sidebar-logout-btn" onclick="handleLogout()">
+        <button class="sidebar-item sidebar-logout" onclick="doLogout()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             <span>Keluar</span>
         </button>
@@ -54,7 +229,11 @@
 
 <!-- TOP NAVBAR -->
 <nav class="navbar">
-    <img src="pp.png" alt="Foto Profil" class="top-logo top-user-avatar" id="topLogo" onclick="switchTab('profile')" title="Profil Saya" style="cursor:pointer;">
+    <!-- Foto profil user di mobile (gantikan logo) -->
+    <div class="top-user-avatar" id="topAvatar" onclick="switchTab('profile')" title="Profil">
+        <img id="topAvatarImg" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover; position:absolute; inset:0;">
+        <span id="topAvatarInitial">?</span>
+    </div>
     <div class="top-search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <input type="text" id="searchInput" placeholder="Cari anime...">
@@ -150,6 +329,92 @@
         </div>
     </div>
 
+    <!-- ── PROFILE VIEW ── -->
+    <div id="profile-view" class="hidden">
+        <div class="profile-container">
+            <div class="profile-header-card">
+                <div class="profile-banner">
+                    <div class="profile-banner-pattern"></div>
+                    <div class="profile-avatar-wrap" id="profileAvatarWrap">
+                        <img id="profileAvatarImg" src="" alt="" style="display:none">
+                        <span id="profileAvatarInitial">?</span>
+                    </div>
+                </div>
+                <div class="profile-info-body">
+                    <div class="profile-name" id="profileName">Memuat...</div>
+                    <div class="profile-email" id="profileEmail">—</div>
+                    <div class="profile-badges" id="profileBadges"></div>
+                </div>
+            </div>
+
+            <div class="profile-stats-row">
+                <div class="profile-stat-card" style="animation-delay:0.05s">
+                    <div class="profile-stat-num" id="profileStatFav">—</div>
+                    <div class="profile-stat-label">Favorit</div>
+                </div>
+                <div class="profile-stat-card" style="animation-delay:0.1s">
+                    <div class="profile-stat-num" id="profileStatHistory">—</div>
+                    <div class="profile-stat-label">Riwayat</div>
+                </div>
+                <div class="profile-stat-card" style="animation-delay:0.15s">
+                    <div class="profile-stat-num" id="profileStatDays">—</div>
+                    <div class="profile-stat-label">Hari Bergabung</div>
+                </div>
+            </div>
+
+            <div class="profile-info-card" style="animation-delay:0.2s">
+                <div class="profile-section-title">Info Akun</div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        Nama
+                    </span>
+                    <span class="profile-info-value" id="infoName">—</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        Email
+                    </span>
+                    <span class="profile-info-value" id="infoEmail">—</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127 1.44.35 2.864.67 4.26a2 2 0 01-.45 2.11L6.09 9.18A16 16 0 0014.82 17.91l1.05-1.13a2 2 0 012.11-.45c1.397.32 2.82.543 4.26.67A2 2 0 0122 16.92z"/></svg>
+                        Nomor HP
+                    </span>
+                    <span class="profile-info-value" id="infoPhone">—</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Role
+                    </span>
+                    <span class="profile-info-value" id="infoRole">—</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        Bergabung
+                    </span>
+                    <span class="profile-info-value" id="infoJoined">—</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Login Terakhir
+                    </span>
+                    <span class="profile-info-value" id="infoLastLogin">—</span>
+                </div>
+            </div>
+
+            <button class="profile-logout-btn" onclick="doLogout()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Keluar dari Akun
+            </button>
+        </div>
+    </div>
+
     <div id="detail-view" class="hidden">
         <div class="nav-back">
             <button onclick="goHome()">
@@ -176,59 +441,6 @@
         <div class="server-label">Pilih Server:</div>
         <div class="server-list" id="server-options"></div>
     </div>
-
-    <!-- PROFILE VIEW -->
-    <div id="profile-view" class="hidden">
-        <div class="social-profile-container">
-            <div class="social-banner profile-banner-gradient"></div>
-            <div class="social-profile-header">
-                <div class="social-avatar-wrapper">
-                    <img src="pp.png" alt="Foto Profil" class="social-avatar" id="profileAvatar">
-                </div>
-                <button class="profile-logout-btn" onclick="handleLogout()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                    Keluar
-                </button>
-            </div>
-            <div class="social-info">
-                <div class="social-name-wrapper">
-                    <h2 class="social-name" id="profileName">Memuat...</h2>
-                </div>
-                <p class="social-handle" id="profileEmail">@user</p>
-                <p class="social-bio" id="profileBio">Selamat datang di AniZone! Nikmati streaming anime HD favoritmu.</p>
-                <div class="social-stats">
-                    <div class="stat-item"><span class="stat-num" id="profileFavCount">0</span> <span class="stat-label">Favorit</span></div>
-                    <div class="stat-item"><span class="stat-num" id="profileRecentCount">0</span> <span class="stat-label">Ditonton</span></div>
-                </div>
-            </div>
-            <div class="social-tabs">
-                <div class="social-tab active" onclick="switchProfileTab(this, 'fav')">Favorit</div>
-                <div class="social-tab" onclick="switchProfileTab(this, 'recent')">Riwayat</div>
-                <div class="social-tab" onclick="switchProfileTab(this, 'info')">Info Akun</div>
-            </div>
-            <div class="social-content">
-                <div id="profile-tab-fav">
-                    <div id="profile-fav-list" class="profile-anime-grid"></div>
-                </div>
-                <div id="profile-tab-recent" style="display:none">
-                    <div id="profile-recent-list" class="profile-anime-grid"></div>
-                </div>
-                <div id="profile-tab-info" style="display:none">
-                    <div class="doc-card">
-                        <h4>Detail Akun</h4>
-                        <div class="profile-info-row"><span>Nama</span><span id="infoName">-</span></div>
-                        <div class="profile-info-row"><span>Email</span><span id="infoEmail">-</span></div>
-                        <div class="profile-info-row"><span>Provider</span><span id="infoProvider">-</span></div>
-                        <div class="profile-info-row"><span>Bergabung</span><span id="infoJoined">-</span></div>
-                    </div>
-                    <button class="profile-logout-full-btn" onclick="handleLogout()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                        Keluar dari Akun
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 </main>
 
 <!-- BOTTOM NAV (Mobile Only) -->
@@ -250,80 +462,164 @@
         <span>Favorite</span>
     </button>
     <button class="nav-item" onclick="switchTab('profile')" id="tab-profile">
-        <img src="pp.png" alt="Profil" class="bottom-nav-avatar" id="bottomNavAvatar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         <span>Profil</span>
     </button>
 </nav>
 
-<script src="app.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script>
-// ===== LOGOUT =====
-// Dipanggil setelah app.js (dan Firebase) sudah termuat
-function handleLogout() {
+// ── Ganti dengan konfigurasi Firebase proyekmu ──
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ── Auth guard: kalau belum login, tendang ke login.html ──
+auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+        window.location.replace('login.html');
+        return;
+    }
+    // User sudah login → tampilkan info
+    await loadUserProfile(user);
+});
+
+// ── Muat & tampilkan data profil ──
+async function loadUserProfile(user) {
+    const name = user.displayName || 'Pengguna AniZone';
+    const email = user.email || user.phoneNumber || '—';
+    const photo = user.photoURL || null;
+    const initial = name.charAt(0).toUpperCase();
+
+    // Sidebar avatar
+    const sidebarImg = document.getElementById('sidebarAvatarImg');
+    const sidebarInitial = document.getElementById('sidebarAvatarInitial');
+    if (photo) {
+        sidebarImg.src = photo;
+        sidebarImg.style.display = 'block';
+        sidebarInitial.style.display = 'none';
+    } else {
+        sidebarInitial.textContent = initial;
+    }
+    document.getElementById('sidebarUsername').textContent = name;
+
+    // Top navbar avatar (mobile)
+    const topImg = document.getElementById('topAvatarImg');
+    const topInitial = document.getElementById('topAvatarInitial');
+    if (photo) {
+        topImg.src = photo;
+        topImg.style.display = 'block';
+        topInitial.style.display = 'none';
+    } else {
+        topInitial.textContent = initial;
+    }
+
+    // Profile view
+    const profImg = document.getElementById('profileAvatarImg');
+    const profInitial = document.getElementById('profileAvatarInitial');
+    if (photo) {
+        profImg.src = photo;
+        profImg.style.display = 'block';
+        profInitial.style.display = 'none';
+    } else {
+        profInitial.textContent = initial;
+    }
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('profileEmail').textContent = email;
+    document.getElementById('infoName').textContent = name;
+    document.getElementById('infoEmail').textContent = user.email || '—';
+    document.getElementById('infoPhone').textContent = user.phoneNumber || '—';
+
+    // Hitung hari bergabung
+    const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
+    const lastLogin = user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
+    if (createdAt) {
+        const days = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+        document.getElementById('profileStatDays').textContent = days;
+        document.getElementById('infoJoined').textContent = createdAt.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+    }
+    if (lastLogin) {
+        document.getElementById('infoLastLogin').textContent = lastLogin.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    }
+
+    // Ambil data dari Firestore (role, dll)
     try {
-        firebase.auth().signOut().then(() => {
-            window.location.href = 'login.html';
-        }).catch(() => {
-            window.location.href = 'login.html';
-        });
+        const doc = await db.collection('users').doc(user.uid).get();
+        const data = doc.exists ? doc.data() : {};
+        const role = data.role || 'user';
+        document.getElementById('infoRole').textContent = role === 'admin' ? '🛡️ Administrator' : '👤 User';
+
+        // Badges
+        const badges = [];
+        badges.push(`<span class="profile-badge ${role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}">${role === 'admin' ? '🛡️ Admin' : '👤 User'}</span>`);
+        if (user.email) badges.push('<span class="profile-badge badge-method">📧 Email</span>');
+        if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
+        if (user.providerData?.some(p => p.providerId === 'google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
+        document.getElementById('profileBadges').innerHTML = badges.join('');
     } catch(e) {
-        window.location.href = 'login.html';
+        document.getElementById('infoRole').textContent = '👤 User';
+    }
+
+    // Hitung favorit & riwayat dari IndexedDB (asumsi sudah ada di app.js)
+    try {
+        const favCount = await getIDBCount('favorites');
+        const histCount = await getIDBCount('history');
+        document.getElementById('profileStatFav').textContent = favCount;
+        document.getElementById('profileStatHistory').textContent = histCount;
+    } catch {
+        document.getElementById('profileStatFav').textContent = '—';
+        document.getElementById('profileStatHistory').textContent = '—';
     }
 }
 
-// ===== PROFILE TAB SWITCHER =====
-function switchProfileTab(el, tab) {
-    document.querySelectorAll('#profile-view .social-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('profile-tab-fav').style.display = tab === 'fav' ? '' : 'none';
-    document.getElementById('profile-tab-recent').style.display = tab === 'recent' ? '' : 'none';
-    document.getElementById('profile-tab-info').style.display = tab === 'info' ? '' : 'none';
-}
-
-// ===== LOAD PROFILE DATA =====
-function loadProfileData(user) {
-    if (!user) return;
-
-    const displayName = user.displayName || 'Pengguna AniZone';
-    const email = user.email || '';
-    const photoURL = user.photoURL || 'pp.png';
-    const provider = user.providerData[0]?.providerId === 'google.com' ? 'Google' :
-                     user.providerData[0]?.providerId === 'phone' ? 'Nomor HP' : 'Email';
-    const joined = user.metadata?.creationTime
-        ? new Date(user.metadata.creationTime).toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})
-        : '-';
-
-    // Update avatar di semua tempat
-    ['sidebarLogo','topLogo','profileAvatar','bottomNavAvatar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el && photoURL) el.src = photoURL;
+// Hitung item di IndexedDB store
+function getIDBCount(storeName) {
+    return new Promise((resolve) => {
+        const req = indexedDB.open('animeDB');
+        req.onsuccess = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(storeName)) { resolve(0); return; }
+            const tx = db.transaction(storeName, 'readonly');
+            const countReq = tx.objectStore(storeName).count();
+            countReq.onsuccess = () => resolve(countReq.result);
+            countReq.onerror = () => resolve(0);
+        };
+        req.onerror = () => resolve(0);
     });
-
-    // Isi teks profil
-    const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-    setTxt('profileName', displayName);
-    setTxt('profileEmail', email ? '@' + email.split('@')[0] : '@user');
-    setTxt('infoName', displayName);
-    setTxt('infoEmail', email);
-    setTxt('infoProvider', provider);
-    setTxt('infoJoined', joined);
-
-    // Hitung favorit & riwayat dari IndexedDB
-    try {
-        initDB().then(db => {
-            const tx = db.transaction([STORE_FAV, STORE_HISTORY], 'readonly');
-            const favReq = tx.objectStore(STORE_FAV).count();
-            const recReq = tx.objectStore(STORE_HISTORY).count();
-            favReq.onsuccess = () => setTxt('profileFavCount', favReq.result);
-            recReq.onsuccess = () => setTxt('profileRecentCount', recReq.result);
-        });
-    } catch(e) {}
 }
 
-// Jalankan setelah Firebase auth siap
-firebase.auth().onAuthStateChanged(function(user) {
-    if (user) loadProfileData(user);
+// ── LOGOUT ──
+function doLogout() {
+    document.getElementById('logoutModal').classList.add('show');
+}
+function closeLogoutModal() {
+    document.getElementById('logoutModal').classList.remove('show');
+}
+async function confirmLogout() {
+    try {
+        await auth.signOut();
+        window.location.replace('login.html');
+    } catch(e) {
+        console.error('Logout error:', e);
+        window.location.replace('login.html');
+    }
+}
+// Tutup modal kalau klik overlay
+document.getElementById('logoutModal').addEventListener('click', function(e) {
+    if (e.target === this) closeLogoutModal();
 });
 </script>
+<script src="app.js"></script>
 </body>
 </html>

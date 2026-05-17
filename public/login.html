@@ -607,13 +607,12 @@
 //  ⚠️ GANTI dengan konfigurasi Firebase proyekmu di bawah ini
 // ============================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
-  authDomain: "anizone-b48ce.firebaseapp.com",
-  projectId: "anizone-b48ce",
-  storageBucket: "anizone-b48ce.firebasestorage.app",
-  messagingSenderId: "375436276826",
-  appId: "1:375436276826:web:49683a8e7e4587e305d463",
-  measurementId: "G-B4YBQMT23R"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 // ============================================================
 
@@ -628,21 +627,9 @@ let confirmationResult = null;
 let recaptchaVerifier = null;
 
 // --- AUTH STATE LISTENER ---
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        showLoading(true);
-        // Simpan data user ke Firestore (jika baru)
-        await saveUserToFirestore(user);
-        // Cek apakah admin
-        const isAdmin = await checkIsAdmin(user.uid);
-        showLoading(false);
-        if (isAdmin && window.location.search.includes('admin')) {
-            window.location.href = 'admin.html';
-        } else {
-            window.location.href = 'index.html';
-        }
-    }
-});
+// TIDAK auto-redirect saat user sudah login — biarkan user di halaman login
+// Redirect hanya terjadi setelah user sengaja klik tombol login/daftar
+auth.onAuthStateChanged(() => { /* sengaja dikosongkan */ });
 
 async function saveUserToFirestore(user) {
     try {
@@ -755,6 +742,7 @@ async function submitEmail() {
         } else {
             await auth.signInWithEmailAndPassword(email, password);
         }
+        window.location.replace('index.html');
     } catch(e) {
         setLoading('btnEmail', false, currentMode === 'register' ? 'Daftar' : 'Masuk');
         showToast(getErrorMsg(e.code));
@@ -767,6 +755,7 @@ async function loginGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         await auth.signInWithPopup(provider);
+        window.location.replace('index.html');
     } catch(e) {
         showLoading(false);
         if (e.code !== 'auth/popup-closed-by-user') showToast(getErrorMsg(e.code));
@@ -847,6 +836,7 @@ async function verifyOTP() {
     showLoading(true);
     try {
         await confirmationResult.confirm(code);
+        window.location.replace('index.html');
     } catch(e) {
         showLoading(false);
         showToast(getErrorMsg(e.code));
