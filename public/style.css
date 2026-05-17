@@ -163,8 +163,11 @@ body {
         min-width: 0;
         animation: fadeInUp 0.4s both;
     }
+@media (min-width: 900px) {
     .bottom-nav { display: none !important; }
     .top-logo { display: none !important; }
+    .top-user-avatar { display: none !important; }
+    .theme-toggle-btn { display: none !important; }
 }
 
 /* ===== MOBILE LAYOUT (<900px): bottom nav ===== */
@@ -541,6 +544,46 @@ h2, h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
     background: rgba(239,68,68,0.22);
     border-color: #ef4444;
 }
+
+/* Developer button on profile page */
+.profile-developer-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(66,133,244,0.1);
+    border: 1px solid rgba(66,133,244,0.35);
+    color: var(--primary);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    font-family: var(--font, 'Outfit', sans-serif);
+}
+.profile-developer-btn:hover {
+    background: rgba(66,133,244,0.2);
+    border-color: var(--primary);
+}
+
+/* Follow button following state */
+.social-follow-btn.following {
+    background: transparent !important;
+    border: 1.5px solid rgba(255,255,255,0.3) !important;
+    color: var(--text-main) !important;
+    box-shadow: none !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.social-follow-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    cursor: pointer;
+}
+
 
 /* Full-width logout button in info tab */
 .profile-logout-full-btn {

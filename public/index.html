@@ -132,6 +132,12 @@
             background: var(--bg-card, #161920); border: 1px solid var(--border-color, #2a2d37);
             border-radius: 14px; padding: 14px 10px; text-align: center;
             animation: fadeInUp 0.4s ease both;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .profile-stat-card[onclick]:hover {
+            background: rgba(66,133,244,0.08);
+            border-color: rgba(66,133,244,0.3);
+            transform: translateY(-2px);
         }
         .profile-stat-num { font-size: 22px; font-weight: 800; background: linear-gradient(135deg,#4285F4,#A8C7FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .profile-stat-label { font-size: 11px; color: var(--text-muted, #9aa0b4); font-weight: 600; margin-top: 3px; }
@@ -329,10 +335,6 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
             <span>Favorit</span>
         </button>
-        <button class="sidebar-item" onclick="switchTab('developer')" id="stab-developer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            <span>Developer</span>
-        </button>
         <button class="sidebar-item" onclick="switchTab('profile')" id="stab-profile">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             <span>Profil Saya</span>
@@ -342,6 +344,10 @@
         <button class="sidebar-item" onclick="toggleTheme()" id="themeBtnSidebar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
             <span>Ganti Tema</span>
+        </button>
+        <button class="sidebar-item" onclick="switchTab('developer')" id="stab-developer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            <span>Developer</span>
         </button>
         <button class="sidebar-item sidebar-logout" onclick="doLogout()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -405,12 +411,15 @@
                 <div class="social-avatar-wrapper">
                     <img src="pp.png" alt="Profile" class="social-avatar">
                 </div>
-                <a href="https://github.com/kanawangyy-yoikage" target="_blank" class="social-follow-btn">Follow</a>
+                <button class="social-follow-btn" id="devFollowBtn" onclick="toggleDevFollow(this)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none" id="devFollowCheck"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="devFollowText">Follow</span>
+                </button>
             </div>
             <div class="social-info">
                 <div class="social-name-wrapper">
                     <h2 class="social-name">KanaWangyy (YoiKage)</h2>
-                    <svg class="verified-badge" width="18" height="18" viewBox="0 0 24 24" fill="#3b82f6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+                    <svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>
                 </div>
                 <p class="social-handle">@yoikagemodekana</p>
                 <p class="social-bio">Official Developer of AniZone 2026. Merancang pengalaman streaming Web App modern yang responsif. Bergabunglah dengan saluran kami untuk info update source dan bug fixes terbaru.</p>
@@ -483,15 +492,15 @@
 
             <!-- Stats -->
             <div class="profile-stats-row">
-                <div class="profile-stat-card" style="animation-delay:0.05s">
+                <div class="profile-stat-card" style="animation-delay:0.05s; cursor:pointer;" onclick="switchTab('favorite')" title="Lihat Favorit">
                     <div class="profile-stat-num" id="profileStatFav">—</div>
                     <div class="profile-stat-label">Favorit</div>
                 </div>
-                <div class="profile-stat-card" style="animation-delay:0.1s">
+                <div class="profile-stat-card" style="animation-delay:0.1s; cursor:pointer;" onclick="switchTab('recent')" title="Lihat Riwayat">
                     <div class="profile-stat-num" id="profileStatHistory">—</div>
                     <div class="profile-stat-label">Riwayat</div>
                 </div>
-                <div class="profile-stat-card" style="animation-delay:0.15s">
+                <div class="profile-stat-card" style="animation-delay:0.15s;">
                     <div class="profile-stat-num" id="profileStatDays">—</div>
                     <div class="profile-stat-label">Hari Bergabung</div>
                 </div>
@@ -538,10 +547,17 @@
                 </div>
             </div>
 
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+            <button class="profile-developer-btn" onclick="switchTab('developer')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                Developer
+            </button>
+
             <button class="profile-logout-btn" onclick="doLogout()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                 Keluar dari Akun
             </button>
+            </div>
         </div>
     </div>
 
@@ -808,7 +824,7 @@ async function loadUserProfile(user) {
 // ── IndexedDB count helper ──
 function getIDBCount(storeName) {
     return new Promise((resolve) => {
-        const req = indexedDB.open('animeDB');
+        const req = indexedDB.open('AniZoneDB', 2);
         req.onsuccess = (e) => {
             const idb = e.target.result;
             if (!idb.objectStoreNames.contains(storeName)) { resolve(0); return; }
@@ -836,6 +852,33 @@ async function uploadToStorage(file, path) {
     const ref = storage.ref(path);
     await ref.put(file);
     return await ref.getDownloadURL();
+}
+
+// ══════════════════════════════════════
+//  DEVELOPER FOLLOW TOGGLE
+// ══════════════════════════════════════
+function toggleDevFollow(btn) {
+    const isFollowing = btn.dataset.following === 'true';
+    const checkIcon = document.getElementById('devFollowCheck');
+    const textEl = document.getElementById('devFollowText');
+    if (isFollowing) {
+        // Unfollow
+        btn.dataset.following = 'false';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.border = '';
+        checkIcon.style.display = 'none';
+        textEl.textContent = 'Follow';
+        btn.classList.remove('following');
+    } else {
+        // Follow
+        btn.dataset.following = 'true';
+        checkIcon.style.display = 'inline-block';
+        textEl.textContent = 'Following';
+        btn.classList.add('following');
+        // Open GitHub profile in new tab
+        window.open('https://github.com/kanawangyy-yoikage', '_blank');
+    }
 }
 
 // ══════════════════════════════════════
