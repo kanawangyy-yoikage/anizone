@@ -6,76 +6,75 @@ if ('serviceWorker' in navigator) {
 
 const API_BASE = '/api';
 
-// --- INDEXEDDB ---
-const DB_NAME = 'AniZoneDB';
-const STORE_HISTORY = 'history';
-const STORE_FAV = 'favorites';
+// --- FIRESTORE: HISTORY & FAVORITES ---
+// Semua data disimpan ke akun Firebase, bukan cache/IndexedDB
 
-function initDB() {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 2);
-        req.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_HISTORY)) db.createObjectStore(STORE_HISTORY, { keyPath: 'url' });
-            if (!db.objectStoreNames.contains(STORE_FAV)) db.createObjectStore(STORE_FAV, { keyPath: 'url' });
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+function getUID() {
+    const user = typeof auth !== 'undefined' ? auth.currentUser : null;
+    return user ? user.uid : null;
 }
 
 async function saveHistory(animeObj) {
+    const uid = getUID();
+    if (!uid) return;
     try {
-        const db = await initDB();
-        const tx = db.transaction(STORE_HISTORY, 'readwrite');
-        animeObj.timestamp = Date.now();
-        tx.objectStore(STORE_HISTORY).put(animeObj);
-    } catch(e) {}
+        const key = encodeURIComponent(animeObj.url).replace(/\./g, '%2E');
+        await db.collection('users').doc(uid)
+            .collection('history').doc(key)
+            .set({ ...animeObj, timestamp: Date.now() });
+    } catch(e) { console.error('saveHistory error:', e); }
 }
 
 async function getHistory() {
+    const uid = getUID();
+    if (!uid) return [];
     try {
-        const db = await initDB();
-        return new Promise((resolve) => {
-            const req = db.transaction(STORE_HISTORY, 'readonly').objectStore(STORE_HISTORY).getAll();
-            req.onsuccess = () => resolve(req.result.sort((a,b) => b.timestamp - a.timestamp));
-        });
+        const snap = await db.collection('users').doc(uid)
+            .collection('history')
+            .orderBy('timestamp', 'desc')
+            .limit(100)
+            .get();
+        return snap.docs.map(d => d.data());
     } catch(e) { return []; }
 }
 
 async function toggleFavorite(url, title, image, score) {
+    const uid = getUID();
+    if (!uid) return;
     try {
-        const db = await initDB();
+        const key = encodeURIComponent(url).replace(/\./g, '%2E');
+        const ref = db.collection('users').doc(uid).collection('favorites').doc(key);
         const isFav = await checkFavorite(url);
-        const tx = db.transaction(STORE_FAV, 'readwrite');
-        const store = tx.objectStore(STORE_FAV);
+        const favBtn = document.getElementById('favBtn');
         if (isFav) {
-            store.delete(url);
-            document.getElementById('favBtn').classList.remove('active');
+            await ref.delete();
+            if (favBtn) favBtn.classList.remove('active');
         } else {
-            store.put({url, title, image, score, timestamp: Date.now()});
-            document.getElementById('favBtn').classList.add('active');
+            await ref.set({ url, title, image, score, timestamp: Date.now() });
+            if (favBtn) favBtn.classList.add('active');
         }
-    } catch(e) {}
+    } catch(e) { console.error('toggleFavorite error:', e); }
 }
 
 async function checkFavorite(url) {
+    const uid = getUID();
+    if (!uid) return false;
     try {
-        const db = await initDB();
-        return new Promise((resolve) => {
-            const req = db.transaction(STORE_FAV, 'readonly').objectStore(STORE_FAV).get(url);
-            req.onsuccess = () => resolve(!!req.result);
-        });
+        const key = encodeURIComponent(url).replace(/\./g, '%2E');
+        const doc = await db.collection('users').doc(uid).collection('favorites').doc(key).get();
+        return doc.exists;
     } catch(e) { return false; }
 }
 
 async function getFavorites() {
+    const uid = getUID();
+    if (!uid) return [];
     try {
-        const db = await initDB();
-        return new Promise((resolve) => {
-            const req = db.transaction(STORE_FAV, 'readonly').objectStore(STORE_FAV).getAll();
-            req.onsuccess = () => resolve(req.result.sort((a,b) => b.timestamp - a.timestamp));
-        });
+        const snap = await db.collection('users').doc(uid)
+            .collection('favorites')
+            .orderBy('timestamp', 'desc')
+            .get();
+        return snap.docs.map(d => d.data());
     } catch(e) { return []; }
 }
 
