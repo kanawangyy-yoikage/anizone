@@ -112,7 +112,8 @@
         }
         .profile-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
         .profile-info-body { padding: 38px 20px 20px; }
-        .profile-name { font-size: 20px; font-weight: 800; margin-bottom: 3px; color: var(--text-main, #E2E2E9); }
+        .profile-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+        .profile-name { font-size: 20px; font-weight: 800; color: var(--text-main, #E2E2E9); }
         .profile-email { font-size: 13px; color: var(--text-muted, #9aa0b4); margin-bottom: 12px; }
         .profile-badges { display: flex; gap: 8px; flex-wrap: wrap; }
         .profile-badge {
@@ -483,7 +484,9 @@
                     </div>
                 </div>
                 <div class="profile-info-body">
-                    <div class="profile-name" id="profileName">Memuat...</div>
+                    <div class="profile-name-row">
+                        <div class="profile-name" id="profileName">Memuat...</div>
+                    </div>
                     <div class="profile-email" id="profileEmail">—</div>
                     <div class="profile-bio-text" id="profileBioDisplay"></div>
                     <div class="profile-badges" id="profileBadges"></div>
@@ -797,18 +800,13 @@ async function loadUserProfile(user) {
     document.getElementById('profileBadges').innerHTML = badges.join('');
 
     // Verified badge next to name (admin only)
-    const verifiedSVG = `<svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-left:6px;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>`;
-    const nameEl = document.getElementById('profileName');
+    const verifiedSVG = `<svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>`;
+    const nameRow = document.querySelector('.profile-name-row');
     // Remove any existing verified badge
-    const existingBadge = nameEl.parentElement.querySelector('.verified-badge');
+    const existingBadge = nameRow ? nameRow.querySelector('.verified-badge') : null;
     if (existingBadge) existingBadge.remove();
-    if (role === 'admin') {
-        nameEl.style.display = 'inline';
-        const wrapper = nameEl.parentElement;
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.flexWrap = 'wrap';
-        wrapper.insertAdjacentHTML('beforeend', verifiedSVG);
+    if (role === 'admin' && nameRow) {
+        nameRow.insertAdjacentHTML('beforeend', verifiedSVG);
     }
 
     // Metadata
