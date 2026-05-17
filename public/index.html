@@ -796,6 +796,21 @@ async function loadUserProfile(user) {
     if (user.providerData?.some(p=>p.providerId==='google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
     document.getElementById('profileBadges').innerHTML = badges.join('');
 
+    // Verified badge next to name (admin only)
+    const verifiedSVG = `<svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-left:6px;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>`;
+    const nameEl = document.getElementById('profileName');
+    // Remove any existing verified badge
+    const existingBadge = nameEl.parentElement.querySelector('.verified-badge');
+    if (existingBadge) existingBadge.remove();
+    if (role === 'admin') {
+        nameEl.style.display = 'inline';
+        const wrapper = nameEl.parentElement;
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.flexWrap = 'wrap';
+        wrapper.insertAdjacentHTML('beforeend', verifiedSVG);
+    }
+
     // Metadata
     const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
     const lastLogin = user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
