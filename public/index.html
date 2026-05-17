@@ -860,11 +860,35 @@ function fileToBase64(file) {
     });
 }
 
-// ── Upload ke Firebase Storage ──
-async function uploadToStorage(file, path) {
-    const ref = storage.ref(path);
-    await ref.put(file);
-    return await ref.getDownloadURL();
+// ── Kompres & ubah gambar ke Base64 (tanpa Firebase Storage) ──
+async function compressToBase64(file, maxWidth = 400, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const b64 = canvas.toDataURL('image/jpeg', quality);
+                // Cek ukuran hasil (Firestore limit 1MB per dokumen)
+                if (b64.length > 900000) {
+                    // Kompres lebih agresif
+                    const b64Small = canvas.toDataURL('image/jpeg', 0.4);
+                    resolve(b64Small);
+                } else {
+                    resolve(b64);
+                }
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 // ══════════════════════════════════════
@@ -1015,19 +1039,19 @@ async function saveProfile() {
         const uid = user.uid;
         const updates = { displayName: newName, bio: newBio };
 
-        // Upload foto profil
+        // Simpan foto profil sebagai Base64 ke Firestore
         if (editState.avatarFile) {
-            setEditStatus('Mengupload foto profil...');
-            const url = await uploadToStorage(editState.avatarFile, `avatars/${uid}`);
-            updates.photoURL = url;
-            await user.updateProfile({ photoURL: url });
+            setEditStatus('Memproses foto profil...');
+            const b64 = await compressToBase64(editState.avatarFile, 300, 0.7);
+            updates.photoURL = b64;
+            try { await user.updateProfile({ photoURL: '' }); } catch(e) {}
         }
 
-        // Upload banner
+        // Simpan banner sebagai Base64 ke Firestore
         if (editState.bannerFile) {
-            setEditStatus('Mengupload banner...');
-            const url = await uploadToStorage(editState.bannerFile, `banners/${uid}`);
-            updates.bannerURL = url;
+            setEditStatus('Memproses banner...');
+            const b64 = await compressToBase64(editState.bannerFile, 800, 0.7);
+            updates.bannerURL = b64;
             updates.bannerColor = editState.bannerColor;
         } else {
             updates.bannerURL = null;
