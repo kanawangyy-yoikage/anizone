@@ -347,7 +347,10 @@ app.get('/api/news', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`AniZone API running on port ${PORT}`));
+// Local dev only — Vercel serverless does NOT use app.listen()
+if (process.env.NODE_ENV !== 'production' && require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`AniZone API running on port ${PORT}`));
+}
 
 module.exports = app;
