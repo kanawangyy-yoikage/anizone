@@ -561,71 +561,111 @@ function emptyState(icon, title, desc) {
 
 // ── Fuzzy / Typo-correction helpers ──────────────────
 
-/** Levenshtein distance antara dua string */
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i-1] === b[j-1]
-        ? dp[i-1][j-1]
-        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-  return dp[m][n];
-}
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
-/** Hasilkan variasi typo sederhana: hapus char, ganti, tukar dua char */
-function generateTypoVariants(word) {
-  const variants = new Set();
-  const lower = word.toLowerCase();
-
-  // 1. Hapus satu karakter
-  for (let i = 0; i < lower.length; i++)
-    variants.add(lower.slice(0, i) + lower.slice(i + 1));
-
-  // 2. Tukar dua karakter berdekatan (transposition)
-  for (let i = 0; i < lower.length - 1; i++) {
-    const arr = lower.split('');
-    [arr[i], arr[i+1]] = [arr[i+1], arr[i]];
-    variants.add(arr.join(''));
-  }
-
-  // 3. Penggantian keyboard-proximity (baris qwerty)
-  const kb = {
-    q:'wa',w:'qeas',e:'wrds',r:'etdf',t:'ryfg',y:'tugh',u:'yihj',i:'uojk',o:'ipkl',p:'ol',
-    a:'qwsz',s:'awedxz',d:'serfcx',f:'drtgvc',g:'ftyhbv',h:'gyujnb',j:'huikmn',k:'jiolm',l:'kop',
-    z:'asx',x:'zsdc',c:'xdfv',v:'cfgb',b:'vghn',n:'bhjm',m:'njk'
-  };
-  for (let i = 0; i < lower.length; i++) {
-    const neighbors = kb[lower[i]] || '';
-    for (const ch of neighbors)
-      variants.add(lower.slice(0, i) + ch + lower.slice(i + 1));
-  }
-
-  variants.delete(lower);
-  return [...variants];
+/**
+ * Generate semua variasi edit-distance 1 dari sebuah kata:
+ * delete, transpose, replace, insert
+ */
+function edits1(word) {
+  const s = word.toLowerCase();
+  const results = new Set();
+  // Delete
+  for (let i = 0; i < s.length; i++)
+    results.add(s.slice(0, i) + s.slice(i + 1));
+  // Transpose
+  for (let i = 0; i < s.length - 1; i++)
+    results.add(s.slice(0, i) + s[i+1] + s[i] + s.slice(i + 2));
+  // Replace
+  for (let i = 0; i < s.length; i++)
+    for (const c of ALPHABET)
+      results.add(s.slice(0, i) + c + s.slice(i + 1));
+  // Insert
+  for (let i = 0; i <= s.length; i++)
+    for (const c of ALPHABET)
+      results.add(s.slice(0, i) + c + s.slice(i));
+  results.delete(s);
+  return results;
 }
 
 /**
- * Buat saran koreksi untuk query multi-kata.
- * Strategi: tiap kata dicoba variasinya → hasilkan max N kandidat query.
+ * Generate variasi edit-distance 2 (edit1 dari setiap edit1).
+ * Dibatasi supaya tidak terlalu besar.
  */
-function buildCorrectedQueries(query, maxCandidates = 8) {
+function edits2(word) {
+  const e1 = edits1(word);
+  const results = new Set();
+  for (const w of e1)
+    for (const w2 of edits1(w))
+      results.add(w2);
+  results.delete(word.toLowerCase());
+  return results;
+}
+
+/**
+ * Buat daftar kandidat query untuk dicoba ke API.
+ * Strategi bertingkat:
+ *   1. Coba edit-distance 1 per kata (cepat, ~80 kandidat per kata)
+ *   2. Kalau belum cukup, coba edit-distance 2 per kata (lebih luas)
+ * Prioritas: edit1 dulu semua → baru edit2
+ */
+function buildCorrectedQueries(query) {
   const words = query.trim().toLowerCase().split(/\s+/);
-  // Untuk query pendek (1-2 kata), generate variasi per kata
-  const candidates = new Set();
+  const tier1 = []; // edit-distance 1
+  const tier2 = []; // edit-distance 2
 
   words.forEach((word, wi) => {
-    if (word.length < 3) return; // lewati kata pendek
-    const variants = generateTypoVariants(word);
-    variants.slice(0, 15).forEach(v => {
-      const newWords = [...words];
-      newWords[wi] = v;
-      candidates.add(newWords.join(' '));
+    if (word.length < 2) return;
+
+    const e1 = [...edits1(word)];
+    e1.forEach(v => {
+      const q = [...words]; q[wi] = v;
+      tier1.push(q.join(' '));
     });
+
+    const e2 = [...edits2(word)];
+    // Batasi edit2 supaya tidak ribuan: ambil yang panjangnya mirip ±1
+    e2.filter(v => Math.abs(v.length - word.length) <= 1)
+      .slice(0, 300)
+      .forEach(v => {
+        const q = [...words]; q[wi] = v;
+        tier2.push(q.join(' '));
+      });
   });
 
-  return [...candidates].slice(0, maxCandidates);
+  // Gabung: tier1 dulu, lalu tier2, buang duplikat
+  const seen = new Set([query.toLowerCase()]);
+  const result = [];
+  for (const q of [...tier1, ...tier2]) {
+    if (!seen.has(q)) { seen.add(q); result.push(q); }
+  }
+  return result;
+}
+
+/**
+ * Coba kandidat ke API secara batch (paralel per grup kecil)
+ * agar tidak terlalu lambat. Berhenti begitu ada hasil.
+ */
+async function searchWithFallback(query) {
+  // Coba query asli dulu
+  const direct = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => []);
+  if (direct && direct.length > 0) return { data: direct, corrected: null };
+
+  const candidates = buildCorrectedQueries(query);
+  const BATCH = 6; // paralel per batch
+
+  for (let i = 0; i < candidates.length; i += BATCH) {
+    const batch = candidates.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map(q => fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []))
+    );
+    for (let j = 0; j < results.length; j++) {
+      if (results[j] && results[j].length > 0)
+        return { data: results[j], corrected: batch[j] };
+    }
+  }
+
+  return { data: [], corrected: null };
 }
 
 /** Render grid hasil pencarian */
@@ -648,78 +688,64 @@ async function handleSearch(manualQuery = null) {
   switchTab('home');
   loader(true);
   try {
-    // ── Pencarian utama ──
-    let data = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`).then(r => r.json());
+    const { data, corrected } = await searchWithFallback(query);
     const homeEl = document.getElementById('home-view');
 
-    if (data && data.length > 0) {
-      // Hasil ditemukan — tampilkan normal
+    if (data && data.length > 0 && !corrected) {
+      // Hasil langsung ditemukan
       homeEl.innerHTML = `
         <div class="home-tab-bar">
           <button class="home-tab active">🔍 Hasil Pencarian</button>
         </div>
         <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
         ${renderSearchGrid(data)}`;
+
+    } else if (data && data.length > 0 && corrected) {
+      // Ditemukan lewat koreksi typo — tampilkan banner
+      homeEl.innerHTML = `
+        <div class="home-tab-bar">
+          <button class="home-tab active">🔍 Hasil Pencarian</button>
+        </div>
+        <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
+        <div style="
+          background: var(--card-bg, #1e1e2e);
+          border: 1px solid var(--accent, #7c3aed);
+          border-radius: 12px;
+          padding: 12px 16px;
+          margin: 12px 0 18px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        ">
+          <span style="color:var(--text-muted,#aaa);font-size:0.9em;">
+            Tidak ada hasil untuk "<strong style="color:var(--text,#fff)">${query}</strong>" — Menampilkan hasil untuk:
+          </span>
+          <button onclick="handleSearch('${corrected.replace(/'/g, "\\'")}')" style="
+            background: var(--accent, #7c3aed);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 5px 14px;
+            font-size: 0.92em;
+            cursor: pointer;
+            font-weight: 600;
+          ">🔎 "${corrected}"</button>
+        </div>
+        ${renderSearchGrid(data)}`;
+
     } else {
-      // ── Tidak ada hasil → coba koreksi typo ──
-      const candidates = buildCorrectedQueries(query);
-      let correctedQuery = null;
-      let correctedData = [];
-
-      for (const candidate of candidates) {
-        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(candidate)}`).then(r => r.json()).catch(() => []);
-        if (res && res.length > 0) {
-          correctedQuery = candidate;
-          correctedData = res;
-          break;
-        }
-      }
-
-      if (correctedData.length > 0) {
-        // Tampilkan hasil koreksi dengan banner "Maksud kamu...?"
-        homeEl.innerHTML = `
-          <div class="home-tab-bar">
-            <button class="home-tab active">🔍 Hasil Pencarian</button>
-          </div>
-          <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
-          <div style="
-            background: var(--card-bg, #1e1e2e);
-            border: 1px solid var(--accent, #7c3aed);
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin: 12px 0 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-          ">
-            <span style="color:var(--text-muted,#aaa);font-size:0.9em;">❌ Tidak ada hasil untuk "<strong style="color:var(--text,#fff)">${query}</strong>"</span>
-            <span style="color:var(--text-muted,#aaa);font-size:0.9em;">— Maksud kamu:</span>
-            <button onclick="handleSearch('${correctedQuery.replace(/'/g, "\\'")}')" style="
-              background: var(--accent, #7c3aed);
-              color: #fff;
-              border: none;
-              border-radius: 8px;
-              padding: 5px 14px;
-              font-size: 0.92em;
-              cursor: pointer;
-              font-weight: 600;
-            ">🔎 "${correctedQuery}"?</button>
-          </div>
-          ${renderSearchGrid(correctedData)}`;
-      } else {
-        // Benar-benar tidak ada hasil
-        homeEl.innerHTML = `
-          <div class="home-tab-bar">
-            <button class="home-tab active">🔍 Hasil Pencarian</button>
-          </div>
-          <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
-          <div style="text-align:center;color:var(--text-muted,#aaa);margin-top:40px;padding:20px">
-            <div style="font-size:2.5em;margin-bottom:12px">🔍</div>
-            <p style="font-size:1.05em;">Anime "<strong style="color:var(--text,#fff)">${query}</strong>" tidak ditemukan.</p>
-            <p style="font-size:0.88em;margin-top:6px;">Coba periksa ejaan atau gunakan kata kunci lain.</p>
-          </div>`;
-      }
+      // Benar-benar tidak ada hasil sama sekali
+      homeEl.innerHTML = `
+        <div class="home-tab-bar">
+          <button class="home-tab active">🔍 Hasil Pencarian</button>
+        </div>
+        <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
+        <div style="text-align:center;color:var(--text-muted,#aaa);margin-top:40px;padding:20px">
+          <div style="font-size:2.5em;margin-bottom:12px">🔍</div>
+          <p style="font-size:1.05em;">Anime "<strong style="color:var(--text,#fff)">${query}</strong>" tidak ditemukan.</p>
+          <p style="font-size:0.88em;margin-top:6px;">Coba periksa ejaan atau gunakan kata kunci lain.</p>
+        </div>`;
     }
   } catch(e) { console.error(e); } finally { loader(false); }
 }
