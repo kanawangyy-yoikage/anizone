@@ -1,343 +1,153 @@
-/* ═══════════════════════════════════════════════════════
-   ANIZONE 2026 — AUTH & PROFILE MODULE
-   ═══════════════════════════════════════════════════════ */
+# AniZone 2026 v2.0.0
 
-// ── FIREBASE CONFIG ──────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
-  authDomain: "anizone-b48ce.firebaseapp.com",
-  projectId: "anizone-b48ce",
-  storageBucket: "anizone-b48ce.firebasestorage.app",
-  messagingSenderId: "375436276826",
-  appId: "1:375436276826:web:49683a8e7e4587e305d463",
-  measurementId: "G-B4YBQMT23R"
-};
+Platform streaming anime subtitle Indonesia dengan fitur lengkap — powered by Samehadaku scraper + MyAnimeList API.
 
-if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+## ✨ Fitur
 
-// ── EDIT STATE ─────────────────────────────────────────
-let editState = {
-  avatarFile: null,
-  bannerFile: null,
-  bannerColor: 'linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)',
-  bannerIsImage: false,
-};
+- 📅 **Jadwal Rilis** — Anime musim ini dari MyAnimeList API
+- 📰 **Berita Anime** — Dari AnimenewsNetwork & sumber terpercaya
+- 🔥 **Anime Trending** — Ranking real-time dari MyAnimeList
+- 📖 **Sinopsis MAL** — Deskripsi lengkap via MyAnimeList API v2
+- 🛡️ **Admin Panel** — Kelola pengguna, statistik, log aktivitas
+- 📱 **PWA** — Bisa diinstall di mobile & desktop
+- 🌐 **Clean URLs** — `/login`, `/admin`, `/` tanpa `.html`
 
-// ── AUTH GUARD ─────────────────────────────────────────
-auth.onAuthStateChanged(async (user) => {
-  if (!user) { window.location.replace('login.html'); return; }
-  await loadUserProfile(user);
-});
+---
 
-// ── FIRESTORE HELPERS ──────────────────────────────────
-async function getFirestoreUser(uid) {
-  try {
-    const doc = await db.collection('users').doc(uid).get();
-    return doc.exists ? doc.data() : {};
-  } catch { return {}; }
-}
+## 📁 Struktur File
 
-async function getIDBCount(storeName) {
-  const user = auth.currentUser;
-  if (!user) return 0;
-  try {
-    const snap = await db.collection('users').doc(user.uid).collection(storeName).get();
-    return snap.size;
-  } catch { return 0; }
-}
+```
+anizone/
+├── api/
+│   └── index.js          # Backend Node.js + Express (Vercel Serverless)
+├── public/               ← outputDirectory Vercel (static files)
+│   ├── css/
+│   │   ├── style.css
+│   │   ├── login.css
+│   │   └── admin.css
+│   ├── js/
+│   │   ├── app.js
+│   │   ├── auth.js
+│   │   ├── login.js
+│   │   └── admin.js
+│   ├── index.html
+│   ├── login.html
+│   ├── admin.html
+│   ├── manifest.json
+│   ├── sw.js
+│   ├── pp.png
+│   └── bg.jpg
+├── vercel.json           # Config Vercel
+└── package.json
+```
 
-// ── AVATAR UI ─────────────────────────────────────────
-function setAvatarUI(photoURL, name) {
-  const initial = (name || '?').charAt(0).toUpperCase();
-  [
-    ['sidebarAvatarImg','sidebarAvatarInitial'],
-    ['topAvatarImg','topAvatarInitial'],
-    ['profileAvatarImg','profileAvatarInitial'],
-  ].forEach(([imgId, initId]) => {
-    const img  = document.getElementById(imgId);
-    const init = document.getElementById(initId);
-    if (!img || !init) return;
-    if (photoURL) {
-      img.src = photoURL; img.style.display = 'block'; init.style.display = 'none';
-    } else {
-      img.style.display = 'none'; init.style.display = ''; init.textContent = initial;
-    }
-  });
-}
+---
 
-// ── BANNER UI ─────────────────────────────────────────
-function setBannerUI(bannerURL, bannerColor) {
-  const bannerImg = document.getElementById('profileBannerImg');
-  const bannerPat = document.getElementById('profileBannerPattern');
-  const banner    = document.getElementById('profileBanner');
-  if (!banner) return;
-  if (bannerURL) {
-    bannerImg.src = bannerURL; bannerImg.style.display = 'block';
-    if (bannerPat) bannerPat.style.display = 'none';
-    banner.style.background = 'transparent';
-  } else {
-    if (bannerImg) bannerImg.style.display = 'none';
-    if (bannerPat) bannerPat.style.display = 'block';
-    banner.style.background = bannerColor || editState.bannerColor;
-  }
-}
+## 🚀 Deploy ke Vercel
 
-// ── LOAD PROFILE ───────────────────────────────────────
-async function loadUserProfile(user) {
-  const fsData     = await getFirestoreUser(user.uid);
-  const name       = fsData.displayName || user.displayName || 'Pengguna AniZone';
-  const email      = user.email || user.phoneNumber || '—';
-  const photoURL   = fsData.photoURL || user.photoURL || null;
-  const bannerURL  = fsData.bannerURL || null;
-  const bannerColor = fsData.bannerColor || editState.bannerColor;
-  const bio        = fsData.bio || '';
-  const role       = fsData.role || 'user';
+### 1. Clone & Install
 
-  setAvatarUI(photoURL, name);
-  const su = document.getElementById('sidebarUsername');
-  if (su) su.textContent = name;
+```bash
+git clone <repo-url>
+cd anizone
+npm install
+```
 
-  // Profile fields
-  setEl('profileName', name);
-  setEl('profileEmail', email);
-  setEl('profileBioDisplay', bio);
-  setEl('infoName', name);
-  setEl('infoEmail', user.email || '—');
-  setEl('infoPhone', user.phoneNumber || '—');
-  setEl('infoRole', role === 'admin' ? '🛡️ Administrator' : '👤 User');
+### 2. Set Environment Variables
 
-  setBannerUI(bannerURL, bannerColor);
+Di **Vercel Dashboard → Project → Settings → Environment Variables**, tambahkan:
 
-  // Badges
-  const badgesEl = document.getElementById('profileBadges');
-  if (badgesEl) {
-    const badges = [];
-    badges.push(`<span class="profile-badge ${role==='admin'?'badge-role-admin':'badge-role-user'}">${role==='admin'?'🛡️ Admin':'👤 User'}</span>`);
-    if (user.email) badges.push('<span class="profile-badge badge-method">📧 Email</span>');
-    if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
-    if (user.providerData?.some(p=>p.providerId==='google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
-    badgesEl.innerHTML = badges.join('');
-  }
+| Variable | Value | Keterangan |
+|---|---|---|
+| `MAL_CLIENT_ID` | `your_client_id` | Dari myanimelist.net/apiconfig |
 
-  // Verified badge for admin
-  const nameRow = document.querySelector('.profile-name-row');
-  if (nameRow) {
-    nameRow.querySelector('.verified-badge')?.remove();
-    if (role === 'admin') {
-      nameRow.insertAdjacentHTML('beforeend', `<svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>`);
-    }
-  }
+> ⚠️ Tanpa `MAL_CLIENT_ID`, fitur jadwal/trending/sinopsis MAL otomatis fallback ke scraper.
 
-  // Metadata
-  const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
-  const lastLogin  = user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
-  if (createdAt) {
-    setEl('profileStatDays', Math.floor((Date.now()-createdAt.getTime())/86400000));
-    setEl('infoJoined', createdAt.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}));
-  }
-  if (lastLogin) setEl('infoLastLogin', lastLogin.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}));
+### 3. Deploy
 
-  // Stats
-  try {
-    setEl('profileStatFav', await getIDBCount('favorites'));
-    setEl('profileStatHistory', await getIDBCount('history'));
-  } catch {
-    setEl('profileStatFav', '—'); setEl('profileStatHistory', '—');
-  }
+```bash
+# Install Vercel CLI dulu (jika belum)
+npm i -g vercel
 
-  editState.bannerColor = bannerColor;
-  editState.bannerIsImage = !!bannerURL;
+# Deploy
+vercel --prod
+```
 
-  // Show admin panel link if admin
-  const adminLinkEl = document.getElementById('adminPanelLink');
-  if (adminLinkEl) adminLinkEl.style.display = role === 'admin' ? '' : 'none';
-}
+Atau push ke GitHub dan connect repo di [vercel.com/new](https://vercel.com/new).
 
-// ── EDIT MODAL ────────────────────────────────────────
-function openEditModal() {
-  const user = auth.currentUser;
-  if (!user) return;
-  document.getElementById('editName').value = document.getElementById('profileName')?.textContent || '';
-  document.getElementById('editBio').value  = document.getElementById('profileBioDisplay')?.textContent || '';
-  updateBioCount(document.getElementById('editBio'));
-  setEditStatus('');
-  editState.avatarFile = null; editState.bannerFile = null;
+---
 
-  const curImg = document.getElementById('profileAvatarImg');
-  const prevImg = document.getElementById('editAvatarPreviewImg');
-  const prevInit = document.getElementById('editAvatarPreviewInitial');
-  if (prevImg && curImg?.style.display !== 'none' && curImg.src) {
-    prevImg.src = curImg.src; prevImg.style.display = 'block'; if (prevInit) prevInit.style.display = 'none';
-  } else {
-    if (prevImg) prevImg.style.display = 'none';
-    if (prevInit) { prevInit.style.display = ''; prevInit.textContent = document.getElementById('profileAvatarInitial')?.textContent; }
-  }
+## 💻 Development Lokal
 
-  const profBannerImg = document.getElementById('profileBannerImg');
-  const editBannerImg = document.getElementById('editBannerPreviewImg');
-  const editPat = document.getElementById('editBannerPattern');
-  const editBannerPrev = document.getElementById('editBannerPreview');
-  if (profBannerImg?.style.display !== 'none' && profBannerImg?.src) {
-    if (editBannerImg) { editBannerImg.src = profBannerImg.src; editBannerImg.style.display = 'block'; }
-    if (editPat) editPat.style.display = 'none';
-    if (editBannerPrev) editBannerPrev.style.background = 'transparent';
-  } else {
-    if (editBannerImg) editBannerImg.style.display = 'none';
-    if (editPat) editPat.style.display = 'block';
-    if (editBannerPrev) editBannerPrev.style.background = editState.bannerColor;
-  }
+```bash
+npm run dev
+# → http://localhost:3000
+```
 
-  document.querySelectorAll('.color-preset').forEach(b => {
-    b.classList.toggle('active', b.getAttribute('onclick')?.includes(editState.bannerColor));
-  });
-  document.getElementById('editModal')?.classList.add('show');
-}
+> File statis di `public/` harus diakses langsung di dev: `http://localhost:3000/public/index.html`  
+> Di Vercel (production), akses via `/` karena `outputDirectory` sudah diset ke `public/`.
 
-function closeEditModal() {
-  document.getElementById('editModal')?.classList.remove('show');
-  document.getElementById('inputAvatar').value = '';
-  document.getElementById('inputBanner').value = '';
-}
+---
 
-function updateBioCount(el) {
-  const cnt = document.getElementById('bioCount');
-  if (cnt) cnt.textContent = el.value.length;
-}
+## 🔗 API Endpoints
 
-function selectBannerColor(btn, color) {
-  document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  editState.bannerColor = color; editState.bannerFile = null;
-  const preview = document.getElementById('editBannerPreview');
-  const img = document.getElementById('editBannerPreviewImg');
-  const pat = document.getElementById('editBannerPattern');
-  if (img) img.style.display = 'none';
-  if (pat) pat.style.display = 'block';
-  if (preview) preview.style.background = color;
-}
+| Method | Endpoint | Parameter | Deskripsi |
+|---|---|---|---|
+| GET | `/api/latest` | `?page=1` | Anime terbaru |
+| GET | `/api/search` | `?q=naruto` | Cari anime |
+| GET | `/api/detail` | `?url=...` | Detail + daftar episode |
+| GET | `/api/watch` | `?url=...` | Stream URL per server |
+| GET | `/api/trending` | — | Anime trending (MAL ranking) |
+| GET | `/api/schedule` | — | Jadwal rilis musiman |
+| GET | `/api/news` | — | Berita anime terbaru |
+| GET | `/api/mal/description` | `?title=...` | Sinopsis dari MAL |
+| GET | `/api/mal/anime` | `?title=...` | Data lengkap MAL |
+| GET | `/api/health` | — | Health check |
 
-async function previewAvatar(input) {
-  if (!input.files[0]) return;
-  editState.avatarFile = input.files[0];
-  const b64 = await fileToBase64(input.files[0]);
-  const img = document.getElementById('editAvatarPreviewImg');
-  if (img) { img.src = b64; img.style.display = 'block'; }
-  const init = document.getElementById('editAvatarPreviewInitial');
-  if (init) init.style.display = 'none';
-}
+---
 
-async function previewBanner(input) {
-  if (!input.files[0]) return;
-  editState.bannerFile = input.files[0];
-  const b64 = await fileToBase64(input.files[0]);
-  const img = document.getElementById('editBannerPreviewImg');
-  if (img) { img.src = b64; img.style.display = 'block'; }
-  document.getElementById('editBannerPattern')?.style && (document.getElementById('editBannerPattern').style.display = 'none');
-  const prev = document.getElementById('editBannerPreview');
-  if (prev) prev.style.background = 'transparent';
-  document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
-}
+## 🌐 URL Bersih (Production)
 
-function setEditStatus(msg, type='') {
-  const el = document.getElementById('editStatus');
-  if (el) { el.textContent = msg; el.className = 'edit-status' + (type ? ' '+type : ''); }
-}
+| URL | Halaman |
+|---|---|
+| `/` | Halaman utama |
+| `/login` atau `/masuk` | Login & Register |
+| `/admin` atau `/panel` | Admin Panel |
 
-async function saveProfile() {
-  const user = auth.currentUser;
-  if (!user) return;
-  const newName = document.getElementById('editName').value.trim();
-  const newBio  = document.getElementById('editBio').value.trim();
-  if (!newName) { setEditStatus('Nama tidak boleh kosong', 'error'); return; }
+---
 
-  const btn = document.getElementById('editSaveBtn');
-  const btnText = document.getElementById('editSaveBtnText');
-  if (btn) btn.disabled = true;
-  if (btnText) btnText.textContent = 'Menyimpan...';
-  setEditStatus('');
+## 🛡️ Admin Panel
 
-  try {
-    const updates = { displayName: newName, bio: newBio };
-    if (editState.avatarFile) {
-      setEditStatus('Memproses foto profil...');
-      updates.photoURL = await compressToBase64(editState.avatarFile, 300, 0.7);
-      try { await user.updateProfile({ photoURL: '' }); } catch {}
-    }
-    if (editState.bannerFile) {
-      setEditStatus('Memproses banner...');
-      updates.bannerURL = await compressToBase64(editState.bannerFile, 800, 0.7);
-    } else {
-      updates.bannerURL = null;
-    }
-    updates.bannerColor = editState.bannerColor;
+1. Login dengan akun yang punya role `admin`
+2. Pergi ke Profil → tombol **Admin Panel** muncul
+3. Atau akses langsung: `https://domain.vercel.app/admin`
 
-    await user.updateProfile({ displayName: newName });
-    await db.collection('users').doc(user.uid).set(updates, { merge: true });
+Untuk set user sebagai admin, update Firestore:
+```
+users/{uid} → { role: "admin" }
+```
 
-    setEditStatus('✅ Profil berhasil disimpan!', 'success');
-    await loadUserProfile(auth.currentUser);
-    setTimeout(() => closeEditModal(), 1200);
-  } catch(e) {
-    setEditStatus('Gagal menyimpan: ' + e.message, 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-    if (btnText) btnText.textContent = 'Simpan Perubahan';
-  }
-}
+---
 
-// ── LOGOUT ────────────────────────────────────────────
-function doLogout() { document.getElementById('logoutModal')?.classList.add('show'); }
-function closeLogoutModal() { document.getElementById('logoutModal')?.classList.remove('show'); }
-async function confirmLogout() {
-  try { await auth.signOut(); } catch {}
-  window.location.replace('login.html');
-}
+## ⚠️ Troubleshooting Deploy Vercel
 
-// ── UTILS ─────────────────────────────────────────────
-function setEl(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
+| Problem | Penyebab | Solusi |
+|---|---|---|
+| Static file 404 | `outputDirectory` tidak diset | Pastikan `"outputDirectory": "public"` ada di `vercel.json` |
+| API 500 / crash | `app.listen()` dipanggil di serverless | Jangan panggil `listen()` di production — sudah diperbaiki |
+| Rewrite tidak jalan | Path rewrite masih prefix `/public/` | Path harus relatif terhadap `outputDirectory`, misal `/login.html` bukan `/public/login.html` |
+| MAL API error | `MAL_CLIENT_ID` belum diset | Set env var di Vercel Dashboard, atau biarkan fallback ke scraper |
 
-function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
+---
 
-async function compressToBase64(file, maxWidth = 400, quality = 0.7) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const b64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(b64.length > 900000 ? canvas.toDataURL('image/jpeg', 0.4) : b64);
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+## 🔌 Tech Stack
 
-// ── MODAL CLOSE ON OVERLAY CLICK ──────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('logoutModal')?.addEventListener('click', function(e) {
-    if (e.target === this) closeLogoutModal();
-  });
-  document.getElementById('editModal')?.addEventListener('click', function(e) {
-    if (e.target === this) closeEditModal();
-  });
-});
+- **Frontend**: HTML5 + CSS3 + Vanilla JS
+- **Backend**: Node.js + Express (Vercel Serverless Function)
+- **Auth & DB**: Firebase Authentication + Firestore
+- **Data**: Samehadaku scraper (cheerio + axios) + MyAnimeList API v2
+- **Deploy**: Vercel
+
+---
+
+Made with ❤️ by [Caliph](https://github.com/kanawangyy-yoikage)
