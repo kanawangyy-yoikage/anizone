@@ -1,15 +1,14 @@
 {
   "version": 2,
   "name": "anizone",
-  "buildCommand": "npm install",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" },
-    { "source": "/masuk",      "destination": "/public/login.html" },
-    { "source": "/login",      "destination": "/public/login.html" },
-    { "source": "/admin",      "destination": "/public/admin.html" },
-    { "source": "/panel",      "destination": "/public/admin.html" },
-    { "source": "/",           "destination": "/public/index.html" }
+    { "source": "/masuk",      "destination": "/login.html" },
+    { "source": "/login",      "destination": "/login.html" },
+    { "source": "/admin",      "destination": "/admin.html" },
+    { "source": "/panel",      "destination": "/admin.html" },
+    { "source": "/",           "destination": "/index.html" }
   ],
   "headers": [
     {
