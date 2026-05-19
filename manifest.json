@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AniZone — Masuk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div class="bg-particles"></div>
+<div class="bg-grid"></div>
+<div class="glow-orb glow-orb-1"></div>
+<div class="glow-orb glow-orb-2"></div>
+
+<!-- LOGIN CARD -->
+<div class="login-card">
+
+  <!-- LOGO -->
+  <div class="logo-area">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div class="logo-title">AniZone</div>
+    <div class="logo-subtitle">Platform anime terbaik sub Indonesia</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-switcher">
+    <button class="tab-btn active" id="btn-login"    onclick="switchTab('login')">Masuk</button>
+    <button class="tab-btn"        id="btn-register" onclick="switchTab('register')">Daftar</button>
+    <button class="tab-btn"        id="btn-phone"    onclick="switchTab('phone')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.05 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 17z"/></svg>
+      HP
+    </button>
+  </div>
+
+  <!-- STATUS MSG -->
+  <div class="status-msg" id="status-msg"></div>
+
+  <!-- ── PANEL LOGIN ── -->
+  <div class="form-panel active" id="panel-login">
+    <div class="input-group">
+      <label class="input-label">Email</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </span>
+        <input type="email" class="input-field" id="loginEmail" placeholder="email@contoh.com" onkeydown="handleEnterLogin(event)">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Password</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <input type="password" class="input-field" id="loginPass" placeholder="Masukkan password" onkeydown="handleEnterLogin(event)">
+        <button class="input-toggle-pass" onclick="togglePass('loginPass')" type="button">
+          <span id="eye-loginPass"></span>
+        </button>
+      </div>
+    </div>
+    <div style="text-align:right;margin-bottom:20px">
+      <button class="btn-link" onclick="forgotPassword()">Lupa password?</button>
+    </div>
+    <button class="btn-primary" id="loginEmailBtn" onclick="loginWithEmail()">
+      <span class="btn-text" style="display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Masuk
+      </span>
+      <div class="btn-spinner"></div>
+    </button>
+    <div class="divider"><div class="divider-line"></div><span class="divider-text">atau lanjutkan dengan</span><div class="divider-line"></div></div>
+    <button class="btn-google" onclick="loginWithGoogle()">
+      <div class="google-icon"></div>
+      Lanjutkan dengan Google
+    </button>
+    <div class="terms-text" style="margin-top:20px">
+      Belum punya akun?
+      <button class="btn-link" onclick="switchTab('register')">Daftar sekarang</button>
+    </div>
+  </div>
+
+  <!-- ── PANEL REGISTER ── -->
+  <div class="form-panel" id="panel-register">
+    <div class="input-group">
+      <label class="input-label">Nama Lengkap</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
+        <input type="text" class="input-field" id="regName" placeholder="Nama kamu" onkeydown="handleEnterRegister(event)">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Email</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </span>
+        <input type="email" class="input-field" id="regEmail" placeholder="email@contoh.com" onkeydown="handleEnterRegister(event)">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Password</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <input type="password" class="input-field" id="regPass" placeholder="Min. 6 karakter" onkeydown="handleEnterRegister(event)">
+        <button class="input-toggle-pass" onclick="togglePass('regPass')" type="button">
+          <span id="eye-regPass"></span>
+        </button>
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Konfirmasi Password</label>
+      <div class="input-wrapper">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <input type="password" class="input-field" id="regConfPass" placeholder="Ulangi password" onkeydown="handleEnterRegister(event)">
+        <button class="input-toggle-pass" onclick="togglePass('regConfPass')" type="button">
+          <span id="eye-regConfPass"></span>
+        </button>
+      </div>
+    </div>
+    <button class="btn-primary" id="registerEmailBtn" onclick="registerWithEmail()">
+      <span class="btn-text" style="display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        Buat Akun
+      </span>
+      <div class="btn-spinner"></div>
+    </button>
+    <div class="divider"><div class="divider-line"></div><span class="divider-text">atau</span><div class="divider-line"></div></div>
+    <button class="btn-google" onclick="loginWithGoogle()">
+      <div class="google-icon"></div>
+      Daftar dengan Google
+    </button>
+    <div class="terms-text">
+      Dengan mendaftar, kamu menyetujui <a href="#">Syarat & Ketentuan</a> dan <a href="#">Kebijakan Privasi</a> AniZone.
+    </div>
+    <div class="terms-text" style="margin-top:8px">
+      Sudah punya akun? <button class="btn-link" onclick="switchTab('login')">Masuk di sini</button>
+    </div>
+  </div>
+
+  <!-- ── PANEL PHONE ── -->
+  <div class="form-panel" id="panel-phone">
+    <div class="step-indicator">
+      <div class="step-dot active"></div>
+      <div style="width:24px;height:2px;background:var(--border-color);border-radius:2px"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <!-- STEP 1: Input Nomor -->
+    <div id="phone-step-1">
+      <div class="input-group">
+        <label class="input-label">Nomor HP</label>
+        <div class="phone-group">
+          <select class="country-code-btn" id="countryCode">
+            <option value="62">🇮🇩 +62</option>
+            <option value="60">🇲🇾 +60</option>
+            <option value="65">🇸🇬 +65</option>
+            <option value="1">🇺🇸 +1</option>
+            <option value="44">🇬🇧 +44</option>
+            <option value="81">🇯🇵 +81</option>
+            <option value="82">🇰🇷 +82</option>
+          </select>
+          <div class="input-wrapper" style="flex:1">
+            <span class="input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.05 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 17z"/></svg>
+            </span>
+            <input type="tel" class="input-field" id="phoneNumber" placeholder="8123456789" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+      <div id="recaptcha-container"></div>
+      <button class="btn-primary" id="sendOtpBtn" onclick="sendOTP()">
+        <span class="btn-text" style="display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Kirim Kode OTP
+        </span>
+        <div class="btn-spinner"></div>
+      </button>
+    </div>
+
+    <!-- STEP 2: Input OTP -->
+    <div id="phone-step-2" class="hidden">
+      <p class="otp-label">Masukkan 6 digit kode OTP yang dikirim ke nomor HP kamu.</p>
+      <div class="otp-boxes">
+        <input type="text" class="otp-box" id="otp-0" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,0)" onkeydown="handleOtpInput(event,0)" onpaste="handleOtpPaste(event)">
+        <input type="text" class="otp-box" id="otp-1" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,1)" onkeydown="handleOtpInput(event,1)">
+        <input type="text" class="otp-box" id="otp-2" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,2)" onkeydown="handleOtpInput(event,2)">
+        <input type="text" class="otp-box" id="otp-3" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,3)" onkeydown="handleOtpInput(event,3)">
+        <input type="text" class="otp-box" id="otp-4" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,4)" onkeydown="handleOtpInput(event,4)">
+        <input type="text" class="otp-box" id="otp-5" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               oninput="handleOtpInput(event,5)" onkeydown="handleOtpInput(event,5)">
+      </div>
+      <button class="btn-primary" id="verifyOtpBtn" onclick="verifyOTP()">
+        <span class="btn-text" style="display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Verifikasi OTP
+        </span>
+        <div class="btn-spinner"></div>
+      </button>
+      <div class="resend-area" style="margin-top:14px">
+        <span id="resend-timer-wrap">Kirim ulang dalam <span class="resend-timer" id="resend-timer">60</span>s</span>
+        <button class="btn-link" id="resendBtn" style="display:none" onclick="resendOTP()">Kirim ulang OTP</button>
+      </div>
+      <button class="btn-secondary" onclick="backToPhone()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Ganti Nomor
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>

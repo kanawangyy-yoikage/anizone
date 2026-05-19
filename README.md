@@ -1,118 +1,343 @@
-# AniZone 2026 v2.0.0
+/* ═══════════════════════════════════════════════════════
+   ANIZONE 2026 — AUTH & PROFILE MODULE
+   ═══════════════════════════════════════════════════════ */
 
-Platform streaming anime subtitle Indonesia dengan fitur lengkap.
+// ── FIREBASE CONFIG ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
+  authDomain: "anizone-b48ce.firebaseapp.com",
+  projectId: "anizone-b48ce",
+  storageBucket: "anizone-b48ce.firebasestorage.app",
+  messagingSenderId: "375436276826",
+  appId: "1:375436276826:web:49683a8e7e4587e305d463",
+  measurementId: "G-B4YBQMT23R"
+};
 
-## 🚀 Fitur Baru
+if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
-- 📅 **Jadwal Rilis Terjadwal** — Anime musim ini dari MyAnimeList API
-- 📰 **Berita Anime Terbaru** — Dari AnimenewsNetwork & sumber terpercaya
-- 🔥 **Anime Trending** — Ranking real-time dari MyAnimeList
-- 📖 **Deskripsi dari MAL** — Sinopsis lengkap via MyAnimeList API v2
-- 🛡️ **Admin Panel Lengkap** — Kelola pengguna, statistik, log aktivitas
-- 🗂️ **File Terpisah** — HTML / CSS / JS masing-masing file sendiri
-- 🌐 **Clean URLs** — `/login`, `/admin`, `/` tanpa `.html`
+// ── EDIT STATE ─────────────────────────────────────────
+let editState = {
+  avatarFile: null,
+  bannerFile: null,
+  bannerColor: 'linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)',
+  bannerIsImage: false,
+};
 
-## 📁 Struktur File
+// ── AUTH GUARD ─────────────────────────────────────────
+auth.onAuthStateChanged(async (user) => {
+  if (!user) { window.location.replace('login.html'); return; }
+  await loadUserProfile(user);
+});
 
-```
-anizone/
-├── api/
-│   └── index.js          # Backend Node.js + Express
-├── public/
-│   ├── css/
-│   │   ├── style.css     # Style utama (app)
-│   │   └── admin.css     # Style admin panel
-│   ├── js/
-│   │   ├── app.js        # Logic utama aplikasi
-│   │   ├── auth.js       # Auth & profil Firebase
-│   │   └── admin.js      # Logic admin panel
-│   ├── index.html        # Halaman utama
-│   ├── login.html        # Halaman login/register
-│   ├── admin.html        # Admin panel
-│   ├── manifest.json     # PWA manifest
-│   ├── sw.js             # Service Worker
-│   ├── pp.png            # App icon
-│   └── bg.jpg            # Background image
-├── vercel.json           # Config Vercel (clean URLs)
-└── package.json
-```
+// ── FIRESTORE HELPERS ──────────────────────────────────
+async function getFirestoreUser(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    return doc.exists ? doc.data() : {};
+  } catch { return {}; }
+}
 
-## 🔧 Setup
+async function getIDBCount(storeName) {
+  const user = auth.currentUser;
+  if (!user) return 0;
+  try {
+    const snap = await db.collection('users').doc(user.uid).collection(storeName).get();
+    return snap.size;
+  } catch { return 0; }
+}
 
-### 1. Clone & Install
+// ── AVATAR UI ─────────────────────────────────────────
+function setAvatarUI(photoURL, name) {
+  const initial = (name || '?').charAt(0).toUpperCase();
+  [
+    ['sidebarAvatarImg','sidebarAvatarInitial'],
+    ['topAvatarImg','topAvatarInitial'],
+    ['profileAvatarImg','profileAvatarInitial'],
+  ].forEach(([imgId, initId]) => {
+    const img  = document.getElementById(imgId);
+    const init = document.getElementById(initId);
+    if (!img || !init) return;
+    if (photoURL) {
+      img.src = photoURL; img.style.display = 'block'; init.style.display = 'none';
+    } else {
+      img.style.display = 'none'; init.style.display = ''; init.textContent = initial;
+    }
+  });
+}
 
-```bash
-git clone <repo>
-cd anizone
-npm install
-```
+// ── BANNER UI ─────────────────────────────────────────
+function setBannerUI(bannerURL, bannerColor) {
+  const bannerImg = document.getElementById('profileBannerImg');
+  const bannerPat = document.getElementById('profileBannerPattern');
+  const banner    = document.getElementById('profileBanner');
+  if (!banner) return;
+  if (bannerURL) {
+    bannerImg.src = bannerURL; bannerImg.style.display = 'block';
+    if (bannerPat) bannerPat.style.display = 'none';
+    banner.style.background = 'transparent';
+  } else {
+    if (bannerImg) bannerImg.style.display = 'none';
+    if (bannerPat) bannerPat.style.display = 'block';
+    banner.style.background = bannerColor || editState.bannerColor;
+  }
+}
 
-### 2. Environment Variables
+// ── LOAD PROFILE ───────────────────────────────────────
+async function loadUserProfile(user) {
+  const fsData     = await getFirestoreUser(user.uid);
+  const name       = fsData.displayName || user.displayName || 'Pengguna AniZone';
+  const email      = user.email || user.phoneNumber || '—';
+  const photoURL   = fsData.photoURL || user.photoURL || null;
+  const bannerURL  = fsData.bannerURL || null;
+  const bannerColor = fsData.bannerColor || editState.bannerColor;
+  const bio        = fsData.bio || '';
+  const role       = fsData.role || 'user';
 
-Buat `.env` atau set di Vercel dashboard:
+  setAvatarUI(photoURL, name);
+  const su = document.getElementById('sidebarUsername');
+  if (su) su.textContent = name;
 
-```env
-MAL_CLIENT_ID=your_myanimelist_client_id
-```
+  // Profile fields
+  setEl('profileName', name);
+  setEl('profileEmail', email);
+  setEl('profileBioDisplay', bio);
+  setEl('infoName', name);
+  setEl('infoEmail', user.email || '—');
+  setEl('infoPhone', user.phoneNumber || '—');
+  setEl('infoRole', role === 'admin' ? '🛡️ Administrator' : '👤 User');
 
-Dapatkan MAL Client ID di: https://myanimelist.net/apiconfig
+  setBannerUI(bannerURL, bannerColor);
 
-### 3. Jalankan Lokal
+  // Badges
+  const badgesEl = document.getElementById('profileBadges');
+  if (badgesEl) {
+    const badges = [];
+    badges.push(`<span class="profile-badge ${role==='admin'?'badge-role-admin':'badge-role-user'}">${role==='admin'?'🛡️ Admin':'👤 User'}</span>`);
+    if (user.email) badges.push('<span class="profile-badge badge-method">📧 Email</span>');
+    if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
+    if (user.providerData?.some(p=>p.providerId==='google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
+    badgesEl.innerHTML = badges.join('');
+  }
 
-```bash
-npm run dev
-```
+  // Verified badge for admin
+  const nameRow = document.querySelector('.profile-name-row');
+  if (nameRow) {
+    nameRow.querySelector('.verified-badge')?.remove();
+    if (role === 'admin') {
+      nameRow.insertAdjacentHTML('beforeend', `<svg class="verified-badge" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>`);
+    }
+  }
 
-### 4. Deploy ke Vercel
+  // Metadata
+  const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
+  const lastLogin  = user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
+  if (createdAt) {
+    setEl('profileStatDays', Math.floor((Date.now()-createdAt.getTime())/86400000));
+    setEl('infoJoined', createdAt.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}));
+  }
+  if (lastLogin) setEl('infoLastLogin', lastLogin.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}));
 
-```bash
-vercel --prod
-```
+  // Stats
+  try {
+    setEl('profileStatFav', await getIDBCount('favorites'));
+    setEl('profileStatHistory', await getIDBCount('history'));
+  } catch {
+    setEl('profileStatFav', '—'); setEl('profileStatHistory', '—');
+  }
 
-## 🔗 API Endpoints
+  editState.bannerColor = bannerColor;
+  editState.bannerIsImage = !!bannerURL;
 
-| Endpoint | Deskripsi | Parameter |
-|---|---|---|
-| `GET /api/latest` | Anime terbaru | `?page=1` |
-| `GET /api/search` | Cari anime | `?q=naruto` |
-| `GET /api/detail` | Detail anime | `?url=...` |
-| `GET /api/watch` | Stream URL | `?url=...` |
-| `GET /api/trending` | Anime trending MAL | — |
-| `GET /api/schedule` | Jadwal rilis musiman | — |
-| `GET /api/news` | Berita anime | — |
-| `GET /api/mal/description` | Deskripsi dari MAL | `?title=...` |
-| `GET /api/mal/anime` | Data lengkap MAL | `?title=...` |
+  // Show admin panel link if admin
+  const adminLinkEl = document.getElementById('adminPanelLink');
+  if (adminLinkEl) adminLinkEl.style.display = role === 'admin' ? '' : 'none';
+}
 
-## 🌐 URL Bersih (setelah deploy)
+// ── EDIT MODAL ────────────────────────────────────────
+function openEditModal() {
+  const user = auth.currentUser;
+  if (!user) return;
+  document.getElementById('editName').value = document.getElementById('profileName')?.textContent || '';
+  document.getElementById('editBio').value  = document.getElementById('profileBioDisplay')?.textContent || '';
+  updateBioCount(document.getElementById('editBio'));
+  setEditStatus('');
+  editState.avatarFile = null; editState.bannerFile = null;
 
-- `/` → Halaman utama
-- `/login` → Login & Register
-- `/admin` → Admin Panel (hanya untuk role admin)
+  const curImg = document.getElementById('profileAvatarImg');
+  const prevImg = document.getElementById('editAvatarPreviewImg');
+  const prevInit = document.getElementById('editAvatarPreviewInitial');
+  if (prevImg && curImg?.style.display !== 'none' && curImg.src) {
+    prevImg.src = curImg.src; prevImg.style.display = 'block'; if (prevInit) prevInit.style.display = 'none';
+  } else {
+    if (prevImg) prevImg.style.display = 'none';
+    if (prevInit) { prevInit.style.display = ''; prevInit.textContent = document.getElementById('profileAvatarInitial')?.textContent; }
+  }
 
-## 🛡️ Admin Panel
+  const profBannerImg = document.getElementById('profileBannerImg');
+  const editBannerImg = document.getElementById('editBannerPreviewImg');
+  const editPat = document.getElementById('editBannerPattern');
+  const editBannerPrev = document.getElementById('editBannerPreview');
+  if (profBannerImg?.style.display !== 'none' && profBannerImg?.src) {
+    if (editBannerImg) { editBannerImg.src = profBannerImg.src; editBannerImg.style.display = 'block'; }
+    if (editPat) editPat.style.display = 'none';
+    if (editBannerPrev) editBannerPrev.style.background = 'transparent';
+  } else {
+    if (editBannerImg) editBannerImg.style.display = 'none';
+    if (editPat) editPat.style.display = 'block';
+    if (editBannerPrev) editBannerPrev.style.background = editState.bannerColor;
+  }
 
-Untuk mengakses admin panel:
-1. Login dengan akun yang memiliki role `admin`
-2. Pergi ke Profil → tombol "Admin Panel" akan muncul
-3. Atau akses langsung: `domain.vercel.app/admin`
+  document.querySelectorAll('.color-preset').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick')?.includes(editState.bannerColor));
+  });
+  document.getElementById('editModal')?.classList.add('show');
+}
 
-Untuk set user sebagai admin, update Firestore:
-```
-users/{uid} → { role: "admin" }
-```
+function closeEditModal() {
+  document.getElementById('editModal')?.classList.remove('show');
+  document.getElementById('inputAvatar').value = '';
+  document.getElementById('inputBanner').value = '';
+}
 
-## 📱 PWA
+function updateBioCount(el) {
+  const cnt = document.getElementById('bioCount');
+  if (cnt) cnt.textContent = el.value.length;
+}
 
-AniZone support installasi sebagai Progressive Web App di mobile dan desktop.
+function selectBannerColor(btn, color) {
+  document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  editState.bannerColor = color; editState.bannerFile = null;
+  const preview = document.getElementById('editBannerPreview');
+  const img = document.getElementById('editBannerPreviewImg');
+  const pat = document.getElementById('editBannerPattern');
+  if (img) img.style.display = 'none';
+  if (pat) pat.style.display = 'block';
+  if (preview) preview.style.background = color;
+}
 
-## 🔌 Tech Stack
+async function previewAvatar(input) {
+  if (!input.files[0]) return;
+  editState.avatarFile = input.files[0];
+  const b64 = await fileToBase64(input.files[0]);
+  const img = document.getElementById('editAvatarPreviewImg');
+  if (img) { img.src = b64; img.style.display = 'block'; }
+  const init = document.getElementById('editAvatarPreviewInitial');
+  if (init) init.style.display = 'none';
+}
 
-- **Frontend**: HTML5 + CSS3 + Vanilla JS (terpisah per file)
-- **Backend**: Node.js + Express
-- **Database & Auth**: Firebase (Firestore + Authentication)
-- **Anime Data**: Samehadaku scraper + MyAnimeList API v2
-- **Deploy**: Vercel
+async function previewBanner(input) {
+  if (!input.files[0]) return;
+  editState.bannerFile = input.files[0];
+  const b64 = await fileToBase64(input.files[0]);
+  const img = document.getElementById('editBannerPreviewImg');
+  if (img) { img.src = b64; img.style.display = 'block'; }
+  document.getElementById('editBannerPattern')?.style && (document.getElementById('editBannerPattern').style.display = 'none');
+  const prev = document.getElementById('editBannerPreview');
+  if (prev) prev.style.background = 'transparent';
+  document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
+}
 
----
+function setEditStatus(msg, type='') {
+  const el = document.getElementById('editStatus');
+  if (el) { el.textContent = msg; el.className = 'edit-status' + (type ? ' '+type : ''); }
+}
 
-Made with ❤️ by [Caliph](https://github.com/kanawangyy-yoikage)
+async function saveProfile() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const newName = document.getElementById('editName').value.trim();
+  const newBio  = document.getElementById('editBio').value.trim();
+  if (!newName) { setEditStatus('Nama tidak boleh kosong', 'error'); return; }
+
+  const btn = document.getElementById('editSaveBtn');
+  const btnText = document.getElementById('editSaveBtnText');
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.textContent = 'Menyimpan...';
+  setEditStatus('');
+
+  try {
+    const updates = { displayName: newName, bio: newBio };
+    if (editState.avatarFile) {
+      setEditStatus('Memproses foto profil...');
+      updates.photoURL = await compressToBase64(editState.avatarFile, 300, 0.7);
+      try { await user.updateProfile({ photoURL: '' }); } catch {}
+    }
+    if (editState.bannerFile) {
+      setEditStatus('Memproses banner...');
+      updates.bannerURL = await compressToBase64(editState.bannerFile, 800, 0.7);
+    } else {
+      updates.bannerURL = null;
+    }
+    updates.bannerColor = editState.bannerColor;
+
+    await user.updateProfile({ displayName: newName });
+    await db.collection('users').doc(user.uid).set(updates, { merge: true });
+
+    setEditStatus('✅ Profil berhasil disimpan!', 'success');
+    await loadUserProfile(auth.currentUser);
+    setTimeout(() => closeEditModal(), 1200);
+  } catch(e) {
+    setEditStatus('Gagal menyimpan: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Simpan Perubahan';
+  }
+}
+
+// ── LOGOUT ────────────────────────────────────────────
+function doLogout() { document.getElementById('logoutModal')?.classList.add('show'); }
+function closeLogoutModal() { document.getElementById('logoutModal')?.classList.remove('show'); }
+async function confirmLogout() {
+  try { await auth.signOut(); } catch {}
+  window.location.replace('login.html');
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function setEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function compressToBase64(file, maxWidth = 400, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const b64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(b64.length > 900000 ? canvas.toDataURL('image/jpeg', 0.4) : b64);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── MODAL CLOSE ON OVERLAY CLICK ──────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('logoutModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeLogoutModal();
+  });
+  document.getElementById('editModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+  });
+});
