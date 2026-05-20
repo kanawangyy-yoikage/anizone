@@ -347,10 +347,21 @@ app.get('/api/news', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
-// Local dev only — Vercel serverless does NOT use app.listen()
-if (process.env.NODE_ENV !== 'production' && require.main === module) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`AniZone API running on port ${PORT}`));
-}
+// ─── STATIC FILES & ROUTE ALIASES ──────────────────────────
+const path = require('path');
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Route aliases (previously handled by vercel.json rewrites)
+app.get('/masuk',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/login',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/admin',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('/panel',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+
+// SPA fallback — serve index.html for any unmatched route
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+
+// ─── START SERVER ───────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API running on port ${PORT}`));
 
 module.exports = app;
