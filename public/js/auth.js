@@ -60,14 +60,20 @@ function setAvatarUI(photoURL, name) {
     const init = document.getElementById(initId);
     if (!img || !init) return;
     if (photoURL) {
+      // Reset dulu ke initial, baru load foto
+      img.style.display = 'none';
+      init.style.display = '';
+      init.textContent = initial;
+      img.onload = () => {
+        img.style.display = 'block';
+        init.style.display = 'none';
+      };
       img.onerror = () => {
         img.style.display = 'none';
         init.style.display = '';
         init.textContent = initial;
       };
       img.src = photoURL;
-      img.style.display = 'block';
-      init.style.display = 'none';
     } else {
       img.style.display = 'none'; init.style.display = ''; init.textContent = initial;
     }
