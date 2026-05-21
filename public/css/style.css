@@ -136,6 +136,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .search-text-btn:hover { background: #5a95f5; }
 .theme-toggle-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-high); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all var(--transition); flex-shrink: 0; }
 .theme-toggle-btn:hover { color: var(--text-main); background: var(--bg-input); }
+@media (min-width: 900px) { .navbar .theme-toggle-btn, .navbar .top-user-avatar { display: none !important; } }
 
 /* ── MAIN CONTENT ── */
 #app {
@@ -500,8 +501,9 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .profile-header-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: visible; margin-bottom: 16px; animation: fadeInUp 0.4s ease; }
 .profile-banner { height: 90px; background: linear-gradient(135deg, #1a237e 0%, var(--accent) 50%, var(--accent-light) 100%); position: relative; border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden; }
 .profile-banner-pattern { position: absolute; inset: 0; opacity: 0.15; background-image: radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px); background-size: 30px 30px; }
-.profile-avatar-wrap { position: absolute; bottom: -28px; left: 20px; width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-light)); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #fff; border: 3px solid var(--bg-card); overflow: hidden; z-index: 2; }
-.profile-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; display: block; }
+.profile-header-card { position: relative; }
+.profile-avatar-wrap { position: absolute; top: 58px; left: 20px; width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-light)); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #fff; border: 3px solid var(--bg-card); overflow: hidden; z-index: 2; }
+.profile-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
 .profile-info-body { padding: 38px 20px 20px; }
 .profile-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 .profile-name { font-size: 20px; font-weight: 800; }
