@@ -11,6 +11,7 @@ Fast, clean, responsive, and installable as PWA.
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Node](https://img.shields.io/badge/node.js-18+-green)
+![PHP](https://img.shields.io/badge/php-8+-777BB4)
 ![License](https://img.shields.io/badge/license-MIT-purple)
 ![Status](https://img.shields.io/badge/status-active-success)
 
@@ -31,15 +32,18 @@ Fast, clean, responsive, and installable as PWA.
 - 📱 Progressive Web App (PWA)
 - ⚡ Clean URLs support
 - ☁️ Vercel deployment ready
+- 🐘 Optional PHP backend support
 
 ---
 
 # 🖼️ Preview
 
 ## Home Page
+
 <img src="preview/home.png"/>
 
 ## Admin Panel
+
 <img src="preview/admin.png"/>
 
 ---
@@ -49,7 +53,7 @@ Fast, clean, responsive, and installable as PWA.
 | Category | Technology |
 |---|---|
 | Frontend | HTML5, CSS3, Vanilla JS |
-| Backend | Node.js, Express |
+| Backend | Node.js, Express, PHP |
 | Database | Firebase Firestore |
 | Authentication | Firebase Auth |
 | Anime Source | Samehadaku Scraper |
@@ -64,7 +68,11 @@ Fast, clean, responsive, and installable as PWA.
 anizone/
 ├── api/
 ├── docker/
-├── php/
+├── php/                  # Optional PHP backend
+│   ├── api/
+│   ├── config/
+│   ├── functions/
+│   └── index.php
 ├── public/
 │   ├── css/
 │   ├── js/
@@ -75,7 +83,8 @@ anizone/
 │   └── sw.js
 ├── Dockerfile
 ├── package.json
-└── railway.toml
+├── railway.toml
+└── README.md
 ```
 
 ---
@@ -89,7 +98,9 @@ git clone https://github.com/kanawangyy-yoikage/anizone.git
 cd anizone
 ```
 
-## Install Dependencies
+---
+
+# 📦 Install Dependencies
 
 ```bash
 npm install
@@ -125,12 +136,38 @@ http://localhost:3000
 
 ---
 
+# 🐘 PHP Module
+
+AniZone also includes optional PHP modules for compatibility and lightweight hosting environments.
+
+## PHP Features
+
+- Alternative API handling
+- Lightweight server-side rendering
+- Shared hosting compatibility
+- Legacy endpoint support
+
+## Run PHP Server
+
+```bash
+cd php
+php -S localhost:8000
+```
+
+Open:
+
+```bash
+http://localhost:8000
+```
+
+---
+
 # ☁️ Deploy to Vercel
 
 ## Install Vercel CLI
 
 ```bash
-npm i -g vercel
+npm install -g vercel
 ```
 
 ## Deploy
@@ -142,6 +179,22 @@ vercel --prod
 Or directly connect repository on:
 
 https://vercel.com/new
+
+---
+
+# 🐳 Docker Support
+
+## Build Docker Image
+
+```bash
+docker build -t anizone .
+```
+
+## Run Container
+
+```bash
+docker run -p 3000:3000 anizone
+```
 
 ---
 
@@ -195,3 +248,9 @@ If this project helped you:
 - Star this repository
 - Fork this repository
 - Share to fellow wibu degenerates
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
