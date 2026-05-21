@@ -1,153 +1,197 @@
-# AniZone 2026 v2.0.0
+<div align="center">
 
-Platform streaming anime subtitle Indonesia dengan fitur lengkap — powered by Samehadaku scraper + MyAnimeList API.
+# 🎌 AniZone 2026
 
-## ✨ Fitur
+### Modern Anime Streaming Platform Indonesia
 
-- 📅 **Jadwal Rilis** — Anime musim ini dari MyAnimeList API
-- 📰 **Berita Anime** — Dari AnimenewsNetwork & sumber terpercaya
-- 🔥 **Anime Trending** — Ranking real-time dari MyAnimeList
-- 📖 **Sinopsis MAL** — Deskripsi lengkap via MyAnimeList API v2
-- 🛡️ **Admin Panel** — Kelola pengguna, statistik, log aktivitas
-- 📱 **PWA** — Bisa diinstall di mobile & desktop
-- 🌐 **Clean URLs** — `/login`, `/admin`, `/` tanpa `.html`
+Anime streaming platform powered by Samehadaku scraper + MyAnimeList API.  
+Fast, clean, responsive, and installable as PWA.
+
+<img src="public/pp.png" width="180"/>
+
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Node](https://img.shields.io/badge/node.js-18+-green)
+![License](https://img.shields.io/badge/license-MIT-purple)
+![Status](https://img.shields.io/badge/status-active-success)
+
+</div>
 
 ---
 
-## 📁 Struktur File
+# ✨ Features
 
-```
+- 🎥 Streaming anime subtitle Indonesia
+- 🔍 Anime search system
+- 📈 Real-time anime trending
+- 📅 Seasonal anime schedule
+- 📰 Anime news update
+- 📖 MyAnimeList synopsis integration
+- 👤 Authentication system
+- 🛠️ Admin dashboard
+- 📱 Progressive Web App (PWA)
+- ⚡ Clean URLs support
+- ☁️ Vercel deployment ready
+
+---
+
+# 🖼️ Preview
+
+## Home Page
+<img src="preview/home.png"/>
+
+## Admin Panel
+<img src="preview/admin.png"/>
+
+---
+
+# 🧱 Tech Stack
+
+| Category | Technology |
+|---|---|
+| Frontend | HTML5, CSS3, Vanilla JS |
+| Backend | Node.js, Express |
+| Database | Firebase Firestore |
+| Authentication | Firebase Auth |
+| Anime Source | Samehadaku Scraper |
+| Anime Metadata | MyAnimeList API v2 |
+| Deployment | Vercel / Railway |
+
+---
+
+# 📂 Project Structure
+
+```bash
 anizone/
 ├── api/
-│   └── index.js          # Backend Node.js + Express (Vercel Serverless)
-├── public/               ← outputDirectory Vercel (static files)
+├── docker/
+├── php/
+├── public/
 │   ├── css/
-│   │   ├── style.css
-│   │   ├── login.css
-│   │   └── admin.css
 │   ├── js/
-│   │   ├── app.js
-│   │   ├── auth.js
-│   │   ├── login.js
-│   │   └── admin.js
 │   ├── index.html
 │   ├── login.html
 │   ├── admin.html
 │   ├── manifest.json
-│   ├── sw.js
-│   ├── pp.png
-│   └── bg.jpg
-├── vercel.json           # Config Vercel
-└── package.json
+│   └── sw.js
+├── Dockerfile
+├── package.json
+└── railway.toml
 ```
 
 ---
 
-## 🚀 Deploy ke Vercel
+# ⚙️ Installation
 
-### 1. Clone & Install
+## Clone Repository
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/kanawangyy-yoikage/anizone.git
 cd anizone
+```
+
+## Install Dependencies
+
+```bash
 npm install
 ```
 
-### 2. Set Environment Variables
+---
 
-Di **Vercel Dashboard → Project → Settings → Environment Variables**, tambahkan:
+# 🔑 Environment Variables
 
-| Variable | Value | Keterangan |
-|---|---|---|
-| `MAL_CLIENT_ID` | `your_client_id` | Dari myanimelist.net/apiconfig |
+Create `.env`
 
-> ⚠️ Tanpa `MAL_CLIENT_ID`, fitur jadwal/trending/sinopsis MAL otomatis fallback ke scraper.
-
-### 3. Deploy
-
-```bash
-# Install Vercel CLI dulu (jika belum)
-npm i -g vercel
-
-# Deploy
-vercel --prod
+```env
+MAL_CLIENT_ID=your_myanimelist_client_id
 ```
 
-Atau push ke GitHub dan connect repo di [vercel.com/new](https://vercel.com/new).
+Get API key from:
+
+https://myanimelist.net/apiconfig
 
 ---
 
-## 💻 Development Lokal
+# 🚀 Run Local Development
 
 ```bash
 npm run dev
-# → http://localhost:3000
 ```
 
-> File statis di `public/` harus diakses langsung di dev: `http://localhost:3000/public/index.html`  
-> Di Vercel (production), akses via `/` karena `outputDirectory` sudah diset ke `public/`.
+Open:
+
+```bash
+http://localhost:3000
+```
 
 ---
 
-## 🔗 API Endpoints
+# ☁️ Deploy to Vercel
 
-| Method | Endpoint | Parameter | Deskripsi |
-|---|---|---|---|
-| GET | `/api/latest` | `?page=1` | Anime terbaru |
-| GET | `/api/search` | `?q=naruto` | Cari anime |
-| GET | `/api/detail` | `?url=...` | Detail + daftar episode |
-| GET | `/api/watch` | `?url=...` | Stream URL per server |
-| GET | `/api/trending` | — | Anime trending (MAL ranking) |
-| GET | `/api/schedule` | — | Jadwal rilis musiman |
-| GET | `/api/news` | — | Berita anime terbaru |
-| GET | `/api/mal/description` | `?title=...` | Sinopsis dari MAL |
-| GET | `/api/mal/anime` | `?title=...` | Data lengkap MAL |
-| GET | `/api/health` | — | Health check |
+## Install Vercel CLI
+
+```bash
+npm i -g vercel
+```
+
+## Deploy
+
+```bash
+vercel --prod
+```
+
+Or directly connect repository on:
+
+https://vercel.com/new
 
 ---
 
-## 🌐 URL Bersih (Production)
+# 📡 API Endpoints
 
-| URL | Halaman |
+| Endpoint | Description |
 |---|---|
-| `/` | Halaman utama |
-| `/login` atau `/masuk` | Login & Register |
-| `/admin` atau `/panel` | Admin Panel |
+| `/api/latest` | Latest anime |
+| `/api/search?q=` | Search anime |
+| `/api/detail?url=` | Anime details |
+| `/api/watch?url=` | Stream source |
+| `/api/trending` | MAL trending |
+| `/api/schedule` | Anime schedule |
+| `/api/news` | Anime news |
+| `/api/health` | Health check |
 
 ---
 
-## 🛡️ Admin Panel
+# 🔥 Roadmap
 
-1. Login dengan akun yang punya role `admin`
-2. Pergi ke Profil → tombol **Admin Panel** muncul
-3. Atau akses langsung: `https://domain.vercel.app/admin`
-
-Untuk set user sebagai admin, update Firestore:
-```
-users/{uid} → { role: "admin" }
-```
+- [ ] Multi server streaming
+- [ ] Anime watchlist
+- [ ] Continue watching
+- [ ] Dark mode improvement
+- [ ] Mobile app version
+- [ ] Discord RPC integration
 
 ---
 
-## ⚠️ Troubleshooting Deploy Vercel
+# 🛡️ Disclaimer
 
-| Problem | Penyebab | Solusi |
-|---|---|---|
-| Static file 404 | `outputDirectory` tidak diset | Pastikan `"outputDirectory": "public"` ada di `vercel.json` |
-| API 500 / crash | `app.listen()` dipanggil di serverless | Jangan panggil `listen()` di production — sudah diperbaiki |
-| Rewrite tidak jalan | Path rewrite masih prefix `/public/` | Path harus relatif terhadap `outputDirectory`, misal `/login.html` bukan `/public/login.html` |
-| MAL API error | `MAL_CLIENT_ID` belum diset | Set env var di Vercel Dashboard, atau biarkan fallback ke scraper |
+AniZone does not host any video files.  
+All content is provided by third-party sources.
 
 ---
 
-## 🔌 Tech Stack
+# 👑 Author
 
-- **Frontend**: HTML5 + CSS3 + Vanilla JS
-- **Backend**: Node.js + Express (Vercel Serverless Function)
-- **Auth & DB**: Firebase Authentication + Firestore
-- **Data**: Samehadaku scraper (cheerio + axios) + MyAnimeList API v2
-- **Deploy**: Vercel
+Made with caffeine and sleep deprivation by:
+
+## Caliph / YoiKage
+
+- GitHub: https://github.com/kanawangyy-yoikage
 
 ---
 
-Made with ❤️ by [Caliph](https://github.com/kanawangyy-yoikage)
+# ⭐ Support
+
+If this project helped you:
+
+- Star this repository
+- Fork this repository
+- Share to fellow wibu degenerates
