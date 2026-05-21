@@ -1,6 +1,19 @@
 /* ═══════════════════════════════════════════════════════
-   ANIZONE 2026 — ADMIN MODULE (Supabase)
+   ANIZONE 2026 — ADMIN MODULE
    ═══════════════════════════════════════════════════════ */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
+  authDomain: "anizone-b48ce.firebaseapp.com",
+  projectId: "anizone-b48ce",
+  storageBucket: "anizone-b48ce.firebasestorage.app",
+  messagingSenderId: "375436276826",
+  appId: "1:375436276826:web:49683a8e7e4587e305d463"
+};
+
+if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
 // ── STATE ──────────────────────────────────────────────
 let allUsers = [];
@@ -11,30 +24,29 @@ let selectedUser = null;
 let currentAdminUser = null;
 
 // ── AUTH GUARD ─────────────────────────────────────────
-(async () => {
-  const user = await getCurrentUser();
+auth.onAuthStateChanged(async (user) => {
   if (!user) { window.location.replace('login.html'); return; }
-  const profile = await getUserProfile(user.id);
-  if (profile.role !== 'admin') {
+  const fsData = await getFirestoreUser(user.uid);
+  if (fsData.role !== 'admin') {
     showToast('Akses ditolak. Hanya admin yang dapat mengakses panel ini.', 'error');
     setTimeout(() => window.location.replace('index.html'), 2000);
     return;
   }
-  currentAdminUser = { ...user, ...profile };
-  initAdmin(user, profile);
-})();
+  currentAdminUser = { ...user, ...fsData };
+  initAdmin(user, fsData);
+});
 
 // ── INIT ───────────────────────────────────────────────
-async function initAdmin(user, profile) {
-  const name   = profile.display_name || user.user_metadata?.display_name || 'Admin';
+async function initAdmin(user, fsData) {
+  const name   = fsData.displayName || user.displayName || 'Admin';
   const initEl = document.getElementById('adminInitial');
   const nameEl = document.getElementById('adminName');
   const imgEl  = document.getElementById('adminAvatarImg');
 
   if (nameEl) nameEl.textContent = name;
   if (initEl) initEl.textContent = name.charAt(0).toUpperCase();
-  if (imgEl && (profile.photo_url || user.user_metadata?.avatar_url)) {
-    imgEl.src = profile.photo_url || user.user_metadata.avatar_url;
+  if (imgEl && (fsData.photoURL || user.photoURL)) {
+    imgEl.src = fsData.photoURL || user.photoURL;
     imgEl.style.display = 'block';
     if (initEl) initEl.style.display = 'none';
   }
@@ -42,12 +54,18 @@ async function initAdmin(user, profile) {
   switchAdminTab('dashboard');
 }
 
-// ── SUPABASE HELPERS ───────────────────────────────────
+// ── FIRESTORE HELPERS ──────────────────────────────────
+async function getFirestoreUser(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    return doc.exists ? doc.data() : {};
+  } catch { return {}; }
+}
+
 async function getAllUsers() {
   try {
-    const { data, error } = await _supabase.from('users').select('*').order('created_at', { ascending: false });
-    if (error) return [];
-    return (data || []).map(u => ({ ...u, uid: u.id }));
+    const snap = await db.collection('users').get();
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
   } catch { return []; }
 }
 
@@ -108,22 +126,24 @@ async function loadDashboard() {
       ${statCard('🛡️', 'yellow','Administrator',    adminCount,  'Akses penuh', '')}
       ${statCard('🚫', 'red',   'Diblokir',         bannedCount, bannedCount > 0 ? 'Perlu perhatian' : 'Aman', bannedCount > 0 ? 'down' : 'up')}`;
 
+    // Charts
     const roleData = [
-      { label: 'User',   val: users.filter(u => u.role === 'user' || !u.role).length, max: totalUsers, color: '' },
-      { label: 'Admin',  val: adminCount, max: totalUsers, color: 'green' },
+      { label: 'User', val: users.filter(u => u.role === 'user' || !u.role).length, max: totalUsers, color: '' },
+      { label: 'Admin', val: adminCount, max: totalUsers, color: 'green' },
       { label: 'Banned', val: bannedCount, max: totalUsers, color: 'red' },
     ];
     const authData = [
-      { label: 'Email/Password', val: users.filter(u => u.email && !u.google_linked).length, max: totalUsers, color: '' },
-      { label: 'Google',         val: users.filter(u => u.google_linked).length, max: totalUsers, color: 'green' },
-      { label: 'Nomor HP',       val: users.filter(u => u.phone && !u.email).length, max: totalUsers, color: '' },
+      { label: 'Email/Password', val: users.filter(u => u.email && !u.googleLinked).length, max: totalUsers, color: '' },
+      { label: 'Google', val: users.filter(u => u.googleLinked || u.provider === 'google').length, max: totalUsers, color: 'green' },
+      { label: 'Lainnya', val: users.filter(u => !u.email && !u.googleLinked).length, max: totalUsers, color: '' },
     ];
 
     document.getElementById('charts-grid').innerHTML = `
       ${chartCard('Distribusi Role', 'Berdasarkan role pengguna', roleData, totalUsers)}
       ${chartCard('Metode Autentikasi', 'Cara login pengguna', authData, totalUsers)}`;
 
-    const recent = [...users].sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0, 5);
+    // Recent users
+    const recent = [...users].sort((a,b) => (b.createdAt||0) - (a.createdAt||0)).slice(0, 5);
     document.getElementById('recent-users-list').innerHTML = `
       <table style="width:100%">
         <thead><tr><th>Pengguna</th><th>Role</th><th>Email</th></tr></thead>
@@ -211,16 +231,16 @@ async function loadUsersTable() {
 }
 
 function userTableRow(u, compact = false) {
-  const name    = u.display_name || 'Tanpa Nama';
-  const email   = u.email || u.phone || '—';
-  const role    = u.role || 'user';
-  const joined  = u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const name  = u.displayName || 'Tanpa Nama';
+  const email = u.email || u.phoneNumber || '—';
+  const role  = u.role || 'user';
+  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
   const initial = name.charAt(0).toUpperCase();
 
   if (compact) {
     return `<tr>
       <td><div class="user-cell">
-        <div class="user-mini-avatar">${u.photo_url?`<img src="${u.photo_url}" alt="">`:''}${initial}</div>
+        <div class="user-mini-avatar">${u.photoURL?`<img src="${u.photoURL}" alt="">`:''}${initial}</div>
         <div class="user-cell-name">${name}</div>
       </div></td>
       <td><span class="role-badge role-${role}">${roleLabel(role)}</span></td>
@@ -230,28 +250,28 @@ function userTableRow(u, compact = false) {
 
   return `<tr>
     <td><div class="user-cell">
-      <div class="user-mini-avatar">${u.photo_url?`<img src="${u.photo_url}" alt="">`:''}${initial}</div>
+      <div class="user-mini-avatar">${u.photoURL?`<img src="${u.photoURL}" alt="">`:''}${initial}</div>
       <div class="user-cell-info">
         <div class="user-cell-name">${name}</div>
-        <div class="user-cell-uid">${(u.id||'').substring(0,12)}...</div>
+        <div class="user-cell-uid">${(u.uid||'').substring(0,12)}...</div>
       </div>
     </div></td>
     <td style="color:var(--text-muted);font-size:13px">${email}</td>
     <td><span class="role-badge role-${role}">${roleLabel(role)}</span></td>
     <td style="color:var(--text-muted);font-size:12px">${joined}</td>
     <td><div class="table-actions">
-      <button class="icon-btn info" onclick="openUserModal('${u.id}')" title="Detail">
+      <button class="icon-btn info" onclick="openUserModal('${u.uid}')" title="Detail">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </button>
       ${role !== 'admin' ? `
-      <button class="icon-btn" onclick="toggleBan('${u.id}','${role}')" title="${role==='banned'?'Unban':'Ban'}">
+      <button class="icon-btn" onclick="toggleBan('${u.uid}','${role}')" title="${role==='banned'?'Unban':'Ban'}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
       </button>` : ''}
       ${role !== 'admin' ? `
-      <button class="icon-btn" onclick="toggleAdmin('${u.id}','${role}')" title="Jadikan Admin">
+      <button class="icon-btn" onclick="toggleAdmin('${u.uid}','${role}')" title="Jadikan Admin">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </button>` : ''}
-      <button class="icon-btn danger" onclick="confirmDeleteUser('${u.id}','${name.replace(/'/g,"\\'")}')" title="Hapus">
+      <button class="icon-btn danger" onclick="confirmDeleteUser('${u.uid}','${name.replace(/'/g,"\\'")}')'" title="Hapus">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       </button>
     </div></td>
@@ -267,9 +287,9 @@ function renderUsersTable() {
   const tbody  = document.getElementById('users-tbody');
   const pagDiv = document.getElementById('users-pagination');
   if (!tbody) return;
-  const total = filteredUsers.length;
-  const pages = Math.ceil(total / PAGE_SIZE);
-  const slice = filteredUsers.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  const total  = filteredUsers.length;
+  const pages  = Math.ceil(total / PAGE_SIZE);
+  const slice  = filteredUsers.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
 
   tbody.innerHTML = slice.length
     ? slice.map(u => userTableRow(u)).join('')
@@ -294,7 +314,7 @@ function filterUsers(query) {
   const q = query.toLowerCase().trim();
   const roleVal = document.getElementById('roleFilter')?.value || '';
   filteredUsers = allUsers.filter(u => {
-    const matchQuery = !q || (u.display_name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (u.id||'').toLowerCase().includes(q);
+    const matchQuery = !q || (u.displayName||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (u.uid||'').toLowerCase().includes(q);
     const matchRole  = !roleVal || (u.role||'user') === roleVal;
     return matchQuery && matchRole;
   });
@@ -305,7 +325,7 @@ function filterUsers(query) {
 function filterByRole(role) {
   const q = document.getElementById('userSearchInput')?.value || '';
   filteredUsers = allUsers.filter(u => {
-    const matchQuery = !q || (u.display_name||'').toLowerCase().includes(q.toLowerCase()) || (u.email||'').toLowerCase().includes(q.toLowerCase());
+    const matchQuery = !q || (u.displayName||'').toLowerCase().includes(q.toLowerCase()) || (u.email||'').toLowerCase().includes(q.toLowerCase());
     const matchRole  = !role || (u.role||'user') === role;
     return matchQuery && matchRole;
   });
@@ -315,18 +335,18 @@ function filterByRole(role) {
 
 // ── USER MODAL ────────────────────────────────────────
 function openUserModal(uid) {
-  const u = allUsers.find(u => u.id === uid);
+  const u = allUsers.find(u => u.uid === uid);
   if (!u) return;
   selectedUser = u;
-  const name    = u.display_name || 'Tanpa Nama';
-  const email   = u.email || u.phone || '—';
+  const name    = u.displayName || 'Tanpa Nama';
+  const email   = u.email || u.phoneNumber || '—';
   const role    = u.role || 'user';
   const initial = name.charAt(0).toUpperCase();
-  const joined  = u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—';
+  const joined  = u.createdAt ? new Date(u.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—';
 
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-user-header">
-      <div class="modal-avatar">${u.photo_url?`<img src="${u.photo_url}" alt="">`:''}${initial}</div>
+      <div class="modal-avatar">${u.photoURL?`<img src="${u.photoURL}" alt="">`:''}${initial}</div>
       <div>
         <div class="modal-user-name">${name}</div>
         <div class="modal-user-email">${email}</div>
@@ -334,10 +354,10 @@ function openUserModal(uid) {
       </div>
     </div>
     <div class="modal-info-grid">
-      <div class="modal-info-item"><div class="modal-info-label">UID</div><div class="modal-info-value" style="font-size:11px;font-family:monospace">${u.id||'—'}</div></div>
+      <div class="modal-info-item"><div class="modal-info-label">UID</div><div class="modal-info-value" style="font-size:11px;font-family:monospace">${u.uid||'—'}</div></div>
       <div class="modal-info-item"><div class="modal-info-label">Bergabung</div><div class="modal-info-value">${joined}</div></div>
       <div class="modal-info-item"><div class="modal-info-label">Bio</div><div class="modal-info-value">${u.bio||'—'}</div></div>
-      <div class="modal-info-item"><div class="modal-info-label">Provider</div><div class="modal-info-value">${u.email?'Email':u.phone?'Phone':'—'}</div></div>
+      <div class="modal-info-item"><div class="modal-info-label">Provider</div><div class="modal-info-value">${u.email?'Email':u.phoneNumber?'Phone':'—'}</div></div>
     </div>
     <div class="modal-section-title">Aksi Cepat</div>
     <div class="modal-actions">
@@ -359,31 +379,28 @@ async function toggleBan(uid, currentRole) {
   if (!confirm(currentRole === 'banned' ? 'Unban pengguna ini?' : 'Ban pengguna ini?')) return;
   try {
     const newRole = currentRole === 'banned' ? 'user' : 'banned';
-    const { error } = await _supabase.from('users').update({ role: newRole }).eq('id', uid);
-    if (error) throw error;
-    const u = allUsers.find(u => u.id === uid);
+    await db.collection('users').doc(uid).update({ role: newRole });
+    const u = allUsers.find(u => u.uid === uid);
     if (u) u.role = newRole;
     filteredUsers = [...allUsers];
     renderUsersTable();
     showToast(newRole === 'banned' ? 'Pengguna berhasil dibanned' : 'Pengguna berhasil diunban', newRole === 'banned' ? 'error' : 'success');
-    logActivity(newRole === 'banned' ? 'ban' : 'admin', `${newRole === 'banned' ? 'Ban' : 'Unban'}: ${u?.display_name || uid}`);
+    logActivity(newRole === 'banned' ? 'ban' : 'admin', `${newRole === 'banned' ? 'Ban' : 'Unban'}: ${u?.displayName || uid}`);
   } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
 }
 
 async function toggleAdmin(uid, currentRole) {
-  const me = await getCurrentUser();
-  if (uid === me?.id) { showToast('Tidak bisa mengubah role diri sendiri', 'error'); return; }
+  if (uid === auth.currentUser?.uid) { showToast('Tidak bisa mengubah role diri sendiri', 'error'); return; }
   if (!confirm(currentRole === 'admin' ? 'Cabut hak admin pengguna ini?' : 'Jadikan pengguna ini admin?')) return;
   try {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const { error } = await _supabase.from('users').update({ role: newRole }).eq('id', uid);
-    if (error) throw error;
-    const u = allUsers.find(u => u.id === uid);
+    await db.collection('users').doc(uid).update({ role: newRole });
+    const u = allUsers.find(u => u.uid === uid);
     if (u) u.role = newRole;
     filteredUsers = [...allUsers];
     renderUsersTable();
     showToast(newRole === 'admin' ? 'Pengguna dijadikan admin' : 'Hak admin dicabut', 'success');
-    logActivity('admin', `Role diubah ke ${newRole}: ${u?.display_name || uid}`);
+    logActivity('admin', `Role diubah ke ${newRole}: ${u?.displayName || uid}`);
   } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
 }
 
@@ -393,13 +410,11 @@ function confirmDeleteUser(uid, name) {
 }
 
 async function deleteUser(uid, name) {
-  const me = await getCurrentUser();
-  if (uid === me?.id) { showToast('Tidak bisa menghapus akun sendiri', 'error'); return; }
+  if (uid === auth.currentUser?.uid) { showToast('Tidak bisa menghapus akun sendiri', 'error'); return; }
   try {
-    const { error } = await _supabase.from('users').delete().eq('id', uid);
-    if (error) throw error;
-    allUsers = allUsers.filter(u => u.id !== uid);
-    filteredUsers = filteredUsers.filter(u => u.id !== uid);
+    await db.collection('users').doc(uid).delete();
+    allUsers = allUsers.filter(u => u.uid !== uid);
+    filteredUsers = filteredUsers.filter(u => u.uid !== uid);
     renderUsersTable();
     showToast(`Akun "${name}" berhasil dihapus`, 'success');
     logActivity('ban', `Hapus akun: ${name}`);
@@ -444,8 +459,7 @@ function activityIcon(type) {
 }
 
 // ── SETTINGS ──────────────────────────────────────────
-async function loadSettings() {
-  const me = await getCurrentUser();
+function loadSettings() {
   const view = document.getElementById('view-settings');
   view.innerHTML = `
     <div class="admin-topbar">
@@ -458,7 +472,7 @@ async function loadSettings() {
           <div class="form-group">
             <label class="form-label">MyAnimeList Client ID</label>
             <input type="text" class="form-input" id="malClientId" placeholder="Masukkan MAL Client ID..." value="${localStorage.getItem('mal_client_id')||''}">
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Daftarkan app di <a href="https://myanimelist.net/apiconfig" target="_blank" style="color:var(--accent)">myanimelist.net/apiconfig</a>.</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Daftarkan app di <a href="https://myanimelist.net/apiconfig" target="_blank" style="color:var(--accent)">myanimelist.net/apiconfig</a> untuk mendapatkan Client ID.</div>
           </div>
           <button class="admin-btn admin-btn-primary" onclick="saveMalSettings()">Simpan</button>
         </div>
@@ -479,8 +493,8 @@ async function loadSettings() {
         <div class="admin-table-header"><div class="admin-table-title">Info Sistem</div></div>
         <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
           ${infoRow('Versi App', 'AniZone 2026 v2.0.0')}
-          ${infoRow('Database', 'Supabase')}
-          ${infoRow('Admin UID', (me?.id||'—').substring(0,16)+'...')}
+          ${infoRow('Firebase Project', 'anizone-b48ce')}
+          ${infoRow('Admin UID', auth.currentUser?.uid?.substring(0,16)+'...'||'—')}
           ${infoRow('Build', new Date().toLocaleDateString('id-ID'))}
         </div>
       </div>
@@ -524,7 +538,7 @@ function showToast(msg, type = 'info') {
 // ── LOGOUT ────────────────────────────────────────────
 async function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
-  try { await _supabase.auth.signOut(); } catch {}
+  try { await auth.signOut(); } catch {}
   window.location.replace('login.html');
 }
 

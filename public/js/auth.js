@@ -1,6 +1,21 @@
 /* ═══════════════════════════════════════════════════════
-   ANIZONE 2026 — AUTH & PROFILE MODULE (Supabase)
+   ANIZONE 2026 — AUTH & PROFILE MODULE
    ═══════════════════════════════════════════════════════ */
+
+// ── FIREBASE CONFIG ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
+  authDomain: "anizone-b48ce.firebaseapp.com",
+  projectId: "anizone-b48ce",
+  storageBucket: "anizone-b48ce.firebasestorage.app",
+  messagingSenderId: "375436276826",
+  appId: "1:375436276826:web:49683a8e7e4587e305d463",
+  measurementId: "G-B4YBQMT23R"
+};
+
+if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
 // ── EDIT STATE ─────────────────────────────────────────
 let editState = {
@@ -10,21 +25,28 @@ let editState = {
   bannerIsImage: false,
 };
 
-let _currentUser = null;
-
 // ── AUTH GUARD ─────────────────────────────────────────
-_supabase.auth.onAuthStateChange(async (event, session) => {
-  if (!session?.user) { window.location.replace('login.html'); return; }
-  _currentUser = session.user;
-  await loadUserProfile(session.user);
+auth.onAuthStateChanged(async (user) => {
+  if (!user) { window.location.replace('login.html'); return; }
+  await loadUserProfile(user);
 });
 
-(async () => {
-  const user = await getCurrentUser();
-  if (!user) { window.location.replace('login.html'); return; }
-  _currentUser = user;
-  await loadUserProfile(user);
-})();
+// ── FIRESTORE HELPERS ──────────────────────────────────
+async function getFirestoreUser(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    return doc.exists ? doc.data() : {};
+  } catch { return {}; }
+}
+
+async function getIDBCount(storeName) {
+  const user = auth.currentUser;
+  if (!user) return 0;
+  try {
+    const snap = await db.collection('users').doc(user.uid).collection(storeName).get();
+    return snap.size;
+  } catch { return 0; }
+}
 
 // ── AVATAR UI ─────────────────────────────────────────
 function setAvatarUI(photoURL, name) {
@@ -64,27 +86,26 @@ function setBannerUI(bannerURL, bannerColor) {
 
 // ── LOAD PROFILE ───────────────────────────────────────
 async function loadUserProfile(user) {
-  const profile   = await getUserProfile(user.id);
-  const meta      = user.user_metadata || {};
-
-  const name      = profile.display_name || meta.display_name || meta.full_name || 'Pengguna AniZone';
-  const email     = user.email || user.phone || '—';
-  const photoURL  = profile.photo_url || meta.avatar_url || null;
-  const bannerURL = profile.banner_url || null;
-  const bannerColor = profile.banner_color || editState.bannerColor;
-  const bio       = profile.bio || '';
-  const role      = profile.role || 'user';
+  const fsData     = await getFirestoreUser(user.uid);
+  const name       = fsData.displayName || user.displayName || 'Pengguna AniZone';
+  const email      = user.email || user.phoneNumber || '—';
+  const photoURL   = fsData.photoURL || user.photoURL || null;
+  const bannerURL  = fsData.bannerURL || null;
+  const bannerColor = fsData.bannerColor || editState.bannerColor;
+  const bio        = fsData.bio || '';
+  const role       = fsData.role || 'user';
 
   setAvatarUI(photoURL, name);
   const su = document.getElementById('sidebarUsername');
   if (su) su.textContent = name;
 
+  // Profile fields
   setEl('profileName', name);
   setEl('profileEmail', email);
   setEl('profileBioDisplay', bio);
   setEl('infoName', name);
   setEl('infoEmail', user.email || '—');
-  setEl('infoPhone', user.phone || '—');
+  setEl('infoPhone', user.phoneNumber || '—');
   setEl('infoRole', role === 'admin' ? '🛡️ Administrator' : '👤 User');
 
   setBannerUI(bannerURL, bannerColor);
@@ -93,11 +114,10 @@ async function loadUserProfile(user) {
   const badgesEl = document.getElementById('profileBadges');
   if (badgesEl) {
     const badges = [];
-    const providers = user.app_metadata?.providers || [];
     badges.push(`<span class="profile-badge ${role==='admin'?'badge-role-admin':'badge-role-user'}">${role==='admin'?'🛡️ Admin':'👤 User'}</span>`);
-    if (user.email)  badges.push('<span class="profile-badge badge-method">📧 Email</span>');
-    if (user.phone)  badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
-    if (providers.includes('google')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
+    if (user.email) badges.push('<span class="profile-badge badge-method">📧 Email</span>');
+    if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
+    if (user.providerData?.some(p=>p.providerId==='google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
     badgesEl.innerHTML = badges.join('');
   }
 
@@ -111,33 +131,33 @@ async function loadUserProfile(user) {
   }
 
   // Metadata
-  const createdAt = profile.created_at ? new Date(profile.created_at) : null;
+  const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
+  const lastLogin  = user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
   if (createdAt) {
-    setEl('profileStatDays', Math.floor((Date.now() - createdAt.getTime()) / 86400000));
-    setEl('infoJoined', createdAt.toLocaleDateString('id-ID', {day:'2-digit',month:'long',year:'numeric'}));
+    setEl('profileStatDays', Math.floor((Date.now()-createdAt.getTime())/86400000));
+    setEl('infoJoined', createdAt.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}));
   }
-  const lastLogin = user.last_sign_in_at ? new Date(user.last_sign_in_at) : null;
-  if (lastLogin) setEl('infoLastLogin', lastLogin.toLocaleDateString('id-ID', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}));
+  if (lastLogin) setEl('infoLastLogin', lastLogin.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}));
 
   // Stats
   try {
-    setEl('profileStatFav',     await getSubCount(user.id, 'favorites'));
-    setEl('profileStatHistory', await getSubCount(user.id, 'history'));
+    setEl('profileStatFav', await getIDBCount('favorites'));
+    setEl('profileStatHistory', await getIDBCount('history'));
   } catch {
     setEl('profileStatFav', '—'); setEl('profileStatHistory', '—');
   }
 
-  editState.bannerColor  = bannerColor;
+  editState.bannerColor = bannerColor;
   editState.bannerIsImage = !!bannerURL;
 
-  // Admin panel link
+  // Show admin panel link if admin
   const adminLinkEl = document.getElementById('adminPanelLink');
   if (adminLinkEl) adminLinkEl.style.display = role === 'admin' ? '' : 'none';
 }
 
-// ── EDIT MODAL ─────────────────────────────────────────
+// ── EDIT MODAL ────────────────────────────────────────
 function openEditModal() {
-  const user = _currentUser;
+  const user = auth.currentUser;
   if (!user) return;
   document.getElementById('editName').value = document.getElementById('profileName')?.textContent || '';
   document.getElementById('editBio').value  = document.getElementById('profileBioDisplay')?.textContent || '';
@@ -145,8 +165,8 @@ function openEditModal() {
   setEditStatus('');
   editState.avatarFile = null; editState.bannerFile = null;
 
-  const curImg  = document.getElementById('profileAvatarImg');
-  const prevImg  = document.getElementById('editAvatarPreviewImg');
+  const curImg = document.getElementById('profileAvatarImg');
+  const prevImg = document.getElementById('editAvatarPreviewImg');
   const prevInit = document.getElementById('editAvatarPreviewInitial');
   if (prevImg && curImg?.style.display !== 'none' && curImg.src) {
     prevImg.src = curImg.src; prevImg.style.display = 'block'; if (prevInit) prevInit.style.display = 'none';
@@ -155,9 +175,9 @@ function openEditModal() {
     if (prevInit) { prevInit.style.display = ''; prevInit.textContent = document.getElementById('profileAvatarInitial')?.textContent; }
   }
 
-  const profBannerImg  = document.getElementById('profileBannerImg');
-  const editBannerImg  = document.getElementById('editBannerPreviewImg');
-  const editPat        = document.getElementById('editBannerPattern');
+  const profBannerImg = document.getElementById('profileBannerImg');
+  const editBannerImg = document.getElementById('editBannerPreviewImg');
+  const editPat = document.getElementById('editBannerPattern');
   const editBannerPrev = document.getElementById('editBannerPreview');
   if (profBannerImg?.style.display !== 'none' && profBannerImg?.src) {
     if (editBannerImg) { editBannerImg.src = profBannerImg.src; editBannerImg.style.display = 'block'; }
@@ -214,54 +234,52 @@ async function previewBanner(input) {
   const b64 = await fileToBase64(input.files[0]);
   const img = document.getElementById('editBannerPreviewImg');
   if (img) { img.src = b64; img.style.display = 'block'; }
-  if (document.getElementById('editBannerPattern')) document.getElementById('editBannerPattern').style.display = 'none';
+  document.getElementById('editBannerPattern')?.style && (document.getElementById('editBannerPattern').style.display = 'none');
   const prev = document.getElementById('editBannerPreview');
   if (prev) prev.style.background = 'transparent';
   document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
 }
 
-function setEditStatus(msg, type = '') {
+function setEditStatus(msg, type='') {
   const el = document.getElementById('editStatus');
-  if (el) { el.textContent = msg; el.className = 'edit-status' + (type ? ' ' + type : ''); }
+  if (el) { el.textContent = msg; el.className = 'edit-status' + (type ? ' '+type : ''); }
 }
 
 async function saveProfile() {
-  const user = _currentUser;
+  const user = auth.currentUser;
   if (!user) return;
   const newName = document.getElementById('editName').value.trim();
   const newBio  = document.getElementById('editBio').value.trim();
   if (!newName) { setEditStatus('Nama tidak boleh kosong', 'error'); return; }
 
-  const btn     = document.getElementById('editSaveBtn');
+  const btn = document.getElementById('editSaveBtn');
   const btnText = document.getElementById('editSaveBtnText');
   if (btn) btn.disabled = true;
   if (btnText) btnText.textContent = 'Menyimpan...';
   setEditStatus('');
 
   try {
-    const updates = { display_name: newName, bio: newBio };
-
+    const updates = { displayName: newName, bio: newBio };
     if (editState.avatarFile) {
       setEditStatus('Memproses foto profil...');
-      updates.photo_url = await compressToBase64(editState.avatarFile, 300, 0.7);
+      updates.photoURL = await compressToBase64(editState.avatarFile, 300, 0.7);
+      try { await user.updateProfile({ photoURL: '' }); } catch {}
     }
     if (editState.bannerFile) {
       setEditStatus('Memproses banner...');
-      updates.banner_url = await compressToBase64(editState.bannerFile, 800, 0.7);
+      updates.bannerURL = await compressToBase64(editState.bannerFile, 800, 0.7);
     } else {
-      updates.banner_url = null;
+      updates.bannerURL = null;
     }
-    updates.banner_color = editState.bannerColor;
+    updates.bannerColor = editState.bannerColor;
 
-    await upsertUserProfile(user.id, updates);
-
-    // Update auth metadata
-    await _supabase.auth.updateUser({ data: { display_name: newName } });
+    await user.updateProfile({ displayName: newName });
+    await db.collection('users').doc(user.uid).set(updates, { merge: true });
 
     setEditStatus('✅ Profil berhasil disimpan!', 'success');
-    await loadUserProfile(user);
+    await loadUserProfile(auth.currentUser);
     setTimeout(() => closeEditModal(), 1200);
-  } catch (e) {
+  } catch(e) {
     setEditStatus('Gagal menyimpan: ' + e.message, 'error');
   } finally {
     if (btn) btn.disabled = false;
@@ -273,7 +291,7 @@ async function saveProfile() {
 function doLogout() { document.getElementById('logoutModal')?.classList.add('show'); }
 function closeLogoutModal() { document.getElementById('logoutModal')?.classList.remove('show'); }
 async function confirmLogout() {
-  try { await _supabase.auth.signOut(); } catch {}
+  try { await auth.signOut(); } catch {}
   window.location.replace('login.html');
 }
 

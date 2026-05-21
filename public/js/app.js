@@ -10,75 +10,62 @@ if ('serviceWorker' in navigator) {
 
 const API_BASE = '/api';
 
-// ─── SUPABASE: HISTORY & FAVORITES ──────────────────
+// ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
-async function getUID() {
-  const user = await getCurrentUser();
-  return user?.id ?? null;
+function getUID() {
+  return (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
 }
 
 async function saveHistory(animeObj) {
-  const uid = await getUID(); if (!uid) return;
+  const uid = getUID(); if (!uid) return;
   try {
-    const key = encodeURIComponent(animeObj.url).substring(0, 200);
-    await _supabase.from('history').upsert({
-      user_id: uid, url_key: key, ...animeObj, timestamp: Date.now()
-    });
+    const key = encodeURIComponent(animeObj.url).replace(/\./g, '%2E');
+    await db.collection('users').doc(uid).collection('history').doc(key)
+      .set({ ...animeObj, timestamp: Date.now() });
   } catch {}
 }
 
 async function getHistory() {
-  const uid = await getUID(); if (!uid) return [];
+  const uid = getUID(); if (!uid) return [];
   try {
-    const { data } = await _supabase
-      .from('history')
-      .select('*')
-      .eq('user_id', uid)
-      .order('timestamp', { ascending: false })
-      .limit(100);
-    return data || [];
+    const snap = await db.collection('users').doc(uid).collection('history')
+      .orderBy('timestamp', 'desc').limit(100).get();
+    return snap.docs.map(d => d.data());
   } catch { return []; }
 }
 
 async function toggleFavorite(url, title, image, score) {
-  const uid = await getUID(); if (!uid) return;
+  const uid = getUID(); if (!uid) return;
   try {
-    const key = encodeURIComponent(url).substring(0, 200);
+    const key = encodeURIComponent(url).replace(/\./g, '%2E');
+    const ref = db.collection('users').doc(uid).collection('favorites').doc(key);
     const isFav = await checkFavorite(url);
     const favBtn = document.getElementById('favBtn');
     if (isFav) {
-      await _supabase.from('favorites').delete().eq('user_id', uid).eq('url_key', key);
+      await ref.delete();
       favBtn?.classList.remove('active');
     } else {
-      await _supabase.from('favorites').upsert({ user_id: uid, url_key: key, url, title, image, score, timestamp: Date.now() });
+      await ref.set({ url, title, image, score, timestamp: Date.now() });
       favBtn?.classList.add('active');
     }
   } catch {}
 }
 
 async function checkFavorite(url) {
-  const uid = await getUID(); if (!uid) return false;
+  const uid = getUID(); if (!uid) return false;
   try {
-    const key = encodeURIComponent(url).substring(0, 200);
-    const { data } = await _supabase
-      .from('favorites')
-      .select('url_key')
-      .eq('user_id', uid)
-      .eq('url_key', key)
-      .single();
-    return !!data;
+    const key = encodeURIComponent(url).replace(/\./g, '%2E');
+    const doc = await db.collection('users').doc(uid).collection('favorites').doc(key).get();
+    return doc.exists;
   } catch { return false; }
 }
 
 async function getFavorites() {
-  const uid = await getUID(); if (!uid) return [];
+  const uid = getUID(); if (!uid) return [];
   try {
-    const { data } = await _supabase
-      .from('favorites')
-      .select('*')
-      .eq('user_id', uid)
-      .order('timestamp', { ascending: false });
-    return data || [];
+    const snap = await db.collection('users').doc(uid).collection('favorites')
+      .orderBy('timestamp', 'desc').get();
+    return snap.docs.map(d => d.data());
   } catch { return []; }
 }
 
@@ -196,9 +183,10 @@ function switchTab(tabName) {
   } else if (tabName === 'profile') {
     show('profile-view');
     document.getElementById('tab-profile')?.classList.add('active');
-    getCurrentUser().then(user => {
+    if (typeof firebase !== 'undefined') {
+      const user = firebase.auth().currentUser;
       if (user && typeof loadUserProfile === 'function') loadUserProfile(user);
-    });
+    }
   }
 }
 
@@ -791,6 +779,6 @@ document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') handleSearch();
 });
 
-_supabase.auth.onAuthStateChange((event, session) => {
-  if (!session?.user) window.location.href = 'login.html';
+firebase.auth().onAuthStateChanged((user) => {
+  if (!user) window.location.href = 'login.html';
 });
