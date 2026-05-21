@@ -183,9 +183,18 @@ function switchTab(tabName) {
   } else if (tabName === 'profile') {
     show('profile-view');
     document.getElementById('tab-profile')?.classList.add('active');
-    if (typeof firebase !== 'undefined') {
-      const user = firebase.auth().currentUser;
-      if (user && typeof loadUserProfile === 'function') loadUserProfile(user);
+    // Tunggu auth state ready, bukan langsung cek currentUser (bisa null saat init)
+    if (typeof auth !== 'undefined' && typeof loadUserProfile === 'function') {
+      const user = auth.currentUser;
+      if (user) {
+        loadUserProfile(user);
+      } else {
+        // Kalau belum siap, tunggu sekali lewat onAuthStateChanged
+        const unsub = auth.onAuthStateChanged((u) => {
+          unsub();
+          if (u) loadUserProfile(u);
+        });
+      }
     }
   }
 }
