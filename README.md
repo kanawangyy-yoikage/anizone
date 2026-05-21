@@ -1,19 +1,17 @@
-````md
 <div align="center">
 
 # 🎌 AniZone 2026
 
-### The Indonesian Anime Streaming Platform That Refuses To Die
+### Modern Anime Streaming Platform Indonesia
 
-Anime streaming platform powered by Samehadaku scraper + MyAnimeList API.  
-Built for wibu society that somehow survives on instant noodles, unfinished side projects, and seasonal anime depression.
+> Fast. Clean. Responsive. Installable.  
+> Dibuat untuk para wibu yang hidupnya setengah anime, setengah bug fixing.
 
-Fast. Responsive. Installable. Clean.  
-No bloated framework nonsense. Just pure anime energy and sleep deprivation.
+<br>
 
 <img src="public/pp.png" width="180"/>
 
-<br>
+<br><br>
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Node](https://img.shields.io/badge/node.js-18+-green)
@@ -21,134 +19,145 @@ No bloated framework nonsense. Just pure anime energy and sleep deprivation.
 ![License](https://img.shields.io/badge/license-MIT-purple)
 ![Status](https://img.shields.io/badge/status-active-success)
 
+<br>
+
+Anime streaming platform powered by **Samehadaku Scraper** + **MyAnimeList API**.  
+Built with pure chaos, caffeine, insomnia, and questionable life choices.
+
 </div>
 
 ---
 
-# 🧠 What Even Is AniZone?
+# 🧠 What is AniZone?
 
-AniZone is a modern anime streaming platform focused on Indonesian anime communities.
+AniZone adalah platform streaming anime modern berbasis web yang fokus ke performa, tampilan clean, dan pengalaman pengguna yang gak bikin pengen banting monitor.
 
-Instead of making another generic streaming clone with 97 ads and a video player held together using duct tape and human suffering, this project tries to be:
+Project ini dibuat karena kebanyakan website anime sekarang:
+- penuh iklan judi
+- player lemot
+- UI kek hasil copy paste 2017
+- scroll dikit disuruh close popup 18 kali
 
-- fast
-- lightweight
-- responsive
-- actually usable
-- installable as PWA
-- deployable without sacrificing your soul
+Peradaban manusia gagal total.
 
-AniZone uses:
+Jadi lahirlah AniZone.
 
-- Samehadaku scraper for anime content
-- MyAnimeList API for metadata
-- Firebase for authentication/database
-- Vanilla JS because frameworks reproduce faster than rabbits
-
-This project exists because modern web development somehow turned "show anime list" into a 14GB dependency nightmare.
-
-Humanity truly peaked at `index.html`.
+Menggunakan:
+- 🔥 Samehadaku Scraper
+- 📖 MyAnimeList API
+- ⚡ Vanilla JS
+- ☁️ Firebase
+- 🐘 PHP optional backend
+- 🧠 sedikit kewarasan developer yang tersisa
 
 ---
 
 # ✨ Features
 
 ## 🎥 Anime Streaming
-Watch anime subtitle Indonesia directly from scraped sources.
+Streaming anime subtitle Indonesia dengan source otomatis.
 
-No, AniZone does NOT host the videos itself. Calm down, copyright demons.
+Tidak host video sendiri.  
+Tenang aja, pengacara copyright gak usah lari sprint dulu.
 
 ---
 
-## 🔍 Smart Anime Search
-Search anime titles quickly with responsive results.
-
-Because scrolling endlessly through anime lists like a caveman is inefficient.
+## 🔍 Fast Anime Search
+Cari anime dengan cepat tanpa loading 3 generasi.
 
 ---
 
 ## 📈 Trending Anime
-Real-time trending anime powered by MyAnimeList.
+Realtime trending anime dari MyAnimeList.
 
-So you can pretend your taste is unique while watching the exact same anime as everyone else.
+Biar bisa ikut nonton anime mainstream sambil pura-pura bilang:
+> "gw beda dari yang lain"
 
 ---
 
-## 📅 Seasonal Schedule
-Track currently airing anime schedules.
+## 📅 Anime Schedule
+Jadwal anime seasonal realtime.
 
-Finally, a system to organize weekly emotional damage.
+Karena manusia modern perlu sistem untuk mengatur jadwal nangis mingguan.
 
 ---
 
 ## 📰 Anime News
-Integrated anime news updates.
+Update berita anime terbaru.
 
-Useful for finding out which studio exploded this week.
+Termasuk:
+- studio collapse
+- author hiatus
+- adaptasi random
+- fandom ngamuk massal
 
 ---
 
 ## 📖 MAL Synopsis Integration
-Automatically fetch anime synopsis and metadata from MyAnimeList API.
+Auto fetch synopsis dan metadata dari MyAnimeList API.
 
-Because manually writing 500 anime descriptions would be psychological warfare.
+Karena nulis deskripsi ribuan anime manual itu termasuk tindakan kriminal terhadap mental developer.
 
 ---
 
 ## 👤 Authentication System
-Firebase Auth integration.
+Firebase authentication support.
 
-Supports user login system without writing ancient forbidden authentication code from 2009.
+Login system modern tanpa harus bikin session PHP horor tahun 2009.
 
 ---
 
 ## 🛠️ Admin Dashboard
-Manage content, system settings, and platform controls.
+Panel admin buat manage sistem dan konten.
 
-Yes. You get a fancy admin panel.  
-Every developer eventually wants a dashboard.  
-It's basically a law of nature.
+Karena semua developer pasti punya mimpi bikin dashboard.  
+Entah dipakai atau gak.
 
 ---
 
 ## 📱 Progressive Web App (PWA)
-Install AniZone like a native app.
+Bisa diinstall kayak aplikasi native.
 
-Modern browsers really saw websites and said:
-> "what if app but website"
+Browser modern benar-benar bilang:
+> "gimana kalau website pura-pura jadi app"
 
-And somehow it worked.
+Dan entah kenapa berhasil.
 
 ---
 
-## ⚡ Clean URL Support
-Cleaner routes and better navigation.
+## ⚡ Clean URLs
+URL bersih dan enak dilihat.
 
-No disgusting `page.php?id=7272727&watch=true&type=anime_final_v2_real`.
+Bukan:
+```url
+watch.php?id=7272&type=anime_final_fix_real_v2
+```
 
-Civilization advances slowly.
+Itu bukan URL.  
+Itu teriakan minta tolong.
 
 ---
 
 ## ☁️ Deploy Ready
-Supports:
+Support:
 - Vercel
 - Railway
-- Docker
-- Shared hosting
 - VPS
-- probably your uncle's dusty old server too
+- Docker
+- Shared Hosting
+- server tua peninggalan leluhur juga mungkin bisa
 
 ---
 
 ## 🐘 Optional PHP Backend
-Yes, PHP exists here too.
+Iya. Ada PHP juga.
 
-Before frontend elitists start crying:
-PHP is still everywhere.  
-It survives like a cockroach after nuclear war.
+Sebelum frontend elitist ngamuk:
+PHP masih hidup.  
+Masih dipakai.  
+Masih menghasilkan duit.
 
-And honestly? Respect.
+Sakit? Memang.
 
 ---
 
@@ -177,7 +186,7 @@ And honestly? Respect.
 | Anime Source | Samehadaku Scraper |
 | Anime Metadata | MyAnimeList API v2 |
 | Deployment | Vercel / Railway |
-| Developer Mental State | Unstable |
+| Developer Mental State | Critical |
 
 ---
 
@@ -187,7 +196,7 @@ And honestly? Respect.
 anizone/
 ├── api/
 ├── docker/
-├── php/                        # Optional PHP backend
+├── php/
 │   ├── api/
 │   ├── config/
 │   ├── functions/
@@ -206,10 +215,10 @@ anizone/
 ├── package.json
 ├── railway.toml
 └── README.md
-````
+```
 
-Beautiful structure.
-Unlike most repositories where everything is thrown into `/src/final_final_fix_real_v2`.
+Rapih.  
+Tidak seperti folder download manusia normal.
 
 ---
 
@@ -222,8 +231,8 @@ git clone https://github.com/kanawangyy-yoikage/anizone.git
 cd anizone
 ```
 
-Congratulations.
-You are now legally responsible for another unfinished project.
+Selamat.  
+Sekarang punya tanggung jawab terhadap project baru yang kemungkinan bakal diupdate jam 2 pagi.
 
 ---
 
@@ -233,8 +242,7 @@ You are now legally responsible for another unfinished project.
 npm install
 ```
 
-Go make coffee.
-Node modules are about to download the entire observable universe.
+Silakan tunggu Node.js mendownload separuh isi galaksi.
 
 ---
 
@@ -246,44 +254,43 @@ Create `.env`
 MAL_CLIENT_ID=your_myanimelist_client_id
 ```
 
-Get your API key here:
+Get API key from:
 
-[https://myanimelist.net/apiconfig](https://myanimelist.net/apiconfig)
+```url
+https://myanimelist.net/apiconfig
+```
 
-Because APIs apparently need keys now.
-Humanity invented digital bureaucracy.
+Karena semua hal sekarang perlu API key.  
+Termasuk mungkin buat buka pintu rumah nanti.
 
 ---
 
-# 🚀 Run Local Development
+# 🚀 Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open:
+Open browser:
 
-```bash
+```url
 http://localhost:3000
 ```
 
-If it works first try:
-
-* you're lucky
-* your ancestors are protecting you
-* or the code accidentally behaved for once
+Kalau langsung jalan tanpa error:
+- hoki
+- leluhur melindungi
+- atau codingannya lagi baik hati
 
 ---
 
 # 🐘 PHP Module
 
-AniZone includes optional PHP modules for:
-
-* lightweight hosting
-* shared hosting compatibility
-* alternative API handling
-* legacy server support
-* ancient hosting environments maintained by mysterious forces
+AniZone juga punya optional PHP backend buat:
+- shared hosting
+- lightweight deployment
+- alternative API system
+- compatibility server kentang
 
 ## Run PHP Server
 
@@ -294,12 +301,12 @@ php -S localhost:8000
 
 Open:
 
-```bash
+```url
 http://localhost:8000
 ```
 
-Simple.
-No 400-step Kubernetes ritual required.
+Simple.  
+Tidak perlu ritual Kubernetes dan pengorbanan tumbal DevOps.
 
 ---
 
@@ -317,19 +324,20 @@ npm install -g vercel
 vercel --prod
 ```
 
-Or connect repository directly:
+Atau connect repository langsung ke:
 
-[https://vercel.com/new](https://vercel.com/new)
+```url
+https://vercel.com/new
+```
 
-Modern deployment truly became:
-
-> "push button and pray"
+Deployment modern pada dasarnya cuma:
+> "klik tombol lalu berdoa"
 
 ---
 
 # 🐳 Docker Support
 
-Because developers love containers almost as much as they love arguing online.
+Karena developer modern suka masukin semua hal ke container.
 
 ## Build Docker Image
 
@@ -343,102 +351,99 @@ docker build -t anizone .
 docker run -p 3000:3000 anizone
 ```
 
-Boom. Anime in a box.
+Anime dalam kotak.  
+Teknologi manusia makin aneh tiap tahun.
 
 ---
 
 # 📡 API Endpoints
 
-| Endpoint           | Description    |
-| ------------------ | -------------- |
-| `/api/latest`      | Latest anime   |
-| `/api/search?q=`   | Search anime   |
-| `/api/detail?url=` | Anime details  |
-| `/api/watch?url=`  | Stream source  |
-| `/api/trending`    | MAL trending   |
-| `/api/schedule`    | Anime schedule |
-| `/api/news`        | Anime news     |
-| `/api/health`      | Health check   |
+| Endpoint | Description |
+|---|---|
+| `/api/latest` | Latest anime |
+| `/api/search?q=` | Search anime |
+| `/api/detail?url=` | Anime details |
+| `/api/watch?url=` | Stream source |
+| `/api/trending` | MAL trending |
+| `/api/schedule` | Anime schedule |
+| `/api/news` | Anime news |
+| `/api/health` | Health check |
 
-Clean APIs.
-No cursed XML responses from prehistoric civilizations.
+API bersih.  
+Tidak ada XML kutukan dari zaman batu.
 
 ---
 
 # 🔥 Roadmap
 
-* [ ] Multi server streaming
-* [ ] Anime watchlist
-* [ ] Continue watching
-* [ ] Better dark mode
-* [ ] Mobile app version
-* [ ] Discord RPC integration
-* [ ] Recommendation AI
-* [ ] Offline anime caching
-* [ ] User profile customization
-* [ ] Reduce developer suffering by 2%
+- [ ] Multi server streaming
+- [ ] Anime watchlist
+- [ ] Continue watching
+- [ ] Better dark mode
+- [ ] Mobile app version
+- [ ] Discord RPC integration
+- [ ] Recommendation AI
+- [ ] Offline caching
+- [ ] User profile customization
+- [ ] Mengurangi penderitaan developer sebesar 1%
 
 ---
 
 # 🛡️ Disclaimer
 
-AniZone does NOT host any video files.
+AniZone tidak meng-host video apapun.
 
-All content comes from third-party providers.
+Semua konten berasal dari pihak ketiga.
 
-This project exists for educational and experimental purposes.
+Project ini dibuat untuk tujuan edukasi dan eksperimen.
 
-Please support official anime releases whenever possible.
-Anime studios deserve better than surviving on instant ramen while producing peak fiction.
+Support anime official kalau mampu.  
+Studio anime sudah cukup menderita.
 
 ---
 
 # 👑 Author
 
 Made with:
-
-* caffeine
-* insomnia
-* poor life decisions
-* anime openings at 3AM
+- caffeine
+- insomnia
+- seasonal anime addiction
+- keyboard abuse
 
 ## Caliph / YoiKage
 
 GitHub:
-[https://github.com/kanawangyy-yoikage](https://github.com/kanawangyy-yoikage)
+```url
+https://github.com/kanawangyy-yoikage
+```
 
 ---
 
 # ⭐ Support
 
-If this project helped you:
+Kalau project ini membantu:
 
-* ⭐ Star this repository
-* 🍴 Fork this repository
-* 📢 Share to fellow wibu degenerates
-* ☕ Stay hydrated while debugging
-* 💤 Sleep occasionally
+- ⭐ Star repository ini
+- 🍴 Fork repository ini
+- 📢 Share ke sesama wibu
+- ☕ Minum air putih
+- 💤 Tidur sesekali
 
-Seriously.
-Some of you deploy production apps at 4AM while hallucinating from lack of sleep.
+Serius.  
+Sebagian developer ngoding production jam 4 pagi sambil halusinasi.
 
 ---
 
 # 📜 License
 
-This project is licensed under the MIT License.
+Licensed under MIT License.
 
-Meaning:
+Artinya:
+- bebas dipakai
+- bebas dimodif
+- bebas didistribusi
+- bebas dibikin makin cursed
 
-* you can use it
-* modify it
-* distribute it
-* break it
-* somehow turn it into crypto garbage if you really insist
+Asal license aslinya tetap dicantumkan.
 
-Just include the original license and copyright.
-
-Humanity invented open source so developers could suffer together efficiently.
-
-```
-```
+Open source adalah cara manusia berbagi penderitaan secara efisien.
