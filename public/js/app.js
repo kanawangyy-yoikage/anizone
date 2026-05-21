@@ -782,3 +782,140 @@ document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
 firebase.auth().onAuthStateChanged((user) => {
   if (!user) window.location.href = 'login.html';
 });
+
+// ─── NOTIFIKASI EPISODE BARU ─────────────────────────────
+
+let currentSubscriptions = [];
+
+async function toggleSubscribe(url, title) {
+  const uid = getUID();
+  if (!uid) {
+    alert("Silakan login terlebih dahulu");
+    return;
+  }
+
+  const isSubscribed = currentSubscriptions.includes(url);
+  
+  try {
+    const userRef = db.collection('users').doc(uid);
+    
+    if (isSubscribed) {
+      await userRef.update({
+        subscriptions: firebase.firestore.FieldValue.arrayRemove(url)
+      });
+      currentSubscriptions = currentSubscriptions.filter(u => u !== url);
+      alert(`Notifikasi untuk "${title}" dimatikan`);
+    } else {
+      await userRef.update({
+        subscriptions: firebase.firestore.FieldValue.arrayUnion(url)
+      });
+      currentSubscriptions.push(url);
+      alert(`✅ Notifikasi episode baru untuk "${title}" telah diaktifkan!`);
+    }
+    
+    updateNotifButtonState(url);
+  } catch (e) {
+    console.error(e);
+    alert("Gagal mengubah notifikasi");
+  }
+}
+
+function updateNotifButtonState(url) {
+  const btn = document.getElementById('subscribeBtn');
+  if (btn) {
+    const isSub = currentSubscriptions.includes(url);
+    btn.textContent = isSub ? '🛎️ Notifikasi Aktif' : '🛎️ Aktifkan Notifikasi';
+    btn.classList.toggle('active', isSub);
+  }
+}
+
+// Cek episode baru dari anime yang di-subscribe
+async function checkNewEpisodes() {
+  const uid = getUID();
+  if (!uid) return;
+
+  try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    const subs = userDoc.data()?.subscriptions || [];
+    currentSubscriptions = subs;
+
+    if (subs.length === 0) return;
+
+    let hasNew = false;
+
+    for (const url of subs) {
+      try {
+        const res = await fetch(`/api/detail?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        
+        if (data.episodes && data.episodes.length > 0) {
+          // Cek apakah episode terbaru lebih baru dari yang terakhir dilihat
+          const latestEp = data.episodes[0];
+          const historyRef = db.collection('users').doc(uid).collection('history').doc(encodeURIComponent(url).replace(/\./g,'%2E'));
+          const hist = await historyRef.get();
+
+          if (!hist.exists || hist.data().lastEpisode !== latestEp.title) {
+            hasNew = true;
+            showInAppNotification(data.title, latestEp.title, url);
+            
+            // Update history
+            await historyRef.set({
+              ...data,
+              lastEpisode: latestEp.title,
+              timestamp: Date.now()
+            }, { merge: true });
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (hasNew) updateNotifBadge();
+  } catch (e) {
+    console.error('Check new episodes error:', e);
+  }
+}
+
+function showInAppNotification(title, episode, url) {
+  const notif = document.createElement('div');
+  notif.className = 'in-app-notif';
+  notif.innerHTML = `
+    <div onclick="loadDetail('${url}');this.remove()">
+      <strong>Episode Baru!</strong><br>
+      ${title} - ${episode}
+    </div>
+  `;
+  document.body.appendChild(notif);
+
+  setTimeout(() => notif.remove(), 8000);
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notifCount');
+  if (badge) badge.textContent = '•';
+}
+
+// Load di halaman detail
+async function loadDetail(url) {
+  // ... kode lama kamu ...
+  
+  // Tambahkan tombol subscribe
+  setTimeout(() => {
+    const actionsDiv = document.querySelector('.detail-actions');
+    if (actionsDiv) {
+      const subBtn = document.createElement('button');
+      subBtn.id = 'subscribeBtn';
+      subBtn.className = 'btn-action';
+      subBtn.innerHTML = `🛎️ Aktifkan Notifikasi`;
+      subBtn.onclick = () => toggleSubscribe(url, document.querySelector('.detail-title').textContent);
+      actionsDiv.appendChild(subBtn);
+
+      updateNotifButtonState(url);
+    }
+  }, 800);
+}
+
+// Panggil saat app load
+document.addEventListener('DOMContentLoaded', () => {
+  // ... kode lama ...
+  setTimeout(checkNewEpisodes, 1500); // cek saat buka app
+});
