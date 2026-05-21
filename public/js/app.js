@@ -183,19 +183,9 @@ function switchTab(tabName) {
   } else if (tabName === 'profile') {
     show('profile-view');
     document.getElementById('tab-profile')?.classList.add('active');
-    // Tunggu auth state ready, bukan langsung cek currentUser (bisa null saat init)
-    if (typeof auth !== 'undefined' && typeof loadUserProfile === 'function') {
-      const user = auth.currentUser;
-      if (user) {
-        loadUserProfile(user);
-      } else {
-        // Kalau belum siap, tunggu sekali lewat onAuthStateChanged
-        const unsub = auth.onAuthStateChanged((u) => {
-          unsub();
-          if (u) loadUserProfile(u);
-        });
-      }
-    }
+    // Profile data sudah di-load oleh onAuthStateChanged di auth.js saat halaman pertama dibuka.
+    // Tidak perlu loadUserProfile ulang — itu justru menyebabkan data overwrite dengan
+    // hasil Firestore yang bisa gagal (return {}) sehingga role jadi 'user' dan foto hilang.
   }
 }
 

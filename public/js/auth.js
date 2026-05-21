@@ -60,7 +60,14 @@ function setAvatarUI(photoURL, name) {
     const init = document.getElementById(initId);
     if (!img || !init) return;
     if (photoURL) {
-      img.src = photoURL; img.style.display = 'block'; init.style.display = 'none';
+      img.onerror = () => {
+        img.style.display = 'none';
+        init.style.display = '';
+        init.textContent = initial;
+      };
+      img.src = photoURL;
+      img.style.display = 'block';
+      init.style.display = 'none';
     } else {
       img.style.display = 'none'; init.style.display = ''; init.textContent = initial;
     }
