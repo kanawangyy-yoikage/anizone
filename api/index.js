@@ -2,7 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -22,136 +21,101 @@ const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 // ─── SCRAPERS ─────────────────────────────────────────────
 
 async function animeterbaru(page = 1) {
-  try {
-    const res = await axios.get(`${PROXY}${BASE}/anime-terbaru/page/${page}/`, { headers });
-    const $ = cheerio.load(res.data);
-    const data = [];
-    $('.post-show ul li').each((_, e) => {
-      const a = $(e).find('.dtla h2 a');
-      data.push({
-        title: a.text().trim(),
-        url: a.attr('href'),
-        image: $(e).find('.thumb img').attr('src'),
-        episode: $(e).find('.dtla span:contains("Episode")').text().replace('Episode', '').trim(),
-      });
+  const res = await axios.get(`${PROXY}${BASE}/anime-terbaru/page/${page}/`, { headers });
+  const $ = cheerio.load(res.data);
+  const data = [];
+  $('.post-show ul li').each((_, e) => {
+    const a = $(e).find('.dtla h2 a');
+    data.push({
+      title: a.text().trim(),
+      url: a.attr('href'),
+      image: $(e).find('.thumb img').attr('src'),
+      episode: $(e).find('.dtla span:contains("Episode")').text().replace('Episode', '').trim(),
     });
-    return data;
-  } catch (e) {
-    console.error('Error animeterbaru:', e.message);
-    return [];
-  }
+  });
+  return data;
 }
 
 async function search(query) {
-  try {
-    const res = await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(query)}`, { headers });
-    const $ = cheerio.load(res.data);
-    const data = [];
-    $('.animpost').each((_, e) => {
-      data.push({
-        title: $(e).find('.data .title h2').text().trim(),
-        image: $(e).find('.content-thumb img').attr('src'),
-        type: $(e).find('.type').text().trim(),
-        score: $(e).find('.score').text().trim(),
-        url: $(e).find('a').attr('href')
-      });
+  const res = await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(query)}`, { headers });
+  const $ = cheerio.load(res.data);
+  const data = [];
+  $('.animpost').each((_, e) => {
+    data.push({
+      title: $(e).find('.data .title h2').text().trim(),
+      image: $(e).find('.content-thumb img').attr('src'),
+      type: $(e).find('.type').text().trim(),
+      score: $(e).find('.score').text().trim(),
+      url: $(e).find('a').attr('href')
     });
-    return data;
-  } catch (e) {
-    console.error('Error search:', e.message);
-    return [];
-  }
+  });
+  return data;
 }
 
 async function detail(link) {
-  try {
-    const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-    const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
-    const $ = cheerio.load(res.data);
+  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
+  const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
+  const $ = cheerio.load(res.data);
 
-    const episodes = [];
-    $('.lstepsiode ul li').each((_, e) => {
-      episodes.push({
-        title: $(e).find('.epsleft .lchx a').text().trim(),
-        url: $(e).find('.epsleft .lchx a').attr('href'),
-        date: $(e).find('.epsleft .date').text().trim()
-      });
+  const episodes = [];
+  $('.lstepsiode ul li').each((_, e) => {
+    episodes.push({
+      title: $(e).find('.epsleft .lchx a').text().trim(),
+      url: $(e).find('.epsleft .lchx a').attr('href'),
+      date: $(e).find('.epsleft .date').text().trim()
     });
+  });
 
-    const info = {};
-    $('.anim-senct .right-senc .spe span').each((_, e) => {
-      const t = $(e).text();
-      if (t.includes(':')) {
-        const [k, v] = t.split(':');
-        info[k.trim().toLowerCase().replace(/\s+/g, '_')] = v.trim();
-      }
-    });
-
-    const title = $('title').text().replace(' - Samehadaku', '').trim();
-    let description = $('.entry-content').text().trim() || $('meta[name="description"]').attr('content') || '';
-
-    if (MAL_CLIENT_ID) {
-      try {
-        const malDesc = await getMalDescription(title);
-        if (malDesc) description = malDesc;
-      } catch (e) {}
+  const info = {};
+  $('.anim-senct .right-senc .spe span').each((_, e) => {
+    const t = $(e).text();
+    if (t.includes(':')) {
+      const [k, v] = t.split(':');
+      info[k.trim().toLowerCase().replace(/\s+/g, '_')] = v.trim();
     }
+  });
 
-    return { 
-      title, 
-      image: $('meta[property="og:image"]').attr('content'), 
-      description, 
-      episodes, 
-      info 
-    };
-  } catch (e) {
-    console.error('Error detail:', e.message);
-    return { title: 'Error loading detail', description: 'Gagal memuat data', episodes: [], info: {} };
+  const title = $('title').text().replace(' - Samehadaku', '').trim();
+  let description = $('.entry-content').text().trim() || $('meta[name="description"]').attr('content') || '';
+
+  // Fetch MAL description if available
+  if (MAL_CLIENT_ID) {
+    try {
+      const malDesc = await getMalDescription(title);
+      if (malDesc) description = malDesc;
+    } catch (e) {}
   }
+
+  return { title, image: $('meta[property="og:image"]').attr('content'), description, episodes, info };
 }
 
 async function download(link) {
-  try {
-    const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-    const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
-    const cookies = res.headers['set-cookie']?.map(v => v.split(';')[0]).join('; ') || '';
-    const $ = cheerio.load(res.data);
-    const data = [];
+  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
+  const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
+  const cookies = res.headers['set-cookie']?.map(v => v.split(';')[0]).join('; ') || '';
+  const $ = cheerio.load(res.data);
+  const data = [];
 
-    for (const li of $('div#server > ul > li').toArray()) {
-      const div = $(li).find('div');
-      const post = div.attr('data-post');
-      const nume = div.attr('data-nume');
-      const type = div.attr('data-type');
-      const name = $(li).find('span').text().trim();
-      if (!post) continue;
+  for (const li of $('div#server > ul > li').toArray()) {
+    const div = $(li).find('div');
+    const post = div.attr('data-post');
+    const nume = div.attr('data-nume');
+    const type = div.attr('data-type');
+    const name = $(li).find('span').text().trim();
+    if (!post) continue;
 
-      const body = new URLSearchParams({ action: 'player_ajax', post, nume, type }).toString();
-      try {
-        const r = await axios.post(`${PROXY}${BASE}/wp-admin/admin-ajax.php`, body, {
-          headers: { 
-            ...headers, 
-            'Content-Type': 'application/x-www-form-urlencoded', 
-            'Cookie': cookies, 
-            'Referer': targetUrl 
-          }
-        });
-        const $$ = cheerio.load(r.data);
-        const iframe = $$('iframe').attr('src');
-        if (iframe) data.push({ server: name, url: iframe });
-      } catch (e) {
-        console.log('Error fetching server:', name);
-      }
-    }
-
-    return { 
-      title: $('h1[itemprop="name"]').text().trim() || 'Unknown', 
-      streams: data 
-    };
-  } catch (e) {
-    console.error('Error download:', e.message);
-    return { title: 'Error', streams: [] };
+    const body = new URLSearchParams({ action: 'player_ajax', post, nume, type }).toString();
+    try {
+      const r = await axios.post(`${PROXY}${BASE}/wp-admin/admin-ajax.php`, body, {
+        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': cookies, 'Referer': targetUrl }
+      });
+      const $$ = cheerio.load(r.data);
+      const iframe = $$('iframe').attr('src');
+      if (iframe) data.push({ server: name, url: iframe });
+    } catch (e) { console.log('Error fetching server:', name); }
   }
+
+  return { title: $('h1[itemprop="name"]').text().trim(), streams: data };
 }
 
 // ─── MAL INTEGRATION ──────────────────────────────────────
@@ -161,12 +125,12 @@ async function getMalDescription(title) {
   try {
     const res = await axios.get(`${MAL_API}/anime`, {
       headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
-      params: { q: title, limit: 1, fields: 'synopsis' }
+      params: { q: title, limit: 1, fields: 'synopsis,mean,genres,status,num_episodes,start_season' }
     });
-    return res.data?.data?.[0]?.node?.synopsis || null;
-  } catch (e) {
-    return null;
-  }
+    const anime = res.data?.data?.[0]?.node;
+    if (anime?.synopsis) return anime.synopsis;
+  } catch (e) {}
+  return null;
 }
 
 async function getMalAnime(title) {
@@ -174,17 +138,17 @@ async function getMalAnime(title) {
   try {
     const res = await axios.get(`${MAL_API}/anime`, {
       headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
-      params: { q: title, limit: 1, fields: 'synopsis,mean,genres,status,num_episodes,start_season,main_picture' }
+      params: { q: title, limit: 1, fields: 'synopsis,mean,genres,status,num_episodes,start_season,main_picture,rank,popularity' }
     });
     return res.data?.data?.[0]?.node || null;
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
-// ─── MAL SCHEDULE ────────────────────────────────────────
+// ─── MAL SCHEDULE (Seasonal) ──────────────────────────────
+
 async function getMalSchedule() {
   if (!MAL_CLIENT_ID) {
+    // Fallback: scrape from samehadaku schedule
     return getScrapedSchedule();
   }
   try {
@@ -214,7 +178,6 @@ async function getMalSchedule() {
       season: `${season} ${year}`
     })) || [];
   } catch (e) {
-    console.error('MAL Schedule Error:', e.message);
     return getScrapedSchedule();
   }
 }
@@ -223,29 +186,36 @@ async function getScrapedSchedule() {
   try {
     const res = await axios.get(`${PROXY}${BASE}/jadwal-rilis/`, { headers });
     const $ = cheerio.load(res.data);
+    const schedule = {};
+    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+    $('h2.entry-title, .jadwal-table').each((_, el) => {
+      const tag = $(el).prop('tagName').toLowerCase();
+      if (tag === 'h2') {
+        // day header
+      }
+    });
+
+    // alternative scrape
     const items = [];
-    $('table tr, .schedule-item, .post-show ul li, .animpost').each((_, e) => {
+    $('table tr, .schedule-item, .post-show ul li').each((_, e) => {
       const title = $(e).find('a').first().text().trim();
       const url = $(e).find('a').first().attr('href');
       const img = $(e).find('img').attr('src');
-      if (title && url) {
-        items.push({ title, url, image: img || '' });
-      }
+      if (title && url) items.push({ title, url, image: img });
     });
     return items.slice(0, 40);
-  } catch (e) {
-    console.error('Scraped Schedule Error:', e.message);
-    return [];
-  }
+  } catch (e) { return []; }
 }
 
 // ─── MAL TRENDING ─────────────────────────────────────────
+
 async function getMalTrending() {
   if (!MAL_CLIENT_ID) return getScrapedTrending();
   try {
     const res = await axios.get(`${MAL_API}/anime/ranking`, {
       headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
-      params: { ranking_type: 'airing', limit: 20, fields: 'mean,genres,num_episodes,status,main_picture' }
+      params: { ranking_type: 'airing', limit: 20, fields: 'mean,genres,num_episodes,status,main_picture,rank' }
     });
     return res.data?.data?.map(d => ({
       rank: d.ranking?.rank,
@@ -254,10 +224,9 @@ async function getMalTrending() {
       score: d.node.mean || 'N/A',
       episodes: d.node.num_episodes || '?',
       genres: d.node.genres?.map(g => g.name).slice(0, 2) || [],
+      malId: d.node.id
     })) || [];
-  } catch (e) {
-    return getScrapedTrending();
-  }
+  } catch (e) { return getScrapedTrending(); }
 }
 
 async function getScrapedTrending() {
@@ -266,28 +235,24 @@ async function getScrapedTrending() {
     let results = [];
     for (const q of queries) {
       try {
-        const res = await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(q)}`, { headers });
-        const $ = cheerio.load(res.data);
-        $('.animpost').each((_, e) => {
-          results.push({
-            title: $(e).find('.data .title h2').text().trim(),
-            image: $(e).find('.content-thumb img').attr('src'),
-            url: $(e).find('a').attr('href'),
-            score: $(e).find('.score').text().trim()
-          });
-        });
+        const r = await fetch ? [] : (await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(q)}`, { headers })).data;
+        if (r && r.length) results = [...results, ...r];
       } catch (e) {}
     }
     return results.slice(0, 20);
-  } catch (e) {
-    console.error('Scraped trending error:', e.message);
-    return [];
-  }
+  } catch (e) { return []; }
 }
 
 // ─── ANIME NEWS ────────────────────────────────────────────
+
 async function getAnimeNews() {
   try {
+    // Scrape from anime news sources
+    const sources = [
+      { url: 'https://myanimelist.net/news', title_sel: '.news-unit .title a', img_sel: '.news-unit img', desc_sel: '.news-unit .text' },
+    ];
+
+    // Try scraping animenewsnetwork or similar
     const res = await axios.get(`${PROXY}https://animenewsnetwork.com/newsroom/`, { headers });
     const $ = cheerio.load(res.data);
     const news = [];
@@ -313,7 +278,7 @@ async function getAnimeNews() {
 
     if (news.length > 0) return news.slice(0, 12);
 
-    // Fallback
+    // Fallback: generate curated news from latest anime
     const latest = await animeterbaru(1);
     return latest.slice(0, 8).map(a => ({
       title: `Update: ${a.title} Episode ${a.episode} Tersedia`,
@@ -323,17 +288,15 @@ async function getAnimeNews() {
       date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
     }));
   } catch (e) {
-    return [{
-      title: 'AniZone 2026 - Fitur Baru Telah Hadir!',
-      url: '#',
-      image: '',
-      description: 'Nikmati fitur jadwal rilis, berita terbaru, dan anime trending.',
-      date: new Date().toLocaleDateString('id-ID')
-    }];
+    // Fallback news
+    return [
+      { title: 'AniZone 2026 - Fitur Baru Telah Hadir!', url: '#', image: '', description: 'Nikmati fitur jadwal rilis, berita terbaru, dan anime trending di AniZone 2026.', date: new Date().toLocaleDateString('id-ID') },
+    ];
   }
 }
 
 // ─── ROUTES ────────────────────────────────────────────────
+
 app.get('/api/latest', async (req, res) => {
   try { res.json(await animeterbaru(req.query.page || 1)); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -354,21 +317,6 @@ app.get('/api/watch', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/trending', async (req, res) => {
-  try { res.json(await getMalTrending()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/schedule', async (req, res) => {
-  try { res.json(await getMalSchedule()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/news', async (req, res) => {
-  try { res.json(await getAnimeNews()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 app.get('/api/mal/description', async (req, res) => {
   try {
     const desc = await getMalDescription(req.query.title);
@@ -381,31 +329,39 @@ app.get('/api/mal/anime', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/schedule', async (req, res) => {
+  try { res.json(await getMalSchedule()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/trending', async (req, res) => {
+  try { res.json(await getMalTrending()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/news', async (req, res) => {
+  try { res.json(await getAnimeNews()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
-// ─── STATIC FILES & ROUTES ───────────────────────────────
+// ─── STATIC FILES & ROUTE ALIASES ──────────────────────────
+const path = require('path');
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-app.get(['/login', '/masuk'], (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
-});
+// Route aliases (previously handled by vercel.json rewrites)
+app.get('/masuk',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/login',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/admin',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('/panel',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
 
-app.get(['/admin', '/panel'], (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
-});
-
-// SPA Fallback (Paling Bawah!)
-app.get('*', (req, res) => {
-  if (req.url.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint tidak ditemukan' });
-  }
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
+// SPA fallback — serve index.html for any unmatched route
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
 // ─── START SERVER ───────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 AniZone API running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API running on port ${PORT}`));
 
 module.exports = app;
