@@ -429,7 +429,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .news-date { font-size: 11px; color: var(--text-muted); font-weight: 600; }
 
 /* ── HOME TABS ── */
-.home-tab-bar { display: flex; gap: 8px; padding: 12px 16px 0; overflow-x: auto; scrollbar-width: none; }
+.home-tab-bar { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; margin-bottom: 4px; }
 .home-tab-bar::-webkit-scrollbar { display: none; }
 .home-tab {
   padding: 7px 16px; border-radius: 99px; white-space: nowrap;
