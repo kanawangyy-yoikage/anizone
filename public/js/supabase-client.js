@@ -3,7 +3,7 @@
    Ganti SUPABASE_URL dan SUPABASE_ANON_KEY dengan milikmu
    ═══════════════════════════════════════════════════════ */
 
-const SUPABASE_URL  = 'https://gveaigqkwnyqmknnhuhv.supabase.co/rest/v1/';      // ← ganti
+const SUPABASE_URL  = 'https://gveaigqkwnyqmknnhuhv.supabase.co';      // ← ganti
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZWFpZ3Frd255cW1rbm5odWh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDAyMzUsImV4cCI6MjA5NDkxNjIzNX0.imv0PKQXUiKLxM4T_PafrcH9mOLD6KgHkxYdmCz5FzE';              // ← ganti
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
