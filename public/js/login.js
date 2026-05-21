@@ -1,30 +1,21 @@
 /* ═══════════════════════════════════════════════════════
-   ANIZONE 2026 — LOGIN MODULE
+   ANIZONE 2026 — LOGIN MODULE (Supabase)
    ═══════════════════════════════════════════════════════ */
 
-const firebaseConfig = {
-  apiKey: "AIzaSyATmomNycKIQXHuwnLxkfQVUu77KkHdE4g",
-  authDomain: "anizone-b48ce.firebaseapp.com",
-  projectId: "anizone-b48ce",
-  storageBucket: "anizone-b48ce.firebasestorage.app",
-  messagingSenderId: "375436276826",
-  appId: "1:375436276826:web:49683a8e7e4587e305d463"
-};
-
-if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
-
 // ── STATE ──────────────────────────────────────────────
-let activeTab    = 'login';
-let confirmResult = null;
-let otpTimer     = null;
+let activeTab       = 'login';
+let otpTimer        = null;
 let resendCountdown = 60;
-let showingPass  = false;
+let phoneForOtp     = '';
 
 // ── AUTH REDIRECT ──────────────────────────────────────
-auth.onAuthStateChanged(user => {
+(async () => {
+  const user = await getCurrentUser();
   if (user) window.location.replace('index.html');
+})();
+
+_supabase.auth.onAuthStateChange((event, session) => {
+  if (session?.user) window.location.replace('index.html');
 });
 
 // ── TAB SWITCH ────────────────────────────────────────
@@ -67,7 +58,6 @@ function clearStatus() {
   const el = document.getElementById('status-msg');
   if (el) { el.textContent = ''; el.className = 'status-msg'; }
 }
-
 function setLoading(btnId, loading) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
@@ -86,9 +76,10 @@ async function loginWithEmail() {
 
   setLoading('loginEmailBtn', true); clearStatus();
   try {
-    await auth.signInWithEmailAndPassword(email, pass);
+    const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) setStatus(friendlyError(error));
   } catch (e) {
-    setStatus(friendlyError(e.code));
+    setStatus('Terjadi kesalahan. Coba lagi.');
   } finally {
     setLoading('loginEmailBtn', false);
   }
@@ -101,19 +92,30 @@ async function registerWithEmail() {
   const pass  = document.getElementById('regPass').value;
   const conf  = document.getElementById('regConfPass').value;
 
-  if (!name || !email || !pass)   { setStatus('Semua kolom wajib diisi.'); return; }
-  if (pass.length < 6)             { setStatus('Password minimal 6 karakter.'); return; }
-  if (pass !== conf)               { setStatus('Konfirmasi password tidak cocok.'); return; }
+  if (!name || !email || !pass)  { setStatus('Semua kolom wajib diisi.'); return; }
+  if (pass.length < 6)            { setStatus('Password minimal 6 karakter.'); return; }
+  if (pass !== conf)              { setStatus('Konfirmasi password tidak cocok.'); return; }
 
   setLoading('registerEmailBtn', true); clearStatus();
   try {
-    const cred = await auth.createUserWithEmailAndPassword(email, pass);
-    await cred.user.updateProfile({ displayName: name });
-    await db.collection('users').doc(cred.user.uid).set({
-      displayName: name, email, role: 'user', createdAt: Date.now()
+    const { data, error } = await _supabase.auth.signUp({
+      email,
+      password: pass,
+      options: { data: { display_name: name } }
     });
+    if (error) { setStatus(friendlyError(error)); return; }
+
+    if (data.user) {
+      await upsertUserProfile(data.user.id, {
+        display_name: name,
+        email,
+        role: 'user',
+        created_at: new Date().toISOString()
+      });
+    }
+    setStatus('Registrasi berhasil! Cek email untuk verifikasi.', 'success');
   } catch (e) {
-    setStatus(friendlyError(e.code));
+    setStatus('Terjadi kesalahan. Coba lagi.');
   } finally {
     setLoading('registerEmailBtn', false);
   }
@@ -121,52 +123,35 @@ async function registerWithEmail() {
 
 // ── GOOGLE ────────────────────────────────────────────
 async function loginWithGoogle() {
-  const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    const res = await auth.signInWithPopup(provider);
-    await db.collection('users').doc(res.user.uid).set({
-      displayName: res.user.displayName,
-      email: res.user.email,
-      photoURL: res.user.photoURL,
-      role: 'user',
-      googleLinked: true,
-      createdAt: Date.now()
-    }, { merge: true });
+    const { error } = await _supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/index.html' }
+    });
+    if (error) setStatus(friendlyError(error));
   } catch (e) {
-    if (e.code !== 'auth/popup-closed-by-user') setStatus(friendlyError(e.code));
+    setStatus('Gagal login dengan Google.');
   }
 }
 
 // ── PHONE OTP ─────────────────────────────────────────
-let recaptchaVerifier = null;
 let otpStep = 1;
-
-function initRecaptcha() {
-  if (recaptchaVerifier) return;
-  recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-    size: 'normal',
-    callback: () => {},
-    'expired-callback': () => { recaptchaVerifier.reset(); }
-  });
-  recaptchaVerifier.render();
-}
 
 async function sendOTP() {
   const code  = document.getElementById('countryCode').value;
   const phone = document.getElementById('phoneNumber').value.trim().replace(/\D/g, '');
   if (!phone) { setStatus('Masukkan nomor HP yang valid.'); return; }
 
-  const fullPhone = '+' + code + phone;
-  initRecaptcha();
+  phoneForOtp = '+' + code + phone;
   setLoading('sendOtpBtn', true); clearStatus();
   try {
-    confirmResult = await auth.signInWithPhoneNumber(fullPhone, recaptchaVerifier);
+    const { error } = await _supabase.auth.signInWithOtp({ phone: phoneForOtp });
+    if (error) { setStatus(friendlyError(error)); return; }
     otpStep = 2;
     showOtpStep();
     startResendTimer();
   } catch (e) {
-    setStatus(friendlyError(e.code));
-    recaptchaVerifier?.reset();
+    setStatus('Gagal mengirim OTP. Coba lagi.');
   } finally {
     setLoading('sendOtpBtn', false);
   }
@@ -175,7 +160,6 @@ async function sendOTP() {
 function showOtpStep() {
   document.getElementById('phone-step-1')?.classList.add('hidden');
   document.getElementById('phone-step-2')?.classList.remove('hidden');
-  // Update step dots
   document.querySelectorAll('#panel-phone .step-dot').forEach((d, i) => {
     d.classList.toggle('active', i === 1);
     d.classList.toggle('done', i === 0);
@@ -186,19 +170,27 @@ function showOtpStep() {
 async function verifyOTP() {
   const otp = Array.from({length:6}, (_,i) => document.getElementById('otp-' + i)?.value || '').join('');
   if (otp.length < 6) { setStatus('Masukkan 6 digit kode OTP.'); return; }
-  if (!confirmResult) { setStatus('Sesi OTP kadaluarsa. Minta ulang.'); return; }
+  if (!phoneForOtp)   { setStatus('Sesi OTP kadaluarsa. Minta ulang.'); return; }
 
   setLoading('verifyOtpBtn', true); clearStatus();
   try {
-    const res = await confirmResult.confirm(otp);
-    await db.collection('users').doc(res.user.uid).set({
-      displayName: res.user.displayName || 'Pengguna AniZone',
-      phoneNumber: res.user.phoneNumber,
-      role: 'user',
-      createdAt: Date.now()
-    }, { merge: true });
+    const { data, error } = await _supabase.auth.verifyOtp({
+      phone: phoneForOtp,
+      token: otp,
+      type: 'sms'
+    });
+    if (error) { setStatus(friendlyError(error)); return; }
+
+    if (data.user) {
+      await upsertUserProfile(data.user.id, {
+        phone: phoneForOtp,
+        display_name: data.user.user_metadata?.display_name || 'Pengguna AniZone',
+        role: 'user',
+        created_at: new Date().toISOString()
+      });
+    }
   } catch (e) {
-    setStatus(friendlyError(e.code));
+    setStatus('Terjadi kesalahan. Coba lagi.');
   } finally {
     setLoading('verifyOtpBtn', false);
   }
@@ -207,7 +199,7 @@ async function verifyOTP() {
 function backToPhone() {
   document.getElementById('phone-step-1')?.classList.remove('hidden');
   document.getElementById('phone-step-2')?.classList.add('hidden');
-  document.querySelectorAll('#panel-phone .step-dot').forEach((d,i) => {
+  document.querySelectorAll('#panel-phone .step-dot').forEach((d, i) => {
     d.classList.toggle('active', i === 0);
     d.classList.remove('done');
   });
@@ -234,7 +226,8 @@ function startResendTimer() {
     if (timerEl) timerEl.textContent = resendCountdown;
     if (resendCountdown <= 0) {
       clearInterval(otpTimer);
-      if (document.getElementById('resend-timer-wrap')) document.getElementById('resend-timer-wrap').style.display = 'none';
+      const wrap = document.getElementById('resend-timer-wrap');
+      if (wrap) wrap.style.display = 'none';
       if (btnEl) btnEl.style.display = 'inline';
     }
   }, 1000);
@@ -249,12 +242,12 @@ async function resendOTP() {
 function handleOtpInput(e, index) {
   const val = e.target.value;
   e.target.classList.toggle('filled', val.length > 0);
-  if (val && index < 5) document.getElementById('otp-' + (index+1))?.focus();
-  if (e.key === 'Backspace' && !val && index > 0) document.getElementById('otp-' + (index-1))?.focus();
+  if (val && index < 5) document.getElementById('otp-' + (index + 1))?.focus();
+  if (e.key === 'Backspace' && !val && index > 0) document.getElementById('otp-' + (index - 1))?.focus();
 }
 
 function handleOtpPaste(e) {
-  const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'');
+  const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
   if (text.length >= 6) {
     e.preventDefault();
     for (let i = 0; i < 6; i++) {
@@ -270,36 +263,33 @@ async function forgotPassword() {
   const email = document.getElementById('loginEmail').value.trim();
   if (!email) { setStatus('Masukkan email terlebih dahulu.'); return; }
   try {
-    await auth.sendPasswordResetEmail(email);
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/index.html'
+    });
+    if (error) { setStatus(friendlyError(error)); return; }
     setStatus('Link reset password dikirim ke ' + email, 'success');
   } catch (e) {
-    setStatus(friendlyError(e.code));
+    setStatus('Gagal mengirim email reset.');
   }
 }
 
-// ── ENTER KEY ────────────────────────────────────────
-function handleEnterLogin(e) { if (e.key === 'Enter') loginWithEmail(); }
+// ── ENTER KEY ─────────────────────────────────────────
+function handleEnterLogin(e)    { if (e.key === 'Enter') loginWithEmail(); }
 function handleEnterRegister(e) { if (e.key === 'Enter') registerWithEmail(); }
 
 // ── ERROR MESSAGES ────────────────────────────────────
-function friendlyError(code) {
-  const map = {
-    'auth/user-not-found':       'Akun tidak ditemukan.',
-    'auth/wrong-password':       'Password salah.',
-    'auth/email-already-in-use': 'Email sudah digunakan.',
-    'auth/weak-password':        'Password terlalu lemah (min. 6 karakter).',
-    'auth/invalid-email':        'Format email tidak valid.',
-    'auth/too-many-requests':    'Terlalu banyak percobaan. Coba lagi nanti.',
-    'auth/network-request-failed':'Tidak ada koneksi internet.',
-    'auth/invalid-verification-code':'Kode OTP salah atau kadaluarsa.',
-    'auth/invalid-phone-number': 'Nomor HP tidak valid.',
-    'auth/popup-blocked':        'Popup diblokir browser. Izinkan popup untuk login Google.',
-    'auth/operation-not-allowed':'Metode login ini tidak diaktifkan.',
-    'auth/code-expired':         'Kode OTP kadaluarsa. Minta ulang.',
-    'auth/missing-phone-number': 'Masukkan nomor HP.',
-    'auth/captcha-check-failed': 'Verifikasi reCAPTCHA gagal. Coba refresh.',
-  };
-  return map[code] || 'Terjadi kesalahan. Coba lagi. (' + code + ')';
+function friendlyError(error) {
+  const msg = error?.message || '';
+  if (msg.includes('Invalid login credentials'))   return 'Email atau password salah.';
+  if (msg.includes('Email not confirmed'))          return 'Email belum diverifikasi. Cek inbox kamu.';
+  if (msg.includes('User already registered'))      return 'Email sudah digunakan.';
+  if (msg.includes('Password should be'))           return 'Password minimal 6 karakter.';
+  if (msg.includes('rate limit'))                   return 'Terlalu banyak percobaan. Coba lagi nanti.';
+  if (msg.includes('Network'))                      return 'Tidak ada koneksi internet.';
+  if (msg.includes('Token has expired'))            return 'Kode OTP kadaluarsa. Minta ulang.';
+  if (msg.includes('Invalid OTP') || msg.includes('otp')) return 'Kode OTP salah atau kadaluarsa.';
+  if (msg.includes('phone'))                        return 'Nomor HP tidak valid.';
+  return msg || 'Terjadi kesalahan. Coba lagi.';
 }
 
 // ── PARTICLES ─────────────────────────────────────────
@@ -323,7 +313,6 @@ function createParticles() {
 // ── INIT ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   createParticles();
-  // Init eye icons
   ['loginPass','regPass','regConfPass'].forEach(id => {
     const btn = document.getElementById('eye-' + id);
     if (btn) btn.innerHTML = eyeSvg();
