@@ -1,95 +1,100 @@
-<div align="center">
+# AniZone
 
-# 🎌 AniZone 2026
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kanawangyy-yoikage/anizone/main/public/icons/icon-512.png" width="120" alt="AniZone Logo">
+</p>
 
-### Modern Anime Streaming Platform Indonesia
+<p align="center">
+  Modern anime streaming & scraping web application built with Node.js, Express, Vanilla JavaScript, and Samehadaku parser.
+</p>
 
-Anime streaming platform powered by Samehadaku scraper + MyAnimeList API.  
-Fast, clean, responsive, and installable as PWA.
-
-<img src="public/pp.png" width="180"/>
-
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
-![Node](https://img.shields.io/badge/node.js-18+-green)
-![PHP](https://img.shields.io/badge/php-8+-777BB4)
-![License](https://img.shields.io/badge/license-MIT-purple)
-![Status](https://img.shields.io/badge/status-active-success)
-
-</div>
+<p align="center">
+  <img src="https://img.shields.io/github/license/kanawangyy-yoikage/anizone?color=blue">
+  <img src="https://img.shields.io/github/stars/kanawangyy-yoikage/anizone?style=social">
+  <img src="https://img.shields.io/github/repo-size/kanawangyy-yoikage/anizone">
+  <img src="https://img.shields.io/github/last-commit/kanawangyy-yoikage/anizone">
+</p>
 
 ---
 
-# ✨ Features
+## Preview
 
-- 🎥 Streaming anime subtitle Indonesia
-- 🔍 Anime search system
-- 📈 Real-time anime trending
-- 📅 Seasonal anime schedule
-- 📰 Anime news update
-- 📖 MyAnimeList synopsis integration
-- 👤 Authentication system
-- 🛠️ Admin dashboard
-- 📱 Progressive Web App (PWA)
-- ⚡ Clean URLs support
-- ☁️ Vercel deployment ready
-- 🐘 Optional PHP backend support
+<p align="center">
+  <img src="https://placehold.co/1000x500/111827/ffffff?text=AniZone+Preview" alt="AniZone Preview">
+</p>
+
+> Replace this preview image with actual screenshots later.  
+> Humans click shiny images faster than they read documentation. Tragic species.
 
 ---
 
-# 🖼️ Preview
+# Features
 
-## Home Page
-
-<img src="preview/home.png"/>
-
-## Admin Panel
-
-<img src="preview/admin.png"/>
-
----
-
-# 🧱 Tech Stack
-
-| Category | Technology |
-|---|---|
-| Frontend | HTML5, CSS3, Vanilla JS |
-| Backend | Node.js, Express, PHP |
-| Database | Firebase Firestore |
-| Authentication | Firebase Auth |
-| Anime Source | Samehadaku Scraper |
-| Anime Metadata | MyAnimeList API v2 |
-| Deployment | Vercel / Railway |
+- Modern responsive anime streaming UI
+- Anime scraping from Samehadaku
+- Search anime instantly
+- Latest anime updates
+- Trending anime section
+- Watch anime episodes
+- Anime detail pages
+- Episode list support
+- MyAnimeList metadata integration
+- Progressive Web App (PWA)
+- Mobile friendly layout
+- Admin panel
+- Dark mode aesthetic
+- Docker support
+- REST API backend
+- Fast lightweight frontend without framework bloat
 
 ---
 
-# 📂 Project Structure
+# Tech Stack
+
+## Frontend
+- HTML5
+- CSS3
+- Vanilla JavaScript
+
+## Backend
+- Node.js
+- Express.js
+- Axios
+- Cheerio
+
+## Other
+- PWA
+- Docker
+- Samehadaku Scraper
+- MyAnimeList API
+
+---
+
+# Project Structure
 
 ```bash
 anizone/
 ├── api/
-├── docker/
-├── php/                  # Optional PHP backend
-│   ├── api/
-│   ├── config/
-│   ├── functions/
-│   └── index.php
+│   └── index.js
+│
 ├── public/
 │   ├── css/
 │   ├── js/
-│   ├── index.html
-│   ├── login.html
-│   ├── admin.html
+│   ├── icons/
 │   ├── manifest.json
 │   └── sw.js
-├── Dockerfile
+│
+├── index.html
+├── login.html
+├── admin.html
 ├── package.json
-├── railway.toml
+├── Dockerfile
 └── README.md
 ```
 
 ---
 
-# ⚙️ Installation
+# Installation
 
 ## Clone Repository
 
@@ -98,91 +103,95 @@ git clone https://github.com/kanawangyy-yoikage/anizone.git
 cd anizone
 ```
 
----
-
-# 📦 Install Dependencies
+## Install Dependencies
 
 ```bash
 npm install
 ```
 
----
-
-# 🔑 Environment Variables
-
-Create `.env`
-
-```env
-MAL_CLIENT_ID=your_myanimelist_client_id
-```
-
-Get API key from:
-
-https://myanimelist.net/apiconfig
-
----
-
-# 🚀 Run Local Development
+## Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open:
+## Run Production
+
+```bash
+npm start
+```
+
+Server will run on:
 
 ```bash
 http://localhost:3000
 ```
 
+Because apparently every web project on earth must worship port 3000.
+
 ---
 
-# 🐘 PHP Module
+# Environment Variables
 
-AniZone also includes optional PHP modules for compatibility and lightweight hosting environments.
+Create `.env` file:
 
-## PHP Features
+```env
+PORT=3000
 
-- Alternative API handling
-- Lightweight server-side rendering
-- Shared hosting compatibility
-- Legacy endpoint support
+MAL_CLIENT_ID=your_myanimelist_client_id
 
-## Run PHP Server
-
-```bash
-cd php
-php -S localhost:8000
-```
-
-Open:
-
-```bash
-http://localhost:8000
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
 ```
 
 ---
 
-# ☁️ Deploy to Vercel
+# API Endpoints
 
-## Install Vercel CLI
+## Get Latest Anime
 
-```bash
-npm install -g vercel
+```http
+GET /api/latest
 ```
 
-## Deploy
+## Search Anime
 
-```bash
-vercel --prod
+```http
+GET /api/search?q=naruto
 ```
 
-Or directly connect repository on:
+## Anime Detail
 
-https://vercel.com/new
+```http
+GET /api/anime/:slug
+```
+
+## Watch Episode
+
+```http
+GET /api/watch/:slug
+```
+
+## Trending Anime
+
+```http
+GET /api/trending
+```
 
 ---
 
-# 🐳 Docker Support
+# Progressive Web App (PWA)
+
+AniZone supports PWA features:
+
+- Installable on mobile
+- Offline support
+- App-like experience
+- Faster caching
+
+---
+
+# Docker Support
 
 ## Build Docker Image
 
@@ -196,61 +205,82 @@ docker build -t anizone .
 docker run -p 3000:3000 anizone
 ```
 
----
-
-# 📡 API Endpoints
-
-| Endpoint | Description |
-|---|---|
-| `/api/latest` | Latest anime |
-| `/api/search?q=` | Search anime |
-| `/api/detail?url=` | Anime details |
-| `/api/watch?url=` | Stream source |
-| `/api/trending` | MAL trending |
-| `/api/schedule` | Anime schedule |
-| `/api/news` | Anime news |
-| `/api/health` | Health check |
+Tiny Linux boxes running anime scrapers. Humanity truly reached peak civilization.
 
 ---
 
-# 🔥 Roadmap
+# Deployment
 
-- [ ] Multi server streaming
-- [ ] Anime watchlist
-- [ ] Continue watching
-- [ ] Dark mode improvement
-- [ ] Mobile app version
-- [ ] Discord RPC integration
+You can deploy AniZone using:
 
----
-
-# 🛡️ Disclaimer
-
-AniZone does not host any video files.  
-All content is provided by third-party sources.
+- Vercel
+- Railway
+- Render
+- VPS
+- Docker
+- Self-hosted server
 
 ---
 
-# 👑 Author
+# Known Issues
 
-Made with caffeine and sleep deprivation by:
+- Scraper may break if Samehadaku changes HTML structure
+- Proxy dependency may sometimes fail
+- MAL API rate limits can occur
+- Some anime streams may become unavailable
 
-## Caliph / YoiKage
-
-- GitHub: https://github.com/kanawangyy-yoikage
-
----
-
-# ⭐ Support
-
-If this project helped you:
-
-- Star this repository
-- Fork this repository
-- Share to fellow wibu degenerates
+Welcome to web scraping. Building software on top of somebody else's HTML is basically controlled suffering.
 
 ---
 
-# 📜 License
+# Future Plans
+
+- User authentication
+- Bookmark anime
+- Watch history
+- Anime recommendations
+- Better caching system
+- Better admin dashboard
+- Episode notifications
+- Multi-source scraping
+- Comments system
+- Real database integration
+
+---
+
+# Contributing
+
+Pull requests are welcome.
+
+If you find bugs, open an issue.
+
+If you destroy production, at least leave good commit messages.
+
+---
+
+# License
 
 This project is licensed under the MIT License.
+
+Meaning:
+- You can use it
+- Modify it
+- Share it
+- Commercialize it
+
+Just don't pretend you created the whole thing yourself like some LinkedIn motivational tech guru.
+
+---
+
+# Credits
+
+- Samehadaku
+- MyAnimeList
+- Open source community
+- Coffee and sleep deprivation
+
+---
+
+<p align="center">
+  Made with questionable sanity by YoiKage
+</p>
