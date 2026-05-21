@@ -1,9 +1,9 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node api/index.js"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
