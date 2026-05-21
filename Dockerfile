@@ -13,6 +13,7 @@ FROM php:8.2-fpm
 RUN apt-get update && apt-get install -y \
     nginx \
     curl \
+    libcurl4-openssl-dev \
     gnupg \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
