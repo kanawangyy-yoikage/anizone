@@ -32,7 +32,7 @@ WORKDIR /app
 COPY . .
 
 # ── 5. Install Node dependencies ──────────────────────
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # ── 6. Konfigurasi Nginx ──────────────────────────────
 # Nginx listen di port 80 (Railway akan forward ke sini).
