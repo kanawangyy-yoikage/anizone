@@ -295,87 +295,6 @@ async function getAnimeNews() {
   }
 }
 
-// ─── DOWNLOAD LINK EXTRACTOR ──────────────────────────────
-
-/**
- * Coba ekstrak direct video URL (.mp4 / .m3u8) dari embed URL.
- * Support: desustream, kraken, filelions, streamhide, doodstream, etc.
- */
-async function extractDirectLink(embedUrl) {
-  const axHead = {
-    ...headers,
-    'Referer': BASE,
-    'Origin': 'https://v2.samehadaku.how',
-  };
-
-  // --- Desustream / desu.gg ---
-  if (/desu\.gg|desustream/i.test(embedUrl)) {
-    try {
-      const r = await axios.get(`${PROXY}${embedUrl}`, { headers: axHead });
-      const mp4 = r.data.match(/file\s*:\s*["']([^"']+\.mp4[^"']*)/i)?.[1]
-               || r.data.match(/src\s*:\s*["']([^"']+\.mp4[^"']*)/i)?.[1]
-               || r.data.match(/["'](https?:\/\/[^"']+\.mp4[^"']*)/i)?.[1];
-      if (mp4) return { url: mp4, type: 'mp4' };
-      const m3u8 = r.data.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)?.[1];
-      if (m3u8) return { url: m3u8, type: 'm3u8' };
-    } catch {}
-  }
-
-  // --- Kraken.to / krakenfiles ---
-  if (/kraken/i.test(embedUrl)) {
-    try {
-      const r = await axios.get(`${PROXY}${embedUrl}`, { headers: axHead });
-      const mp4 = r.data.match(/file\s*:\s*["']([^"']+\.mp4[^"']*)/i)?.[1]
-               || r.data.match(/["'](https?:\/\/[^"']+\.mp4[^"']*)/i)?.[1];
-      if (mp4) return { url: mp4, type: 'mp4' };
-    } catch {}
-  }
-
-  // --- Filelions / streamhide / streamlare ---
-  if (/filelion|streamhide|streamlare|stream\.bz/i.test(embedUrl)) {
-    try {
-      const r = await axios.get(`${PROXY}${embedUrl}`, { headers: axHead });
-      const mp4 = r.data.match(/file\s*:\s*["']([^"']+\.mp4[^"']*)/i)?.[1]
-               || r.data.match(/["'](https?:\/\/[^"']+\.mp4[^"']*)/i)?.[1];
-      if (mp4) return { url: mp4, type: 'mp4' };
-      const m3u8 = r.data.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)?.[1];
-      if (m3u8) return { url: m3u8, type: 'm3u8' };
-    } catch {}
-  }
-
-  // --- Doodstream / dood ---
-  if (/dood|doodstream/i.test(embedUrl)) {
-    try {
-      const r = await axios.get(`${PROXY}${embedUrl}`, { headers: axHead });
-      // dood pakai /pass_md5/
-      const passPath = r.data.match(/\/pass_md5\/[^"'\s]+/)?.[0];
-      if (passPath) {
-        const token = r.data.match(/token\s*=\s*["']?([a-zA-Z0-9]+)/)?.[1] || '';
-        const doodBase = embedUrl.match(/https?:\/\/[^/]+/)?.[0] || 'https://dood.yt';
-        const md5Res = await axios.get(`${PROXY}${doodBase}${passPath}`, {
-          headers: { ...axHead, Referer: embedUrl }
-        });
-        if (md5Res.data && typeof md5Res.data === 'string') {
-          const dl = md5Res.data + 'zUEJeL3mUN?token=' + token + '&expiry=' + Date.now();
-          return { url: dl, type: 'mp4' };
-        }
-      }
-    } catch {}
-  }
-
-  // --- Generic: coba cari .mp4 / .m3u8 di HTML embed ---
-  try {
-    const r = await axios.get(`${PROXY}${embedUrl}`, { headers: axHead, timeout: 8000 });
-    const html = typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
-    const mp4  = html.match(/["'`](https?:\/\/[^"'`\s]+\.mp4[^"'`\s]*)/i)?.[1];
-    if (mp4) return { url: mp4, type: 'mp4' };
-    const m3u8 = html.match(/["'`](https?:\/\/[^"'`\s]+\.m3u8[^"'`\s]*)/i)?.[1];
-    if (m3u8) return { url: m3u8, type: 'm3u8' };
-  } catch {}
-
-  return null;
-}
-
 // ─── ROUTES ────────────────────────────────────────────────
 
 app.get('/api/latest', async (req, res) => {
@@ -428,21 +347,6 @@ app.get('/api/news', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
-// Download link extractor — menerima embed URL, kembalikan direct link kalau bisa
-app.get('/api/download-link', async (req, res) => {
-  const embedUrl = req.query.url;
-  if (!embedUrl) return res.status(400).json({ error: 'Missing url param' });
-  try {
-    const result = await extractDirectLink(embedUrl);
-    if (result) {
-      res.json({ success: true, ...result });
-    } else {
-      res.json({ success: false, message: 'Tidak dapat mengekstrak direct link dari server ini.' });
-    }
-  } catch (e) {
-    res.json({ success: false, message: e.message });
-  }
-});
 
 // ─── STATIC FILES & ROUTE ALIASES ──────────────────────────
 const path = require('path');

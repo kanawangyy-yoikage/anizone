@@ -671,40 +671,21 @@ async function loadDetail(url) {
         <div class="meta-item" style="grid-column:span 2"><span class="meta-label">DURASI</span><span class="meta-value">${duration}</span></div>
       </div>`;
 
-    // Init batch download state
-    initBatchDownload(data.episodes || []);
-
     document.getElementById('episode-header-container').innerHTML = `
       <div class="ep-header-wrapper">
         <h2 class="ep-header-title">Daftar Episode</h2>
         ${isEps ? `<div class="ep-range-badge">1 – ${newestNum}</div>` : ''}
-        ${isEps ? `<button id="batchModeBtn" class="btn-batch-mode" onclick="toggleBatchMode()" title="Pilih episode untuk download">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Batch Download
-        </button>` : ''}
-      </div>
-      ${isEps ? `<div id="batchPanel" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:8px;">
-        <button class="btn-batch-action" onclick="selectAllEpisodes()">Pilih Semua</button>
-        <button class="btn-batch-action" onclick="clearEpSelection()">Batal Pilih</button>
-        <span class="batch-count-label"><b id="batchCount">0</b> dipilih</span>
-        <button id="batchDlBtn" class="btn-batch-start" onclick="startBatchDownload()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download Terpilih
-        </button>
-        <p id="batchNote" class="dl-note" style="width:100%;margin:4px 0 0;"></p>
-      </div>` : ''}`;
+      </div>`;
 
-    // Render episode grid via fungsi terpusat (support batch mode)
-    renderEpisodeGrid();
+    document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
+      let num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1] || (ep.title.match(/\d+/g)||[i+1]).slice(-1)[0];
+      return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i*0.02,0.3)}s">${num}</div>`;
+    }).join('');
 
   } catch(e) { console.error(e); } finally { loader(false); }
 }
 
 // ─── WATCH ────────────────────────────────────────────
-
-// State untuk download
-let _watchStreams = [];
-let _watchTitle   = '';
 
 async function loadVideo(url) {
   loader(true);
@@ -713,198 +694,24 @@ async function loadVideo(url) {
     hide('detail-view'); show('watch-view');
     if (window.innerWidth < 900) hide('bottomNav');
 
-    _watchTitle   = data.title || 'anime';
-    _watchStreams  = data.streams || [];
-
     document.getElementById('video-title').textContent = data.title;
     const player  = document.getElementById('video-player');
     const servers = document.getElementById('server-options');
-
-    if (_watchStreams.length > 0) {
-      player.src = _watchStreams[0].url;
-      servers.innerHTML = _watchStreams.map((s, i) =>
+    if (data.streams && data.streams.length > 0) {
+      player.src = data.streams[0].url;
+      servers.innerHTML = data.streams.map((s, i) =>
         `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
       ).join('');
-      renderDownloadBtn(_watchStreams[0].url);
     } else {
       alert('Maaf, stream belum tersedia untuk episode ini.');
-      servers.innerHTML = '';
-      renderDownloadBtn(null);
     }
   } catch {} finally { loader(false); }
-}
-
-function renderDownloadBtn(streamUrl) {
-  const dlArea = document.getElementById('watch-download-area');
-  if (!dlArea) return;
-
-  if (!streamUrl) {
-    dlArea.innerHTML = '<p class="dl-note">⚠️ Tidak ada stream tersedia untuk diunduh.</p>';
-    return;
-  }
-
-  dlArea.innerHTML = `
-    <div class="dl-section">
-      <button class="btn-download-single" id="dlSingleBtn" onclick="downloadSingle('${streamUrl.replace(/'/g,"\\'")}')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Episode Ini
-      </button>
-      <p id="dlStatus" class="dl-note" style="display:none"></p>
-    </div>`;
-}
-
-async function downloadSingle(embedUrl) {
-  const btn    = document.getElementById('dlSingleBtn');
-  const status = document.getElementById('dlStatus');
-  if (!embedUrl) return;
-  if (btn)    { btn.disabled = true; btn.innerHTML = '<span class="btn-spinner-small"></span> Memproses...'; }
-  if (status) { status.style.display = ''; status.textContent = '⏳ Mengambil link download...'; }
-
-  try {
-    const res  = await fetch(`${API_BASE}/download-link?url=${encodeURIComponent(embedUrl)}`);
-    const data = await res.json();
-
-    if (data.success && data.url) {
-      if (status) status.textContent = `✅ Link ditemukan! Mendownload... (${data.type?.toUpperCase() || 'VIDEO'})`;
-      const a = document.createElement('a');
-      a.href = data.url;
-      a.download = (_watchTitle || 'anime').replace(/[^a-z0-9\s\-]/gi, '') + (data.type === 'm3u8' ? '.m3u8' : '.mp4');
-      a.target = '_blank';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    } else {
-      // Fallback: buka embed langsung di tab baru
-      if (status) status.innerHTML = '⚠️ Server ini tidak support direct download. <br>Silakan klik kanan video saat diputar untuk simpan, atau gunakan ekstensi <b>Video DownloadHelper</b>.';
-      window.open(embedUrl, '_blank', 'noopener');
-    }
-  } catch(e) {
-    if (status) status.textContent = '❌ Gagal mengambil link: ' + e.message;
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Episode Ini`;
-    }
-  }
 }
 
 function changeServer(url, btn) {
   document.getElementById('video-player').src = url;
   document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderDownloadBtn(url);
-}
-
-// ─── BATCH DOWNLOAD ───────────────────────────────────
-
-let _batchEpisodes  = [];
-let _batchSelected  = new Set();
-let _batchMode      = false;
-
-function initBatchDownload(episodes) {
-  _batchEpisodes = episodes;
-  _batchSelected.clear();
-  _batchMode = false;
-}
-
-function toggleBatchMode() {
-  _batchMode = !_batchMode;
-  _batchSelected.clear();
-  const btn   = document.getElementById('batchModeBtn');
-  const panel = document.getElementById('batchPanel');
-  if (btn)   btn.classList.toggle('active', _batchMode);
-  if (panel) panel.style.display = _batchMode ? 'flex' : 'none';
-  renderEpisodeGrid();
-}
-
-function renderEpisodeGrid() {
-  const grid = document.getElementById('episode-grid');
-  if (!grid) return;
-  grid.innerHTML = _batchEpisodes.map((ep, i) => {
-    let num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
-              || (ep.title.match(/\d+/g)||[i+1]).slice(-1)[0];
-    if (_batchMode) {
-      const checked = _batchSelected.has(i);
-      return `<div class="ep-box ${checked?'ep-selected':''}" title="${ep.title}"
-        onclick="toggleEpSelect(${i},this)" style="animation-delay:${Math.min(i*0.02,0.3)}s">
-        ${checked?'✓ ':''}<span>${num}</span></div>`;
-    } else {
-      return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')"
-        style="animation-delay:${Math.min(i*0.02,0.3)}s">${num}</div>`;
-    }
-  }).join('');
-}
-
-function toggleEpSelect(idx, el) {
-  if (_batchSelected.has(idx)) {
-    _batchSelected.delete(idx);
-    el.classList.remove('ep-selected');
-  } else {
-    _batchSelected.add(idx);
-    el.classList.add('ep-selected');
-  }
-  // Re-render hanya teks checkmark
-  const span = el.querySelector('span');
-  if (span) el.innerHTML = (_batchSelected.has(idx) ? '✓ ' : '') + '<span>' + span.textContent + '</span>';
-  const cnt = document.getElementById('batchCount');
-  if (cnt) cnt.textContent = _batchSelected.size;
-}
-
-function selectAllEpisodes() {
-  _batchEpisodes.forEach((_, i) => _batchSelected.add(i));
-  renderEpisodeGrid();
-  const cnt = document.getElementById('batchCount');
-  if (cnt) cnt.textContent = _batchSelected.size;
-}
-
-function clearEpSelection() {
-  _batchSelected.clear();
-  renderEpisodeGrid();
-  const cnt = document.getElementById('batchCount');
-  if (cnt) cnt.textContent = 0;
-}
-
-async function startBatchDownload() {
-  if (_batchSelected.size === 0) {
-    alert('Pilih minimal 1 episode terlebih dahulu.');
-    return;
-  }
-  const indices = [..._batchSelected].sort((a,b) => a - b);
-  const note    = document.getElementById('batchNote');
-  const dlBtn   = document.getElementById('batchDlBtn');
-  if (dlBtn)  dlBtn.disabled = true;
-  if (note)   note.textContent = `⏳ Memulai download ${indices.length} episode...`;
-
-  for (let i = 0; i < indices.length; i++) {
-    const ep = _batchEpisodes[indices[i]];
-    if (!ep?.url) continue;
-    try {
-      const data   = await fetch(`${API_BASE}/watch?url=${encodeURIComponent(ep.url)}`).then(r => r.json());
-      const stream = data?.streams?.[0]?.url;
-      if (!stream) { if (note) note.textContent = `⚠️ (${i+1}/${indices.length}) ${ep.title}: stream tidak tersedia, skip.`; continue; }
-
-      // Coba ekstrak direct link via server
-      let dlUrl = null, dlType = 'mp4';
-      try {
-        const dlRes  = await fetch(`${API_BASE}/download-link?url=${encodeURIComponent(stream)}`);
-        const dlData = await dlRes.json();
-        if (dlData.success && dlData.url) { dlUrl = dlData.url; dlType = dlData.type || 'mp4'; }
-      } catch {}
-
-      if (dlUrl) {
-        const a = document.createElement('a');
-        a.href = dlUrl;
-        a.download = (data.title || ep.title).replace(/[^a-z0-9\s\-]/gi, '') + (dlType === 'm3u8' ? '.m3u8' : '.mp4');
-        a.target = '_blank';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        await new Promise(r => setTimeout(r, 1500));
-      } else {
-        window.open(stream, '_blank', 'noopener');
-        await new Promise(r => setTimeout(r, 2000));
-      }
-      if (note) note.textContent = `⏳ Memproses ${i+1}/${indices.length}: ${data.title || ep.title}`;
-    } catch { continue; }
-  }
-  if (note)  note.textContent = `✅ Selesai! ${indices.length} episode diproses.`;
-  if (dlBtn) dlBtn.disabled = false;
 }
 
 function goHome() { switchTab('home'); }
