@@ -735,7 +735,7 @@ async function loadVideo(url) {
 }
 
 function renderDownloadBtn(streamUrl) {
-  let dlArea = document.getElementById('watch-download-area');
+  const dlArea = document.getElementById('watch-download-area');
   if (!dlArea) return;
 
   if (!streamUrl) {
@@ -743,30 +743,46 @@ function renderDownloadBtn(streamUrl) {
     return;
   }
 
-  const isDirectFile = /\.(mp4|mkv|webm|avi)(\?|$)/i.test(streamUrl);
-
   dlArea.innerHTML = `
     <div class="dl-section">
-      <button class="btn-download-single" onclick="downloadSingle()">
+      <button class="btn-download-single" id="dlSingleBtn" onclick="downloadSingle('${streamUrl.replace(/'/g,"\\'")}')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download Episode Ini
       </button>
-      ${!isDirectFile ? '<p class="dl-note">⚠️ <b>Catatan:</b> Stream ini menggunakan embed pihak ketiga. Jika download gagal atau terbuka halaman lain, gunakan ekstensi browser seperti <b>Video DownloadHelper</b> atau putar video lalu simpan via browser.</p>' : ''}
+      <p id="dlStatus" class="dl-note" style="display:none"></p>
     </div>`;
 }
 
-function downloadSingle() {
-  const player = document.getElementById('video-player');
-  const streamUrl = player?.src;
-  if (!streamUrl) return;
-  const isDirectFile = /\.(mp4|mkv|webm|avi)(\?|$)/i.test(streamUrl);
-  if (isDirectFile) {
-    const a = document.createElement('a');
-    a.href = streamUrl;
-    a.download = (_watchTitle || 'anime').replace(/[^a-z0-9\s\-]/gi, '') + '.mp4';
-    a.click();
-  } else {
-    window.open(streamUrl, '_blank', 'noopener');
+async function downloadSingle(embedUrl) {
+  const btn    = document.getElementById('dlSingleBtn');
+  const status = document.getElementById('dlStatus');
+  if (!embedUrl) return;
+  if (btn)    { btn.disabled = true; btn.innerHTML = '<span class="btn-spinner-small"></span> Memproses...'; }
+  if (status) { status.style.display = ''; status.textContent = '⏳ Mengambil link download...'; }
+
+  try {
+    const res  = await fetch(`${API_BASE}/download-link?url=${encodeURIComponent(embedUrl)}`);
+    const data = await res.json();
+
+    if (data.success && data.url) {
+      if (status) status.textContent = `✅ Link ditemukan! Mendownload... (${data.type?.toUpperCase() || 'VIDEO'})`;
+      const a = document.createElement('a');
+      a.href = data.url;
+      a.download = (_watchTitle || 'anime').replace(/[^a-z0-9\s\-]/gi, '') + (data.type === 'm3u8' ? '.m3u8' : '.mp4');
+      a.target = '_blank';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } else {
+      // Fallback: buka embed langsung di tab baru
+      if (status) status.innerHTML = '⚠️ Server ini tidak support direct download. <br>Silakan klik kanan video saat diputar untuk simpan, atau gunakan ekstensi <b>Video DownloadHelper</b>.';
+      window.open(embedUrl, '_blank', 'noopener');
+    }
+  } catch(e) {
+    if (status) status.textContent = '❌ Gagal mengambil link: ' + e.message;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Episode Ini`;
+    }
   }
 }
 
@@ -865,11 +881,19 @@ async function startBatchDownload() {
       const stream = data?.streams?.[0]?.url;
       if (!stream) { if (note) note.textContent = `⚠️ (${i+1}/${indices.length}) ${ep.title}: stream tidak tersedia, skip.`; continue; }
 
-      const isDirectFile = /\.(mp4|mkv|webm|avi)(\?|$)/i.test(stream);
-      if (isDirectFile) {
+      // Coba ekstrak direct link via server
+      let dlUrl = null, dlType = 'mp4';
+      try {
+        const dlRes  = await fetch(`${API_BASE}/download-link?url=${encodeURIComponent(stream)}`);
+        const dlData = await dlRes.json();
+        if (dlData.success && dlData.url) { dlUrl = dlData.url; dlType = dlData.type || 'mp4'; }
+      } catch {}
+
+      if (dlUrl) {
         const a = document.createElement('a');
-        a.href = stream;
-        a.download = (data.title || ep.title).replace(/[^a-z0-9\s\-]/gi, '') + '.mp4';
+        a.href = dlUrl;
+        a.download = (data.title || ep.title).replace(/[^a-z0-9\s\-]/gi, '') + (dlType === 'm3u8' ? '.m3u8' : '.mp4');
+        a.target = '_blank';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         await new Promise(r => setTimeout(r, 1500));
       } else {
