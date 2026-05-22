@@ -587,3 +587,26 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 .skeleton { background: linear-gradient(90deg, var(--bg-input) 25%, var(--surface-high) 50%, var(--bg-input) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
 @keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ── DOWNLOAD & BATCH ── */
+#watch-download-area { padding: 12px 0 4px; }
+.dl-section { display: flex; flex-direction: column; gap: 8px; }
+.btn-download-single { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: linear-gradient(135deg, #1565c0, #1e88e5); border: none; border-radius: var(--radius-sm); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all var(--transition); }
+.btn-download-single:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30,136,229,0.4); }
+.dl-note { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0; padding: 8px 10px; background: rgba(255,200,0,0.07); border-left: 3px solid #f59e0b; border-radius: 0 6px 6px 0; }
+
+/* Batch mode button di header episode */
+.ep-header-wrapper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-batch-mode { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--surface-high); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--transition); margin-left: auto; }
+.btn-batch-mode:hover, .btn-batch-mode.active { background: rgba(30,136,229,0.12); border-color: var(--accent); color: var(--accent); }
+
+/* Batch panel action buttons */
+.btn-batch-action { padding: 6px 12px; background: var(--surface-high); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--transition); }
+.btn-batch-action:hover { color: var(--text-main); border-color: var(--text-muted); }
+.batch-count-label { font-size: 13px; color: var(--text-muted); }
+.btn-batch-start { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: linear-gradient(135deg, #1565c0, #1e88e5); border: none; border-radius: var(--radius-sm); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all var(--transition); }
+.btn-batch-start:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,136,229,0.35); }
+.btn-batch-start:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* Episode selected state */
+.ep-box.ep-selected { background: rgba(30,136,229,0.2) !important; border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 700; }

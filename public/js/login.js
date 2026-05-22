@@ -124,14 +124,34 @@ async function loginWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     const res = await auth.signInWithPopup(provider);
-    await db.collection('users').doc(res.user.uid).set({
-      displayName: res.user.displayName,
+    const uid = res.user.uid;
+
+    // Cek dokumen yang sudah ada — jangan overwrite role/photoURL yang sudah di-set manual
+    const existingDoc = await db.collection('users').doc(uid).get();
+    const existingData = existingDoc.exists ? existingDoc.data() : {};
+
+    const updates = {
+      displayName: existingData.displayName || res.user.displayName,
       email: res.user.email,
-      photoURL: res.user.photoURL,
-      role: 'user',
+      // Pertahankan role yang sudah ada; hanya set 'user' jika belum ada role
+      role: existingData.role || 'user',
       googleLinked: true,
-      createdAt: Date.now()
-    }, { merge: true });
+    };
+
+    // Hanya update photoURL jika belum ada foto custom (base64) yang tersimpan
+    if (!existingData.photoURL || existingData.photoURL.startsWith('http')) {
+      // Foto dari Google bisa berubah/expire, jadi hanya simpan jika belum ada foto custom
+      if (!existingData.photoURL) {
+        updates.photoURL = res.user.photoURL || null;
+      }
+      // Jika sudah ada URL Google sebelumnya, biarkan tetap (tidak perlu update)
+    }
+
+    if (!existingDoc.exists) {
+      updates.createdAt = Date.now();
+    }
+
+    await db.collection('users').doc(uid).set(updates, { merge: true });
   } catch (e) {
     if (e.code !== 'auth/popup-closed-by-user') setStatus(friendlyError(e.code));
   }
@@ -191,12 +211,24 @@ async function verifyOTP() {
   setLoading('verifyOtpBtn', true); clearStatus();
   try {
     const res = await confirmResult.confirm(otp);
-    await db.collection('users').doc(res.user.uid).set({
-      displayName: res.user.displayName || 'Pengguna AniZone',
+    const uid = res.user.uid;
+
+    // Cek dokumen yang sudah ada — jangan overwrite role yang ada
+    const existingDoc = await db.collection('users').doc(uid).get();
+    const existingData = existingDoc.exists ? existingDoc.data() : {};
+
+    const updates = {
+      displayName: existingData.displayName || res.user.displayName || 'Pengguna AniZone',
       phoneNumber: res.user.phoneNumber,
-      role: 'user',
-      createdAt: Date.now()
-    }, { merge: true });
+      // Pertahankan role yang sudah ada
+      role: existingData.role || 'user',
+    };
+
+    if (!existingDoc.exists) {
+      updates.createdAt = Date.now();
+    }
+
+    await db.collection('users').doc(uid).set(updates, { merge: true });
   } catch (e) {
     setStatus(friendlyError(e.code));
   } finally {
