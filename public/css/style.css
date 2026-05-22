@@ -610,3 +610,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 
 /* Episode selected state */
 .ep-box.ep-selected { background: rgba(30,136,229,0.2) !important; border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 700; }
+
+/* Download button spinner */
+.btn-spinner-small { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
