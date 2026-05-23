@@ -28,8 +28,40 @@ let editState = {
 // ── AUTH GUARD ─────────────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   if (!user) { window.location.replace('/login'); return; }
+  await syncUserToFirestore(user);
   await loadUserProfile(user);
 });
+
+// ── SYNC USER BARU KE FIRESTORE ───────────────────────
+// Dipanggil setiap login — kalau user belum ada di Firestore,
+// otomatis dibuatkan dengan role 'user' dan data dasarnya.
+async function syncUserToFirestore(user) {
+  try {
+    const ref = db.collection('users').doc(user.uid);
+    const doc = await ref.get();
+    if (!doc.exists) {
+      // User baru: buat dokumen lengkap
+      await ref.set({
+        email:       user.email || '',
+        displayName: user.displayName || 'Pengguna AniZone',
+        photoURL:    user.photoURL || '',
+        role:        'user',
+        createdAt:   new Date().toISOString(),
+        provider:    user.providerData?.[0]?.providerId || 'unknown',
+      });
+    } else {
+      // User lama: update email/nama kalau berubah (misal ganti nama Google)
+      const data = doc.data();
+      const updates = {};
+      if (user.email && data.email !== user.email) updates.email = user.email;
+      if (user.displayName && !data.displayName) updates.displayName = user.displayName;
+      if (user.photoURL && !data.photoURL) updates.photoURL = user.photoURL;
+      if (Object.keys(updates).length) await ref.update(updates);
+    }
+  } catch (e) {
+    console.warn('syncUserToFirestore error:', e);
+  }
+}
 
 // ── FIRESTORE HELPERS ──────────────────────────────────
 async function getFirestoreUser(uid) {
