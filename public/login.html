@@ -6,18 +6,16 @@
   <title>AniZone — Masuk</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
 
-<!-- GOOGLE-STYLE TOP HEADER -->
-<header class="google-page-header">
-  <div class="google-page-logo">
-    <div class="google-page-logo-icon">A</div>
-    <div class="google-page-logo-name">Ani<span>Zone</span></div>
-  </div>
-</header>
+<!-- BACKGROUND -->
+<div class="bg-particles"></div>
+<div class="bg-grid"></div>
+<div class="glow-orb glow-orb-1"></div>
+<div class="glow-orb glow-orb-2"></div>
 
 <!-- LOGIN CARD -->
 <div class="login-card">
@@ -27,8 +25,8 @@
     <div class="logo-icon">
       <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
     </div>
-    <div class="logo-title">Masuk ke AniZone</div>
-    <div class="logo-subtitle">Platform anime sub indo terlengkap</div>
+    <div class="logo-title">AniZone</div>
+    <div class="logo-subtitle">Platform anime terbaik sub Indonesia</div>
   </div>
 
   <!-- TABS -->
@@ -36,7 +34,7 @@
     <button class="tab-btn active" id="btn-login"    onclick="switchTab('login')">Masuk</button>
     <button class="tab-btn"        id="btn-register" onclick="switchTab('register')">Daftar</button>
     <button class="tab-btn"        id="btn-phone"    onclick="switchTab('phone')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.05 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 17z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.05 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 17z"/></svg>
       HP
     </button>
   </div>
@@ -63,7 +61,7 @@
         </span>
         <input type="password" class="input-field" id="loginPass" placeholder="Masukkan password" onkeydown="handleEnterLogin(event)">
         <button class="input-toggle-pass" onclick="togglePass('loginPass')" type="button">
-          <span id="eye-loginPass">👁</span>
+          <span id="eye-loginPass"></span>
         </button>
       </div>
     </div>
@@ -71,17 +69,13 @@
       <button class="btn-link" onclick="forgotPassword()">Lupa password?</button>
     </div>
     <button class="btn-primary" id="loginEmailBtn" onclick="loginWithEmail()">
-      <span class="btn-text">
+      <span class="btn-text" style="display:flex;align-items:center;gap:8px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
         Masuk
       </span>
       <div class="btn-spinner"></div>
     </button>
-    <div class="divider">
-      <div class="divider-line"></div>
-      <span class="divider-text">atau lanjutkan dengan</span>
-      <div class="divider-line"></div>
-    </div>
+    <div class="divider"><div class="divider-line"></div><span class="divider-text">atau lanjutkan dengan</span><div class="divider-line"></div></div>
     <button class="btn-google" onclick="loginWithGoogle()">
       <div class="google-icon"></div>
       Lanjutkan dengan Google
@@ -120,7 +114,7 @@
         </span>
         <input type="password" class="input-field" id="regPass" placeholder="Min. 6 karakter" onkeydown="handleEnterRegister(event)">
         <button class="input-toggle-pass" onclick="togglePass('regPass')" type="button">
-          <span id="eye-regPass">👁</span>
+          <span id="eye-regPass"></span>
         </button>
       </div>
     </div>
@@ -132,22 +126,18 @@
         </span>
         <input type="password" class="input-field" id="regConfPass" placeholder="Ulangi password" onkeydown="handleEnterRegister(event)">
         <button class="input-toggle-pass" onclick="togglePass('regConfPass')" type="button">
-          <span id="eye-regConfPass">👁</span>
+          <span id="eye-regConfPass"></span>
         </button>
       </div>
     </div>
     <button class="btn-primary" id="registerEmailBtn" onclick="registerWithEmail()">
-      <span class="btn-text">
+      <span class="btn-text" style="display:flex;align-items:center;gap:8px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
         Buat Akun
       </span>
       <div class="btn-spinner"></div>
     </button>
-    <div class="divider">
-      <div class="divider-line"></div>
-      <span class="divider-text">atau</span>
-      <div class="divider-line"></div>
-    </div>
+    <div class="divider"><div class="divider-line"></div><span class="divider-text">atau</span><div class="divider-line"></div></div>
     <button class="btn-google" onclick="loginWithGoogle()">
       <div class="google-icon"></div>
       Daftar dengan Google
@@ -163,12 +153,12 @@
   <!-- ── PANEL PHONE ── -->
   <div class="form-panel" id="panel-phone">
     <div class="step-indicator">
-      <div class="step-dot active" id="step-dot-1"></div>
-      <div style="width:24px;height:2px;background:var(--border);border-radius:2px"></div>
-      <div class="step-dot" id="step-dot-2"></div>
+      <div class="step-dot active"></div>
+      <div style="width:24px;height:2px;background:var(--border-color);border-radius:2px"></div>
+      <div class="step-dot"></div>
     </div>
 
-    <!-- STEP 1 -->
+    <!-- STEP 1: Input Nomor -->
     <div id="phone-step-1">
       <div class="input-group">
         <label class="input-label">Nomor HP</label>
@@ -192,7 +182,7 @@
       </div>
       <div id="recaptcha-container"></div>
       <button class="btn-primary" id="sendOtpBtn" onclick="sendOTP()">
-        <span class="btn-text">
+        <span class="btn-text" style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Kirim Kode OTP
         </span>
@@ -200,8 +190,8 @@
       </button>
     </div>
 
-    <!-- STEP 2 -->
-    <div id="phone-step-2" class="hidden" style="display:none">
+    <!-- STEP 2: Input OTP -->
+    <div id="phone-step-2" class="hidden">
       <p class="otp-label">Masukkan 6 digit kode OTP yang dikirim ke nomor HP kamu.</p>
       <div class="otp-boxes">
         <input type="text" class="otp-box" id="otp-0" maxlength="1" inputmode="numeric" pattern="[0-9]"
@@ -218,14 +208,14 @@
                oninput="handleOtpInput(event,5)" onkeydown="handleOtpInput(event,5)">
       </div>
       <button class="btn-primary" id="verifyOtpBtn" onclick="verifyOTP()">
-        <span class="btn-text">
+        <span class="btn-text" style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
           Verifikasi OTP
         </span>
         <div class="btn-spinner"></div>
       </button>
-      <div class="resend-area" style="margin-top:14px;text-align:center">
-        <span id="resend-timer-wrap" style="font-size:13px;color:var(--muted)">Kirim ulang dalam <span class="resend-timer" id="resend-timer">60</span>s</span>
+      <div class="resend-area" style="margin-top:14px">
+        <span id="resend-timer-wrap">Kirim ulang dalam <span class="resend-timer" id="resend-timer">60</span>s</span>
         <button class="btn-link" id="resendBtn" style="display:none" onclick="resendOTP()">Kirim ulang OTP</button>
       </div>
       <button class="btn-secondary" onclick="backToPhone()">
@@ -237,6 +227,7 @@
 
 </div>
 
+<!-- SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>

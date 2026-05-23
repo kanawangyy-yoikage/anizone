@@ -7,156 +7,77 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;500;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
 
-<!-- TOP APP BAR -->
-<header class="admin-topappbar">
-  <div class="topbar-hamburger" onclick="toggleSidebar()" title="Menu">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="3" y1="6" x2="21" y2="6"/>
-      <line x1="3" y1="12" x2="21" y2="12"/>
-      <line x1="3" y1="18" x2="21" y2="18"/>
-    </svg>
-  </div>
-
-  <div class="topbar-brand">
-    <div class="topbar-brand-logo">A</div>
-    <div class="topbar-brand-name">Ani<span>Zone</span></div>
-    <div class="topbar-product-chip">Admin</div>
-  </div>
-
-  <div class="topbar-spacer"></div>
-
-  <div class="topbar-search">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#5F6368;flex-shrink:0">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-    <input type="text" placeholder="Cari di admin..." id="globalSearch" oninput="handleGlobalSearch(this.value)">
-    <span style="font-size:12px;color:#9AA0A6;flex-shrink:0">⌘K</span>
-  </div>
-
-  <div class="topbar-actions">
-    <!-- Theme toggle -->
-    <div class="topbar-icon-btn" onclick="cycleTheme()" title="Ganti tema" id="themeBtn">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-    </div>
-
-    <!-- Notifications -->
-    <div class="topbar-icon-btn" title="Notifikasi">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-    </div>
-
-    <!-- Help -->
-    <div class="topbar-icon-btn" title="Bantuan">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
-      </svg>
-    </div>
-
-    <!-- Account avatar -->
-    <div class="topbar-avatar" id="topbarAvatar" title="Akun">
-      <img id="topbarAvatarImg" src="" alt="" style="display:none">
-      <span id="topbarInitial">A</span>
-    </div>
-  </div>
-</header>
-
 <div class="admin-wrapper">
+
   <!-- SIDEBAR -->
-  <aside class="admin-sidebar" id="adminSidebar">
-    <!-- Account chip -->
-    <div class="google-account-chip">
-      <div class="google-account-avatar">
-        <img id="adminAvatarImg" src="" alt="" style="display:none">
-        <span id="adminInitial">A</span>
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-header">
+      <div class="admin-logo">
+        <div class="admin-logo-icon">A</div>
+        <div>
+          <div class="admin-logo-text">AniZone</div>
+          <div class="admin-logo-sub">Admin Panel</div>
+        </div>
       </div>
-      <div class="google-account-info">
-        <div class="google-account-name" id="adminName">Memuat...</div>
-        <div class="google-account-role">Administrator</div>
+      <div class="admin-user-chip">
+        <div class="admin-user-avatar">
+          <img id="adminAvatarImg" src="" alt="" style="display:none">
+          <span id="adminInitial">A</span>
+        </div>
+        <div class="admin-user-info">
+          <div class="admin-user-name" id="adminName">Memuat...</div>
+          <div class="admin-user-role">Administrator</div>
+        </div>
       </div>
     </div>
 
     <nav class="admin-nav">
+      <div class="admin-nav-section-label">Menu Utama</div>
       <div class="admin-nav-item active" id="nav-dashboard" onclick="switchAdminTab('dashboard')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Dashboard
       </div>
-
       <div class="admin-nav-item" id="nav-users" onclick="switchAdminTab('users')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-        Pengguna
-        <span class="admin-nav-badge" id="userCountBadge" style="display:none">—</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Manajemen Pengguna
+        <span class="admin-nav-badge" id="userCountBadge">—</span>
       </div>
-
       <div class="admin-nav-item" id="nav-activity" onclick="switchAdminTab('activity')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Log Aktivitas
       </div>
-
-      <div class="admin-nav-divider"></div>
-
       <div class="admin-nav-section-label">Sistem</div>
-
       <div class="admin-nav-item" id="nav-settings" onclick="switchAdminTab('settings')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
         Pengaturan
       </div>
     </nav>
 
     <div class="admin-nav-footer">
-      <div class="admin-nav-divider" style="margin:0 0 8px"></div>
       <a href="index.html" class="admin-back-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Kembali ke AniZone
       </a>
       <div class="admin-logout-btn" onclick="adminLogout()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Keluar
       </div>
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
+  <!-- MAIN -->
   <main class="admin-main">
     <div id="view-dashboard"></div>
     <div id="view-users"    style="display:none"></div>
     <div id="view-activity" style="display:none"></div>
     <div id="view-settings" style="display:none"></div>
   </main>
+
 </div>
 
 <!-- USER DETAIL MODAL -->
@@ -165,9 +86,7 @@
     <div class="modal-header">
       <div class="modal-title">Detail Pengguna</div>
       <button class="modal-close" onclick="closeModal()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="modal-body" id="modal-content"></div>
@@ -177,84 +96,15 @@
 <!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
 
-<!-- SIDEBAR OVERLAY (mobile) -->
-<div id="sidebarOverlay" onclick="closeSidebar()"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;backdrop-filter:blur(2px)"></div>
-
+<!-- SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="js/admin.js"></script>
 <script>
-  // Theme
-  const saved = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeIcon();
-
-  function cycleTheme() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = cur === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-    updateThemeIcon();
-  }
-
-  function updateThemeIcon() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const btn = document.getElementById('themeBtn');
-    if (!btn) return;
-    btn.title = isDark ? 'Mode Terang' : 'Mode Gelap';
-    btn.innerHTML = isDark
-      ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
-      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
-  }
-
-  // Sidebar toggle
-  function toggleSidebar() {
-    const sb = document.getElementById('adminSidebar');
-    const ov = document.getElementById('sidebarOverlay');
-    const isOpen = sb.classList.contains('open');
-    if (isOpen) { sb.classList.remove('open'); ov.style.display = 'none'; }
-    else { sb.classList.add('open'); ov.style.display = 'block'; }
-  }
-  function closeSidebar() {
-    document.getElementById('adminSidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').style.display = 'none';
-  }
-
-  // Global search handler
-  function handleGlobalSearch(v) {
-    if (!v) return;
-    // If on users tab, filter there
-    const userInput = document.getElementById('userSearchInput');
-    if (userInput) { userInput.value = v; filterUsers(v); }
-    else { switchAdminTab('users'); setTimeout(() => { const ui = document.getElementById('userSearchInput'); if(ui){ui.value=v;filterUsers(v);} }, 400); }
-  }
-
-  // Sync topbar avatar with admin
-  const _origInit = window.initAdmin;
   document.addEventListener('DOMContentLoaded', () => {
-    // patch initAdmin to also update topbar
-    const origInit = window.initAdmin;
-    if (origInit) {
-      window.initAdmin = function(user, fsData) {
-        origInit(user, fsData);
-        const name = fsData.displayName || user.displayName || 'A';
-        const tInit = document.getElementById('topbarInitial');
-        const tImg  = document.getElementById('topbarAvatarImg');
-        if (tInit) tInit.textContent = name.charAt(0).toUpperCase();
-        if (tImg && (fsData.photoURL || user.photoURL)) {
-          tImg.src = fsData.photoURL || user.photoURL;
-          tImg.style.display = 'block';
-          if (tInit) tInit.style.display = 'none';
-        }
-        // Show user badge
-        if (window.allUsers) {
-          const badge = document.getElementById('userCountBadge');
-          if (badge) { badge.textContent = window.allUsers.length; badge.style.display='flex'; }
-        }
-      };
-    }
+    if (localStorage.getItem('theme') === 'light')
+      document.documentElement.setAttribute('data-theme', 'light');
   });
 </script>
 </body>

@@ -6,10 +6,10 @@
   <title>AniZone — Nonton Anime Sub Indo</title>
   <meta name="description" content="Nonton anime sub indo terlengkap. Tersedia jadwal rilis, berita terbaru, dan anime trending.">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1A73E8">
+  <meta name="theme-color" content="#0d0f14">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;500;700&family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -23,84 +23,65 @@
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="sidebar-logo-icon">A</div>
-    <div class="sidebar-title">Ani<span>Zone</span></div>
-  </div>
-
-  <!-- User chip -->
-  <div class="sidebar-user-chip" onclick="switchTab('profile')">
-    <div class="sidebar-user-avatar">
+    <div class="sidebar-user-avatar" onclick="switchTab('profile')">
       <img id="sidebarAvatarImg" src="" alt="" style="display:none">
       <span id="sidebarAvatarInitial">A</span>
     </div>
     <div>
+      <div class="sidebar-title">AniZone</div>
       <div class="sidebar-username" id="sidebarUsername">Memuat...</div>
-      <div class="sidebar-user-sub">Lihat profil</div>
     </div>
   </div>
-
   <nav class="sidebar-nav">
     <button class="sidebar-item active" id="stab-home" onclick="switchTab('home')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Beranda
     </button>
     <button class="sidebar-item" id="stab-anime" onclick="switchTab('anime')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Kategori
     </button>
     <button class="sidebar-item" id="stab-recent" onclick="switchTab('recent')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Riwayat
     </button>
     <button class="sidebar-item" id="stab-favorite" onclick="switchTab('favorite')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       Favorit
     </button>
     <button class="sidebar-item" id="stab-developer" onclick="switchTab('developer')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
       Developer
     </button>
   </nav>
-
   <div class="sidebar-footer">
     <button class="sidebar-item" onclick="toggleTheme()">
-      <span id="sidebarThemeIcon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+      <span id="sidebarThemeIcon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
       <span id="sidebarThemeLabel">Mode Gelap</span>
     </button>
     <button class="sidebar-item" id="stab-profile" onclick="switchTab('profile')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Profil
     </button>
     <a id="adminPanelLink" href="admin.html" class="sidebar-item" style="display:none">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Admin Panel
     </a>
     <button class="sidebar-item sidebar-logout" onclick="doLogout()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Keluar
     </button>
   </div>
 </aside>
 
-<!-- SIDEBAR OVERLAY (mobile) -->
-<div id="sidebarOverlay" onclick="closeSidebar()"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:150;"></div>
-
 <!-- NAVBAR -->
 <header class="navbar">
-  <!-- Hamburger (mobile) -->
-  <button onclick="toggleSidebar()" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0;display:none" id="hamburgerBtn" class="theme-toggle-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-
   <div class="top-search-bar">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" id="searchInput" placeholder="Cari anime..." autocomplete="off">
     <button class="search-text-btn" onclick="handleSearch()">Cari</button>
   </div>
-
   <button class="theme-toggle-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle tema"></button>
-
   <div class="top-user-avatar" onclick="switchTab('profile')">
     <img id="topAvatarImg" src="" alt="" style="display:none">
     <span id="topAvatarInitial">A</span>
@@ -114,8 +95,8 @@
   <div id="home-view"></div>
 
   <!-- KATEGORI -->
-  <div id="anime-view" class="hidden" style="padding:0 0 80px">
-    <div style="padding:0 0 16px">
+  <div id="anime-view" class="hidden" style="padding:16px 0 80px">
+    <div style="padding:0 16px 16px">
       <h1 class="page-title">Kategori Anime</h1>
       <div class="genre-grid" id="genre-grid"></div>
     </div>
@@ -123,14 +104,14 @@
   </div>
 
   <!-- RIWAYAT -->
-  <div id="recent-view" class="hidden" style="padding:0 0 80px">
-    <h1 class="page-title">Riwayat Tonton</h1>
+  <div id="recent-view" class="hidden" style="padding:16px 0 80px">
+    <div style="padding:0 16px 16px"><h1 class="page-title">Riwayat Tonton</h1></div>
     <div id="recent-results-container"></div>
   </div>
 
   <!-- FAVORIT -->
-  <div id="favorite-view" class="hidden" style="padding:0 0 80px">
-    <h1 class="page-title">Favorit</h1>
+  <div id="favorite-view" class="hidden" style="padding:16px 0 80px">
+    <div style="padding:0 16px 16px"><h1 class="page-title">Favorit</h1></div>
     <div id="favorite-results-container"></div>
   </div>
 
@@ -167,7 +148,7 @@
   <div id="developer-view" class="hidden">
     <div class="social-profile-container">
       <div class="social-banner">
-        <img src="bg.webp" alt="Banner" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a237e,#1A73E8,#D2E3FC)'">
+        <img src="bg.webp" alt="Banner" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a237e,#4285F4)'">
       </div>
       <div class="social-profile-header">
         <div class="social-avatar-wrapper">
@@ -181,7 +162,7 @@
       <div class="social-info">
         <div class="social-name-wrapper">
           <div class="social-name">kanawangyy</div>
-          <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1A73E8"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>
         </div>
         <div class="social-handle">@kanawangyy-yoikage</div>
         <div class="social-bio">Self-taught developer · Anime enthusiast · Building AniZone with love · Open source on GitHub</div>
@@ -200,9 +181,9 @@
         <div class="doc-card"><h4>Halo, Saya kanawangyy!</h4><p>Developer di balik AniZone 2026 — platform streaming anime sub indo yang dibangun dengan semangat. Proyek ini adalah hasil kerja keras belajar web development.</p></div>
         <div class="doc-card" style="animation-delay:.1s"><h4>Tech Stack</h4><p>Node.js + Express (backend), Firebase Auth & Firestore (database), MyAnimeList API (data anime), dan Vercel (hosting).</p></div>
         <div class="doc-card" style="animation-delay:.2s"><h4>Komunitas</h4><p>Bergabung dengan komunitas AniZone di WhatsApp Channel untuk update terbaru dan rekomendasi anime.</p></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
           <a href="https://github.com/kanawangyy-yoikage" target="_blank" class="btn-action" style="text-decoration:none">GitHub</a>
-          <a href="https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C" target="_blank" class="btn-action" style="background:var(--success);text-decoration:none;box-shadow:0 1px 3px rgba(30,142,62,0.3)">WA Channel</a>
+          <a href="https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C" target="_blank" class="btn-action" style="background:var(--success);text-decoration:none">WA Channel</a>
         </div>
       </div>
       <div id="dev-tab-1" class="social-content" style="display:none">
@@ -228,13 +209,13 @@
       <div class="profile-header-card">
         <div class="profile-banner" id="profileBanner">
           <div class="profile-banner-pattern" id="profileBannerPattern"></div>
-          <img id="profileBannerImg" src="" alt="" style="display:none">
+          <img id="profileBannerImg" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none">
           <button class="profile-edit-banner-btn" onclick="openEditModal()">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit
           </button>
         </div>
-        <div class="profile-avatar-wrap" id="profileAvatarWrap">
+        <div class="profile-avatar-wrap">
           <img id="profileAvatarImg" src="" alt="" style="display:none">
           <span id="profileAvatarInitial">A</span>
         </div>
@@ -280,15 +261,9 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <button class="profile-developer-btn" onclick="openEditModal()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          Edit Profil
-        </button>
-        <button class="profile-developer-btn" onclick="switchTab('developer')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          Developer
-        </button>
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <button class="profile-developer-btn" onclick="openEditModal()">Edit Profil</button>
+        <button class="profile-developer-btn" onclick="switchTab('developer')">Developer</button>
       </div>
       <button class="profile-logout-btn" onclick="doLogout()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -299,7 +274,7 @@
 
 </main>
 
-<!-- BOTTOM NAV (mobile) -->
+<!-- BOTTOM NAV -->
 <nav class="bottom-nav" id="bottomNav">
   <button class="nav-item active" id="tab-home" onclick="switchTab('home')">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -334,7 +309,7 @@
     </div>
     <div class="edit-modal-body">
       <div class="edit-banner-preview" id="editBannerPreview">
-        <img id="editBannerPreviewImg" src="" alt="" style="display:none">
+        <img id="editBannerPreviewImg" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none">
         <div class="edit-banner-pattern" id="editBannerPattern"></div>
         <div class="edit-avatar-preview" id="editAvatarPreview" onclick="document.getElementById('inputAvatar').click()">
           <img id="editAvatarPreviewImg" src="" alt="" style="display:none">
@@ -345,10 +320,10 @@
         </div>
         <button class="edit-banner-change-btn" onclick="document.getElementById('inputBanner').click()">Ganti Banner</button>
       </div>
-      <div style="margin:40px 0 16px">
-        <div style="font-size:12px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Warna Banner</div>
+      <div style="margin:36px 0 16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Warna Banner</div>
         <div class="color-presets">
-          <button class="color-preset active" style="background:linear-gradient(135deg,#1a237e,#1A73E8,#D2E3FC)" onclick="selectBannerColor(this,'linear-gradient(135deg,#1a237e,#1A73E8,#D2E3FC)')"></button>
+          <button class="color-preset active" style="background:linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)" onclick="selectBannerColor(this,'linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#6d1a91,#c026d3,#f0abfc)" onclick="selectBannerColor(this,'linear-gradient(135deg,#6d1a91,#c026d3,#f0abfc)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#064e3b,#059669,#6ee7b7)" onclick="selectBannerColor(this,'linear-gradient(135deg,#064e3b,#059669,#6ee7b7)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#7c2d12,#ea580c,#fed7aa)" onclick="selectBannerColor(this,'linear-gradient(135deg,#7c2d12,#ea580c,#fed7aa)')"></button>
@@ -391,26 +366,11 @@
   </div>
 </div>
 
+<!-- SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app.js"></script>
-<script>
-  // Show hamburger on mobile
-  if (window.innerWidth <= 899) {
-    document.getElementById('hamburgerBtn').style.display = 'flex';
-  }
-  function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    const ov = document.getElementById('sidebarOverlay');
-    const open = sb.classList.toggle('open');
-    ov.style.display = open ? 'block' : 'none';
-  }
-  function closeSidebar() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').style.display = 'none';
-  }
-</script>
 </body>
 </html>

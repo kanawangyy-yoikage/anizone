@@ -158,12 +158,12 @@ async function loadDashboard() {
 function statCard(icon, color, label, value, change, dir) {
   return `
     <div class="stat-card">
-      <div class="stat-card-top">
+      <div class="stat-icon ${color}">${icon}</div>
+      <div class="stat-info">
+        <div class="stat-num">${value.toLocaleString()}</div>
         <div class="stat-label">${label}</div>
-        <div class="stat-icon ${color}">${icon}</div>
+        ${change ? `<div class="stat-change ${dir}">${change}</div>` : ''}
       </div>
-      <div class="stat-num">${value.toLocaleString()}</div>
-      ${change ? `<div class="stat-change ${dir}">${change}</div>` : '<div style="height:18px"></div>'}
     </div>`;
 }
 
@@ -297,7 +297,7 @@ function renderUsersTable() {
 
   if (pagDiv) {
     pagDiv.innerHTML = `
-      <span class="pagination-info">${total} pengguna · Halaman ${currentPage} dari ${pages||1}</span>
+      <span>${total} pengguna · Halaman ${currentPage} dari ${pages||1}</span>
       <div class="page-btns">
         <button class="page-btn" onclick="changePage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹</button>
         ${Array.from({length:Math.min(pages,5)},(_,i)=>i+1).map(p=>
@@ -483,8 +483,8 @@ function loadSettings() {
           <div class="form-group">
             <label class="form-label">Tema</label>
             <select class="form-select" onchange="toggleAdminTheme(this.value)">
-              <option value="light" ${document.documentElement.getAttribute('data-theme')==='light'?'selected':''}>☀️ Mode Terang</option>
-              <option value="dark" ${document.documentElement.getAttribute('data-theme')==='dark'?'selected':''}>🌙 Mode Gelap</option>
+              <option value="dark" ${document.documentElement.getAttribute('data-theme')!=='light'?'selected':''}>🌙 Dark Mode</option>
+              <option value="light" ${document.documentElement.getAttribute('data-theme')==='light'?'selected':''}>☀️ Light Mode</option>
             </select>
           </div>
         </div>
@@ -502,9 +502,9 @@ function loadSettings() {
 }
 
 function infoRow(label, value) {
-  return `<div class="info-row">
-    <span class="info-row-label">${label}</span>
-    <span class="info-row-value">${value}</span>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color)">
+    <span style="font-size:13px;color:var(--text-muted)">${label}</span>
+    <span style="font-size:13px;font-weight:600">${value}</span>
   </div>`;
 }
 
@@ -515,9 +515,8 @@ function saveMalSettings() {
 }
 
 function toggleAdminTheme(val) {
-  document.documentElement.setAttribute('data-theme', val);
-  localStorage.setItem('theme', val);
-  if (typeof updateThemeIcon === 'function') updateThemeIcon();
+  if (val === 'light') { document.documentElement.setAttribute('data-theme','light'); localStorage.setItem('theme','light'); }
+  else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme','dark'); }
 }
 
 // ── TOAST ─────────────────────────────────────────────
@@ -531,9 +530,9 @@ function showToast(msg, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span>${msg}</span>`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
   container.appendChild(toast);
-  setTimeout(() => { toast.style.animation = 'snackOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
+  setTimeout(() => { toast.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
 }
 
 // ── LOGOUT ────────────────────────────────────────────
