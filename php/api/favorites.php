@@ -13,7 +13,8 @@ require_once __DIR__ . '/firebase.php';
 
 setCorsHeaders();
 
-const COLLECTION = 'favorites';
+// FIX: Pakai variabel biasa, bukan const — agar tidak konflik
+$collection = 'favorites';
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
@@ -24,7 +25,7 @@ switch ($method) {
         if (!$uid) jsonResponse(false, 'Parameter user_uid wajib', [], 400);
 
         // Query favorites milik user tertentu
-        $favs = fsQuery(COLLECTION, 'userUid', 'EQUAL', $uid);
+        $favs = fsQuery($collection, 'userUid', 'EQUAL', $uid);
 
         // Enrich dengan data anime
         $result = [];
@@ -52,7 +53,7 @@ switch ($method) {
         $animeId = clean($b['anime_id']);
 
         // Cek duplikat
-        $existing = fsQuery(COLLECTION, 'userUid', 'EQUAL', $uid);
+        $existing = fsQuery($collection, 'userUid', 'EQUAL', $uid);
         foreach ($existing as $e) {
             if (($e['animeId'] ?? '') === $animeId) {
                 jsonResponse(false, 'Anime sudah ada di favorit', [], 409);
@@ -63,7 +64,7 @@ switch ($method) {
         $anime = fsGet('anime_list', $animeId);
         if (!$anime) jsonResponse(false, 'Anime tidak ditemukan', [], 404);
 
-        $doc = fsCreate(COLLECTION, [
+        $doc = fsCreate($collection, [
             'userUid' => $uid,
             'animeId' => $animeId,
             'addedAt' => date('c'),
@@ -76,17 +77,17 @@ switch ($method) {
     // ─────────────── DELETE ─────────────────────────────
     case 'DELETE':
         if (!empty($_GET['id'])) {
-            $ok = fsDelete(COLLECTION, clean($_GET['id']));
+            $ok = fsDelete($collection, clean($_GET['id']));
             $ok ? jsonResponse(true, 'Favorit dihapus')
                 : jsonResponse(false, 'Gagal menghapus', [], 500);
         } elseif (!empty($_GET['user_uid']) && !empty($_GET['anime_id'])) {
             $uid     = clean($_GET['user_uid']);
             $animeId = clean($_GET['anime_id']);
-            $favs    = fsQuery(COLLECTION, 'userUid', 'EQUAL', $uid);
+            $favs    = fsQuery($collection, 'userUid', 'EQUAL', $uid);
             $deleted = 0;
             foreach ($favs as $f) {
                 if (($f['animeId'] ?? '') === $animeId) {
-                    fsDelete(COLLECTION, $f['id']);
+                    fsDelete($collection, $f['id']);
                     $deleted++;
                 }
             }

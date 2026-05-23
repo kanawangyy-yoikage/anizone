@@ -60,14 +60,14 @@ function fromFirestoreDoc(array $doc, string $collectionPath = ''): array {
 }
 
 function fromFirestoreValue(array $fval) {
-    if (isset($fval['stringValue']))  return $fval['stringValue'];
-    if (isset($fval['integerValue'])) return (int)$fval['integerValue'];
-    if (isset($fval['doubleValue']))  return (float)$fval['doubleValue'];
-    if (isset($fval['booleanValue'])) return (bool)$fval['booleanValue'];
-    if (isset($fval['nullValue']))    return null;
+    if (isset($fval['stringValue']))    return $fval['stringValue'];
+    if (isset($fval['integerValue']))   return (int)$fval['integerValue'];
+    if (isset($fval['doubleValue']))    return (float)$fval['doubleValue'];
+    if (isset($fval['booleanValue']))   return (bool)$fval['booleanValue'];
+    if (isset($fval['nullValue']))      return null;
     if (isset($fval['timestampValue'])) return $fval['timestampValue'];
-    if (isset($fval['arrayValue']))   return array_map('fromFirestoreValue', $fval['arrayValue']['values'] ?? []);
-    if (isset($fval['mapValue']))     return array_map('fromFirestoreValue', $fval['mapValue']['fields'] ?? []);
+    if (isset($fval['arrayValue']))     return array_map('fromFirestoreValue', $fval['arrayValue']['values'] ?? []);
+    if (isset($fval['mapValue']))       return array_map('fromFirestoreValue', $fval['mapValue']['fields'] ?? []);
     return null;
 }
 
@@ -138,12 +138,12 @@ function fsCreate(string $collection, array $data): ?array {
 }
 
 /**
- * Set / update dokumen (PATCH — hanya field yang dikirim).
- * Gunakan updateMask agar field lain tidak terhapus.
+ * Update dokumen (PATCH — hanya field yang dikirim).
+ * FIX: gunakan '&' bukan ',' sebagai pemisah updateMask.
  */
 function fsUpdate(string $collection, string $docId, array $data): bool {
     $data['updatedAt'] = date('c');
-    $mask = implode(',', array_map(fn($k) => 'updateMask.fieldPaths=' . urlencode($k), array_keys($data)));
+    $mask = implode('&', array_map(fn($k) => 'updateMask.fieldPaths=' . urlencode($k), array_keys($data)));
     $url  = FB_BASE_URL . '/' . $collection . '/' . $docId . '?key=' . FB_API_KEY . '&' . $mask;
     $res  = firestoreRequest('PATCH', $url, buildFirestoreBody($data));
     return $res['code'] === 200;

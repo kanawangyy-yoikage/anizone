@@ -15,7 +15,9 @@ require_once __DIR__ . '/firebase.php';
 
 setCorsHeaders();
 
-const COLLECTION = 'anime_list';
+// FIX: Pakai variabel biasa, bukan const — agar tidak konflik
+// dengan file lain yang juga define const COLLECTION
+$collection = 'anime_list';
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
@@ -23,12 +25,12 @@ switch ($method) {
     // ─────────────── READ ───────────────────────────────
     case 'GET':
         if (!empty($_GET['id'])) {
-            $doc = fsGet(COLLECTION, clean($_GET['id']));
+            $doc = fsGet($collection, clean($_GET['id']));
             $doc ? jsonResponse(true, 'OK', $doc)
                  : jsonResponse(false, 'Anime tidak ditemukan', [], 404);
         }
 
-        $all = fsListAll(COLLECTION);
+        $all = fsListAll($collection);
 
         if (!empty($_GET['search'])) {
             $q   = strtolower(clean($_GET['search']));
@@ -75,7 +77,7 @@ switch ($method) {
             'sumberUrl'   => clean($b['sumber_url']   ?? ''),
         ];
 
-        $doc = fsCreate(COLLECTION, $payload);
+        $doc = fsCreate($collection, $payload);
         $doc ? jsonResponse(true, 'Anime berhasil ditambahkan', $doc, 201)
              : jsonResponse(false, 'Gagal menyimpan ke Firestore', [], 500);
         break;
@@ -84,7 +86,7 @@ switch ($method) {
     case 'PUT':
         $id = clean($_GET['id'] ?? '');
         if (!$id) jsonResponse(false, 'Parameter id wajib', [], 400);
-        if (!fsGet(COLLECTION, $id)) jsonResponse(false, 'Anime tidak ditemukan', [], 404);
+        if (!fsGet($collection, $id)) jsonResponse(false, 'Anime tidak ditemukan', [], 404);
 
         $b = getJsonBody();
         if (empty($b['title']) || empty($b['type']) || empty($b['status'])) {
@@ -103,7 +105,7 @@ switch ($method) {
             'sumberUrl'   => clean($b['sumber_url']   ?? ''),
         ];
 
-        $ok = fsUpdate(COLLECTION, $id, $payload);
+        $ok = fsUpdate($collection, $id, $payload);
         $ok ? jsonResponse(true, 'Anime berhasil diperbarui', array_merge(['id' => $id], $payload))
             : jsonResponse(false, 'Gagal update ke Firestore', [], 500);
         break;
@@ -113,10 +115,10 @@ switch ($method) {
         $id = clean($_GET['id'] ?? '');
         if (!$id) jsonResponse(false, 'Parameter id wajib', [], 400);
 
-        $doc = fsGet(COLLECTION, $id);
+        $doc = fsGet($collection, $id);
         if (!$doc) jsonResponse(false, 'Anime tidak ditemukan', [], 404);
 
-        $ok = fsDelete(COLLECTION, $id);
+        $ok = fsDelete($collection, $id);
         $ok ? jsonResponse(true, "Anime \"{$doc['title']}\" berhasil dihapus")
             : jsonResponse(false, 'Gagal menghapus dari Firestore', [], 500);
         break;

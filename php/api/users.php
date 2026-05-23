@@ -14,7 +14,8 @@ require_once __DIR__ . '/firebase.php';
 
 setCorsHeaders();
 
-const COLLECTION = 'users';
+// FIX: Pakai variabel biasa, bukan const — agar tidak konflik
+$collection = 'users';
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
@@ -22,12 +23,12 @@ switch ($method) {
     // ─────────────── READ ───────────────────────────────
     case 'GET':
         if (!empty($_GET['uid'])) {
-            $doc = fsGet(COLLECTION, clean($_GET['uid']));
+            $doc = fsGet($collection, clean($_GET['uid']));
             $doc ? jsonResponse(true, 'OK', $doc)
                  : jsonResponse(false, 'Pengguna tidak ditemukan', [], 404);
         }
 
-        $all = fsListAll(COLLECTION);
+        $all = fsListAll($collection);
 
         // Filter by role (opsional)
         if (!empty($_GET['role'])) {
@@ -76,15 +77,15 @@ switch ($method) {
         ];
 
         // Cek sudah ada
-        $exist = fsGet(COLLECTION, $uid);
+        $exist = fsGet($collection, $uid);
         if ($exist) {
-            $ok = fsUpdate(COLLECTION, $uid, $payload);
+            $ok = fsUpdate($collection, $uid, $payload);
             $ok ? jsonResponse(true, 'User diperbarui (upsert)', ['uid' => $uid])
                 : jsonResponse(false, 'Gagal update Firestore', [], 500);
         } else {
             $payload['createdAt'] = date('c');
             // Pakai uid sebagai doc ID — set via PATCH dengan document name
-            $url = FB_BASE_URL . '/' . COLLECTION . '/' . $uid . '?key=' . FB_API_KEY;
+            $url = FB_BASE_URL . '/' . $collection . '/' . $uid . '?key=' . FB_API_KEY;
             $res = firestoreRequest('PATCH', $url, buildFirestoreBody($payload));
             ($res['code'] === 200)
                 ? jsonResponse(true, 'User berhasil ditambahkan', ['uid' => $uid], 201)
@@ -96,10 +97,10 @@ switch ($method) {
     case 'PUT':
         $uid = clean($_GET['uid'] ?? '');
         if (!$uid) jsonResponse(false, 'Parameter uid wajib', [], 400);
-        if (!fsGet(COLLECTION, $uid)) jsonResponse(false, 'Pengguna tidak ditemukan', [], 404);
+        if (!fsGet($collection, $uid)) jsonResponse(false, 'Pengguna tidak ditemukan', [], 404);
 
         $b = getJsonBody();
-        $ok = fsUpdate(COLLECTION, $uid, [
+        $ok = fsUpdate($collection, $uid, [
             'displayName' => clean($b['display_name'] ?? ''),
             'photoURL'    => clean($b['photo_url']    ?? ''),
             'role'        => clean($b['role']          ?? 'user'),
@@ -114,18 +115,16 @@ switch ($method) {
         $uid = clean($_GET['uid'] ?? '');
         if (!$uid) jsonResponse(false, 'Parameter uid wajib', [], 400);
 
-        $doc = fsGet(COLLECTION, $uid);
+        $doc = fsGet($collection, $uid);
         if (!$doc) jsonResponse(false, 'Pengguna tidak ditemukan', [], 404);
 
-        // Hapus favorit user di sub-collection (jika ada)
-        $favs = fsListAll('favorites');
+        // FIX: Pakai fsQuery bukan fsListAll — lebih efisien
+        $favs = fsQuery('favorites', 'userUid', 'EQUAL', $uid);
         foreach ($favs as $fav) {
-            if (($fav['userUid'] ?? '') === $uid) {
-                fsDelete('favorites', $fav['id']);
-            }
+            fsDelete('favorites', $fav['id']);
         }
 
-        $ok = fsDelete(COLLECTION, $uid);
+        $ok = fsDelete($collection, $uid);
         $ok ? jsonResponse(true, "Pengguna \"{$doc['displayName']}\" berhasil dihapus")
             : jsonResponse(false, 'Gagal menghapus dari Firestore', [], 500);
         break;
