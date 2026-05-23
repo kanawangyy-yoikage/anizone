@@ -25,11 +25,11 @@ let currentAdminUser = null;
 
 // ── AUTH GUARD ─────────────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
-  if (!user) { window.location.replace('login.html'); return; }
+  if (!user) { window.location.replace('/login'); return; }
   const fsData = await getFirestoreUser(user.uid);
   if (fsData.role !== 'admin') {
     showToast('Akses ditolak. Hanya admin yang dapat mengakses panel ini.', 'error');
-    setTimeout(() => window.location.replace('index.html'), 2000);
+    setTimeout(() => window.location.replace('/'), 2000);
     return;
   }
   currentAdminUser = { ...user, ...fsData };
@@ -539,7 +539,7 @@ function showToast(msg, type = 'info') {
 async function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
   try { await auth.signOut(); } catch {}
-  window.location.replace('login.html');
+  window.location.replace('/login');
 }
 
 // ── MODAL CLOSE ───────────────────────────────────────

@@ -779,5 +779,5 @@ document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
 });
 
 firebase.auth().onAuthStateChanged((user) => {
-  if (!user) window.location.href = 'login.html';
+  if (!user) window.location.href = '/login';
 });

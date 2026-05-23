@@ -24,7 +24,7 @@ let showingPass  = false;
 
 // ── AUTH REDIRECT ──────────────────────────────────────
 auth.onAuthStateChanged(user => {
-  if (user) window.location.replace('index.html');
+  if (user) window.location.replace('/');
 });
 
 // ── TAB SWITCH ────────────────────────────────────────

@@ -27,7 +27,7 @@ let editState = {
 
 // ── AUTH GUARD ─────────────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
-  if (!user) { window.location.replace('login.html'); return; }
+  if (!user) { window.location.replace('/login'); return; }
   await loadUserProfile(user);
 });
 
@@ -305,7 +305,7 @@ function doLogout() { document.getElementById('logoutModal')?.classList.add('sho
 function closeLogoutModal() { document.getElementById('logoutModal')?.classList.remove('show'); }
 async function confirmLogout() {
   try { await auth.signOut(); } catch {}
-  window.location.replace('login.html');
+  window.location.replace('/login');
 }
 
 // ── UTILS ─────────────────────────────────────────────
