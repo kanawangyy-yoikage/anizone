@@ -78,6 +78,26 @@ function setLoading(btnId, loading) {
   if (text)    text.style.display    = loading ? 'none'  : 'flex';
 }
 
+// ── SYNC USER KE FIRESTORE ────────────────────────────
+async function syncUserOnLogin(user) {
+  try {
+    const ref = db.collection('users').doc(user.uid);
+    const doc = await ref.get();
+    if (!doc.exists) {
+      await ref.set({
+        displayName: user.displayName || 'Pengguna AniZone',
+        email:       user.email || '',
+        photoURL:    user.photoURL || '',
+        role:        'user',
+        createdAt:   Date.now(),
+        provider:    user.providerData?.[0]?.providerId || 'password',
+      });
+    }
+  } catch(e) {
+    console.warn('syncUserOnLogin error:', e);
+  }
+}
+
 // ── EMAIL LOGIN ───────────────────────────────────────
 async function loginWithEmail() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -86,7 +106,8 @@ async function loginWithEmail() {
 
   setLoading('loginEmailBtn', true); clearStatus();
   try {
-    await auth.signInWithEmailAndPassword(email, pass);
+    const cred = await auth.signInWithEmailAndPassword(email, pass);
+    await syncUserOnLogin(cred.user);
   } catch (e) {
     setStatus(friendlyError(e.code));
   } finally {
