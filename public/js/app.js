@@ -117,7 +117,7 @@ function updateThemeUI(isLight) {
 function toggleTheme() {
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
   if (isLight) {
-    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
     localStorage.setItem('theme', 'dark');
     updateThemeUI(false);
   } else {
@@ -128,8 +128,8 @@ function toggleTheme() {
 }
 
 (function() {
-  if (localStorage.getItem('theme') === 'light')
-    document.documentElement.setAttribute('data-theme', 'light');
+  const t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
 })();
 
 // ─── UTILS ───────────────────────────────────────────
