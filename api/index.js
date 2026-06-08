@@ -8,9 +8,8 @@ app.use(cors());
 app.use(express.json());
 
 const headers = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9'
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 };
 
 const PROXY = 'https://cors.caliph.my.id/';
@@ -18,54 +17,66 @@ const BASE  = 'https://otakudesu.blog';
 const MAL_API = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
-// ─── SCRAPERS OTakuDESU ─────────────────────────────────────────────
+// ─── HELPER ─────────────────────────────────────────────
+async function fetchPage(url) {
+  try {
+    const res = await axios.get(`${PROXY}${url}`, { headers, timeout: 15000 });
+    return cheerio.load(res.data);
+  } catch (e) {
+    console.error(`Fetch error ${url}:`, e.message);
+    return null;
+  }
+}
 
+// ─── ANIMETERBARU / LATEST ─────────────────────────────
 async function animeterbaru(page = 1) {
-  const res = await axios.get(`${PROXY}${BASE}/`, { headers });
-  const $ = cheerio.load(res.data);
-  const data = [];
+  const $ = await fetchPage(`${BASE}/`);
+  if (!$) return [];
 
-  // Sesuaikan selector Otakudesu (biasanya .venz, .chivsrc, dll)
-  $('.venz ul li, .latest ul li, article').each((_, e) => {
-    const a = $(e).find('a').first();
-    const title = a.find('h2, .thumbz h3, .jdl').text().trim() || a.text().trim();
-    const url = a.attr('href');
-    const img = $(e).find('img').attr('src') || $(e).find('.thumbz img').attr('src');
+  const data = [];
+  // Selector utama Otakudesu
+  $('.venz ul li, .chivsrc li, article, .listupd article').each((_, el) => {
+    const $el = $(el);
+    const a = $el.find('a').first();
+    const title = $el.find('h2, .thumbz h3, .jdl').text().trim() || a.text().trim();
+    let url = a.attr('href');
+    const img = $el.find('img').attr('src') || $el.find('.thumb img').attr('src');
 
     if (title && url) {
+      if (!url.startsWith('http')) url = BASE + url;
       data.push({
-        title: title,
-        url: url.startsWith('http') ? url : `${BASE}${url}`,
-        image: img ? (img.startsWith('http') ? img : `${PROXY}${img}`) : '',
-        episode: $(e).find('.epz, .eps').text().trim() || 'Terbaru',
+        title: title.replace(/Subtitle Indonesia|Sub Indo/gi, '').trim(),
+        url,
+        image: img ? (img.startsWith('http') ? img : PROXY + img) : '',
+        episode: $el.find('.epz, .eps, .episode').text().trim() || 'Terbaru',
       });
     }
   });
 
-  return data.slice(0, 20);
+  return data.slice(0, 24);
 }
 
+// ─── SEARCH ─────────────────────────────────────────────
 async function search(query) {
-  const res = await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(query)}`, { headers });
-  const $ = cheerio.load(res.data);
-  const data = [];
+  const $ = await fetchPage(`${BASE}/?s=${encodeURIComponent(query)}`);
+  if (!$) return [];
 
-  // Selector search Otakudesu
-  $('article, .chivsrc, .listupd article').each((_, e) => {
-    const a = $(e).find('a').first();
-    const title = $(e).find('h2, .thumbz h3').text().trim();
-    const image = $(e).find('img').attr('src');
-    const type = $(e).find('.type, .genre').text().trim();
-    const score = $(e).find('.score, .rating').text().trim();
-    const url = a.attr('href');
+  const data = [];
+  $('article, .chivsrc, .listupd article').each((_, el) => {
+    const $el = $(el);
+    const a = $el.find('a').first();
+    const title = $el.find('h2, .thumbz h3').text().trim();
+    let url = a.attr('href');
+    const img = $el.find('img').attr('src');
 
     if (title && url) {
+      if (!url.startsWith('http')) url = BASE + url;
       data.push({
-        title,
-        image: image ? (image.startsWith('http') ? image : `${PROXY}${image}`) : '',
-        type: type || 'Anime',
-        score: score || 'N/A',
-        url: url.startsWith('http') ? url : `${BASE}${url}`
+        title: title.replace(/Subtitle Indonesia|Sub Indo/gi, '').trim(),
+        image: img ? (img.startsWith('http') ? img : PROXY + img) : '',
+        type: $el.find('.type, .genre').text().trim() || 'TV',
+        score: $el.find('.score, .rating').text().trim() || 'N/A',
+        url
       });
     }
   });
@@ -73,84 +84,87 @@ async function search(query) {
   return data;
 }
 
+// ─── DETAIL ─────────────────────────────────────────────
 async function detail(link) {
-  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-  const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
-  const $ = cheerio.load(res.data);
+  const target = link.startsWith('http') ? link : BASE + link;
+  const $ = await fetchPage(target);
+  if (!$) return { title: 'Error', description: 'Gagal memuat', episodes: [], info: {} };
 
   const episodes = [];
-  // Episode list Otakudesu biasanya di .lstepsiode atau .eplister
-  $('.lstepsiode ul li, .eplister ul li, .episode-list li').each((_, e) => {
-    const a = $(e).find('a');
-    episodes.push({
-      title: a.text().trim(),
-      url: a.attr('href'),
-      date: $(e).find('.date').text().trim()
-    });
-  });
-
-  const info = {};
-  // Info spec Otakudesu
-  $('.infoz, .spe, .infox').find('span, p').each((_, e) => {
-    const t = $(e).text();
-    if (t.includes(':')) {
-      const [k, v] = t.split(':');
-      info[k.trim().toLowerCase().replace(/\s+/g, '_')] = v.trim();
+  // Episode list
+  $('.lstepsiode ul li, .eplister ul li, .episode-list li, .list-episode a').each((_, el) => {
+    const $el = $(el);
+    const a = $el.find('a');
+    const title = a.text().trim();
+    let url = a.attr('href');
+    if (title && url) {
+      if (!url.startsWith('http')) url = BASE + url;
+      episodes.push({ title, url, date: $el.find('.date').text().trim() });
     }
   });
 
-  const title = $('h1.entry-title, .entry-title').text().trim() || $('title').text().replace(' - Otaku Desu', '').trim();
-  let description = $('.entry-content p, .sinopsis, .desc').text().trim() || '';
+  const title = $('h1.entry-title, .entry-title, .judul').text().trim() || $('title').text().replace(/- Otaku Desu.*/i, '').trim();
+  let description = $('.sinopsis, .entry-content p, .desc, .info-content').text().trim();
 
-  if (MAL_CLIENT_ID) {
+  const info = {};
+  $('.spe span, .infoz span, .infox p').each((_, el) => {
+    const text = $(el).text().trim();
+    if (text.includes(':')) {
+      const [key, value] = text.split(':').map(s => s.trim());
+      info[key.toLowerCase().replace(/\s+/g, '_')] = value;
+    }
+  });
+
+  if (MAL_CLIENT_ID && description.length < 150) {
     try {
       const malDesc = await getMalDescription(title);
       if (malDesc) description = malDesc;
-    } catch (e) {}
+    } catch {}
   }
 
-  return { 
-    title, 
-    image: $('meta[property="og:image"], .thumb img').attr('content') || $('img').first().attr('src'), 
-    description, 
-    episodes: episodes.slice(0, 30), 
-    info 
+  return {
+    title,
+    image: $('meta[property="og:image"]').attr('content') || $('.thumb img, img').first().attr('src'),
+    description: description || 'Deskripsi tidak tersedia.',
+    episodes: episodes.slice(0, 50),
+    info
   };
 }
 
+// ─── WATCH / DOWNLOAD ───────────────────────────────────
 async function download(link) {
-  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-  const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
-  const $ = cheerio.load(res.data);
-  const data = [];
+  const target = link.startsWith('http') ? link : BASE + link;
+  const $ = await fetchPage(target);
+  if (!$) return { title: 'Error', streams: [] };
 
-  // Server download/stream Otakudesu biasanya di .mirror, .download, atau player
-  $('a[href*="gdrive"], a[href*="mediafire"], .mirror a, .dowload a').each((_, el) => {
-    const serverName = $(el).text().trim() || 'Server';
+  const streams = [];
+  // Mirror links
+  $('a[href*="gdrive"], a[href*="mediafire"], a[href*="mega"], .mirror a, .dowload a, .download a').each((_, el) => {
     const url = $(el).attr('href');
-    if (url) data.push({ server: serverName, url });
+    const name = $(el).text().trim() || 'Mirror';
+    if (url) streams.push({ server: name, url });
   });
 
-  // Fallback iframe/player jika ada
-  if (data.length === 0) {
+  // Fallback iframe
+  if (streams.length === 0) {
     const iframe = $('iframe').attr('src');
-    if (iframe) data.push({ server: 'Default', url: iframe });
+    if (iframe) streams.push({ server: 'Player', url: iframe });
   }
 
-  return { 
-    title: $('h1').text().trim() || 'Episode', 
-    streams: data 
+  return {
+    title: $('h1').first().text().trim() || 'Episode',
+    streams
   };
 }
 
-// MAL functions tetap sama (getMalDescription, getMalAnime, getMalSchedule, dll)
-async function getMalDescription(title) { /* ... sama seperti sebelumnya ... */ }
-async function getMalAnime(title) { /* ... sama ... */ }
-async function getMalSchedule() { /* ... sama ... */ }
-async function getMalTrending() { /* ... sama ... */ }
-async function getAnimeNews() { /* ... sama ... */ }
+// MAL Functions (tetap sama seperti sebelumnya)
+async function getMalDescription(title) { /* ... (copy dari kode lama) */ }
+async function getMalAnime(title) { /* ... */ }
+async function getMalSchedule() { /* ... */ }
+async function getMalTrending() { /* ... */ }
+async function getAnimeNews() { /* ... */ }
 
-// ROUTES tetap sama, hanya BASE diganti
+// ─── ROUTES ─────────────────────────────────────────────
 app.get('/api/latest', async (req, res) => {
   try { res.json(await animeterbaru(req.query.page || 1)); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -171,20 +185,24 @@ app.get('/api/watch', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// MAL routes & health tetap sama
-// ... (copy sisanya dari file asli)
+// MAL routes + health (copy dari kode asli kamu)
+app.get('/api/mal/description', async (req, res) => { /* ... */ });
+app.get('/api/mal/anime', async (req, res) => { /* ... */ });
+app.get('/api/schedule', async (req, res) => { /* ... */ });
+app.get('/api/trending', async (req, res) => { /* ... */ });
+app.get('/api/news', async (req, res) => { /* ... */ });
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.1.0-otakudesu', scraper: 'otakudesu.blog' }));
 
+// Static & SPA
 const path = require('path');
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-app.get('/masuk', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
-app.get('/panel', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get(['/masuk','/login'], (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get(['/admin','/panel'], (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`AniZone (Otakudesu) running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ AniZone Otakudesu Scraper running on ${PORT}`));
 
 module.exports = app;
