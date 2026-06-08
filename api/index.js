@@ -28,27 +28,28 @@ async function fetchPage(url) {
   }
 }
 
-// ─── ANIMETERBARU / LATEST ─────────────────────────────
+// ─── LATEST ─────────────────────────────────────────────
 async function animeterbaru(page = 1) {
   const $ = await fetchPage(`${BASE}/`);
   if (!$) return [];
 
   const data = [];
-  // Selector utama Otakudesu
-  $('.venz ul li, .chivsrc li, article, .listupd article').each((_, el) => {
+  $('.venz ul li, .chivsrc li, article, .listupd article, .bsx, .bs').each((_, el) => {
     const $el = $(el);
     const a = $el.find('a').first();
-    const title = $el.find('h2, .thumbz h3, .jdl').text().trim() || a.text().trim();
+    let title = $el.find('h2, .thumbz h3, .jdl, .tt').text().trim() || a.text().trim();
     let url = a.attr('href');
-    const img = $el.find('img').attr('src') || $el.find('.thumb img').attr('src');
+    const img = $el.find('img').attr('src') || $el.find('.thumb img, .poster img').attr('src');
 
     if (title && url) {
       if (!url.startsWith('http')) url = BASE + url;
+      if (url.includes('/episode/')) return; // skip episode
+
       data.push({
         title: title.replace(/Subtitle Indonesia|Sub Indo/gi, '').trim(),
         url,
         image: img ? (img.startsWith('http') ? img : PROXY + img) : '',
-        episode: $el.find('.epz, .eps, .episode').text().trim() || 'Terbaru',
+        episode: $el.find('.epz, .eps, .episode, .hdt').text().trim() || 'Terbaru',
       });
     }
   });
@@ -56,32 +57,36 @@ async function animeterbaru(page = 1) {
   return data.slice(0, 24);
 }
 
-// ─── SEARCH ─────────────────────────────────────────────
+// ─── SEARCH (FIX UTAMA) ─────────────────────────────────
 async function search(query) {
   const $ = await fetchPage(`${BASE}/?s=${encodeURIComponent(query)}`);
   if (!$) return [];
 
   const data = [];
-  $('article, .chivsrc, .listupd article').each((_, el) => {
+  $('article, .chivsrc, .listupd article, .bsx, .bs').each((_, el) => {
     const $el = $(el);
     const a = $el.find('a').first();
-    const title = $el.find('h2, .thumbz h3').text().trim();
+    let title = $el.find('h2, .thumbz h3, .jdl, .tt').text().trim() || a.text().trim();
     let url = a.attr('href');
-    const img = $el.find('img').attr('src');
+    const img = $el.find('img').attr('src') || $el.find('.thumb img, .poster img').attr('src');
 
     if (title && url) {
       if (!url.startsWith('http')) url = BASE + url;
+      if (url.includes('/episode/')) return; // hindari episode duplicate
+
       data.push({
         title: title.replace(/Subtitle Indonesia|Sub Indo/gi, '').trim(),
         image: img ? (img.startsWith('http') ? img : PROXY + img) : '',
-        type: $el.find('.type, .genre').text().trim() || 'TV',
-        score: $el.find('.score, .rating').text().trim() || 'N/A',
+        type: $el.find('.type, .genre, .sb').text().trim() || 'TV',
+        score: $el.find('.score, .rating, .rt').text().trim() || 'N/A',
         url
       });
     }
   });
 
-  return data;
+  // Deduplikasi berdasarkan URL
+  const unique = [...new Map(data.map(item => [item.url, item])).values()];
+  return unique.slice(0, 30);
 }
 
 // ─── DETAIL ─────────────────────────────────────────────
@@ -91,15 +96,14 @@ async function detail(link) {
   if (!$) return { title: 'Error', description: 'Gagal memuat', episodes: [], info: {} };
 
   const episodes = [];
-  // Episode list
-  $('.lstepsiode ul li, .eplister ul li, .episode-list li, .list-episode a').each((_, el) => {
+  $('.lstepsiode ul li, .eplister ul li, .episode-list li, .list-episode a, .eps a, .ep-list a').each((_, el) => {
     const $el = $(el);
-    const a = $el.find('a');
-    const title = a.text().trim();
-    let url = a.attr('href');
+    const a = $el.find('a').first() || $el;
+    const title = a.text().trim() || $el.text().trim();
+    let url = a.attr('href') || $el.attr('href');
     if (title && url) {
       if (!url.startsWith('http')) url = BASE + url;
-      episodes.push({ title, url, date: $el.find('.date').text().trim() });
+      episodes.push({ title, url, date: $el.find('.date, .tgl').text().trim() });
     }
   });
 
@@ -115,13 +119,6 @@ async function detail(link) {
     }
   });
 
-  if (MAL_CLIENT_ID && description.length < 150) {
-    try {
-      const malDesc = await getMalDescription(title);
-      if (malDesc) description = malDesc;
-    } catch {}
-  }
-
   return {
     title,
     image: $('meta[property="og:image"]').attr('content') || $('.thumb img, img').first().attr('src'),
@@ -131,24 +128,24 @@ async function detail(link) {
   };
 }
 
-// ─── WATCH / DOWNLOAD ───────────────────────────────────
+// ─── WATCH / STREAM ───────────────────────────────────
 async function download(link) {
   const target = link.startsWith('http') ? link : BASE + link;
   const $ = await fetchPage(target);
   if (!$) return { title: 'Error', streams: [] };
 
   const streams = [];
-  // Mirror links
-  $('a[href*="gdrive"], a[href*="mediafire"], a[href*="mega"], .mirror a, .dowload a, .download a').each((_, el) => {
+  $('a[href*="gdrive"], a[href*="mediafire"], a[href*="mega"], a[href*="drive"], a[href*="up"], .mirror a, .dowload a, .download a, .mirror-link a, .dl a').each((_, el) => {
     const url = $(el).attr('href');
-    const name = $(el).text().trim() || 'Mirror';
-    if (url) streams.push({ server: name, url });
+    const name = $(el).text().trim() || $(el).attr('title') || 'Mirror';
+    if (url && url.includes('http')) {
+      streams.push({ server: name, url: url.startsWith('http') ? url : PROXY + url });
+    }
   });
 
-  // Fallback iframe
   if (streams.length === 0) {
     const iframe = $('iframe').attr('src');
-    if (iframe) streams.push({ server: 'Player', url: iframe });
+    if (iframe) streams.push({ server: 'Player', url: iframe.startsWith('http') ? iframe : PROXY + iframe });
   }
 
   return {
@@ -157,12 +154,12 @@ async function download(link) {
   };
 }
 
-// MAL Functions (tetap sama seperti sebelumnya)
-async function getMalDescription(title) { /* ... (copy dari kode lama) */ }
-async function getMalAnime(title) { /* ... */ }
-async function getMalSchedule() { /* ... */ }
-async function getMalTrending() { /* ... */ }
-async function getAnimeNews() { /* ... */ }
+// MAL Stubs
+async function getMalDescription(title) { return null; }
+async function getMalAnime(title) { return null; }
+async function getMalSchedule() { return []; }
+async function getMalTrending() { return []; }
+async function getAnimeNews() { return []; }
 
 // ─── ROUTES ─────────────────────────────────────────────
 app.get('/api/latest', async (req, res) => {
@@ -185,24 +182,15 @@ app.get('/api/watch', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// MAL routes + health (copy dari kode asli kamu)
-app.get('/api/mal/description', async (req, res) => { /* ... */ });
-app.get('/api/mal/anime', async (req, res) => { /* ... */ });
-app.get('/api/schedule', async (req, res) => { /* ... */ });
-app.get('/api/trending', async (req, res) => { /* ... */ });
-app.get('/api/news', async (req, res) => { /* ... */ });
-app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.1.0-otakudesu', scraper: 'otakudesu.blog' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.1.1-fixed' }));
 
-// Static & SPA
+// Static files
 const path = require('path');
 app.use(express.static(path.join(__dirname, '..', 'public')));
-
-app.get(['/masuk','/login'], (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get(['/admin','/panel'], (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`✅ AniZone Otakudesu Scraper running on ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ AniZone Scraper FIXED running on ${PORT}`));
 
 module.exports = app;
