@@ -504,16 +504,20 @@ function renderSection(title, data, container) {
       <a href="#" class="more-link" onclick="handleSearch('${kw}');return false;">Lainnya →</a>
     </div>
     <div class="horizontal-scroll">
-      ${data.map((a,i) => `
+      ${data.map((a,i) => {
+        const badge = a.episode ? `Ep ${a.episode}` : (a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : '');
+        const titleDisplay = a.title.length > 35 ? a.title.substring(0,35)+'...' : a.title;
+        return `
         <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i*0.04}s">
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
               <img ${a.image ? `src="${a.image}"` : `src="" data-anime-url="${a.url}"`} alt="${a.title}" loading="lazy">
-              <div class="ep-badge">Ep ${a.episode||a.score||'?'}</div>
+              ${badge ? `<div class="ep-badge">${badge}</div>` : ''}
             </div>
           </div>
-          <div class="scroll-card-title">${a.title.length>35?a.title.substring(0,35)+'...':a.title}</div>
-        </div>`).join('')}
+          <div class="scroll-card-title">${titleDisplay}</div>
+        </div>`;
+      }).join('')}
     </div>`;
   container.appendChild(div);
   lazyLoadImages(div);
