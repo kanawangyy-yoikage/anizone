@@ -720,46 +720,57 @@ async function loadDetail(url) {
 
 async function loadVideo(url) {
   loader(true);
+  hide('detail-view'); show('watch-view');
+  if (window.innerWidth < 900) hide('bottomNav');
+
+  const player  = document.getElementById('video-player');
+  const servers = document.getElementById('server-options');
+  const titleEl = document.getElementById('video-title');
+
+  player.src = '';
+  titleEl.textContent = 'Memuat stream...';
+  servers.innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
+
   try {
-    hide('detail-view'); show('watch-view');
-    if (window.innerWidth < 900) hide('bottomNav');
+    const data = await Promise.race([
+      fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
+    ]);
 
-    const player  = document.getElementById('video-player');
-    const servers = document.getElementById('server-options');
-    const titleEl = document.getElementById('video-title');
+    if (data?.title) titleEl.textContent = data.title;
 
-    // Kuramanime blokir scraping dari server (403), jadi embed langsung halaman episode-nya.
-    // Player kuramanime sudah ada di halaman itu — tinggal embed via iframe.
-    player.src = url;
-    titleEl.textContent = 'Memuat player...';
-    servers.innerHTML = '';
-
-    // Tetap coba ambil stream dari server untuk server alternatif (DoodStream, FileMoon, dll)
-    // Ini mungkin gagal (403) tapi tidak apa — player utama sudah via iframe
-    try {
-      const data = await Promise.race([
-        fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
-      ]);
-      if (data?.title) titleEl.textContent = data.title;
-      if (data?.streams?.length > 0) {
-        // Tambahkan tombol server alternatif selain Kuramadrive (yang sudah di-embed)
-        const altStreams = data.streams.filter(s =>
-          !s.url.includes('kuramanime') && !s.url.includes('kuramadrive') && !s.url.includes(url)
-        );
-        if (altStreams.length > 0) {
-          servers.innerHTML = '<p class="server-label" style="margin-top:8px">Server Alternatif:</p>'
-            + altStreams.map((s, i) =>
-                `<button class="server-tag" onclick="changeServer('${s.url}',this)">${s.server}</button>`
-              ).join('');
-        }
-      }
-    } catch {}
-
+    if (data?.streams?.length > 0) {
+      // Pakai stream pertama
+      player.src = data.streams[0].url;
+      servers.innerHTML = data.streams.map((s, i) =>
+        `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
+      ).join('');
+    } else {
+      // Server tidak bisa scrape (403) — tampilkan tombol buka langsung
+      player.src = '';
+      servers.innerHTML = `
+        <div style="text-align:center;padding:20px 0">
+          <p style="color:var(--text-muted);margin-bottom:16px">
+            Stream tidak bisa dimuat otomatis.<br>Klik tombol di bawah untuk menonton:
+          </p>
+          <a href="${url}" target="_blank" rel="noopener"
+             style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none;font-size:15px">
+            ▶ Buka di Kuramanime
+          </a>
+        </div>`;
+    }
+  } catch {
+    player.src = '';
+    servers.innerHTML = `
+      <div style="text-align:center;padding:20px 0">
+        <p style="color:var(--text-muted);margin-bottom:16px">Gagal memuat stream otomatis.</p>
+        <a href="${url}" target="_blank" rel="noopener"
+           style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none">
+          ▶ Buka di Kuramanime
+        </a>
+      </div>`;
+  } finally {
     loader(false);
-  } catch (e) {
-    loader(false);
-    alert('Gagal memuat episode.');
   }
 }
 
