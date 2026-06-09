@@ -577,7 +577,7 @@ async function handleSearch(manualQuery = null) {
       </div>
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
       <div class="anime-grid" style="padding-bottom:80px">
-        ${data.filter(a => a.url && a.url !== 'undefined').map(a => `
+        ${data.map(a => `
           <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
             <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
             <div class="scroll-card-title">${a.title}</div>
@@ -589,16 +589,9 @@ async function handleSearch(manualQuery = null) {
 // ─── DETAIL ───────────────────────────────────────────
 
 async function loadDetail(url) {
-  if (!url || url === 'undefined' || url === 'null') {
-    alert('URL anime tidak valid.');
-    return;
-  }
   loader(true);
   try {
-    const res = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data || !data.title) throw new Error('Data anime kosong');
+    const data = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`).then(r => r.json());
     ALL_VIEWS.forEach(v => hide(v));
     if (window.innerWidth < 900) hide('bottomNav');
     show('detail-view');
@@ -689,22 +682,7 @@ async function loadDetail(url) {
       return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i*0.02,0.3)}s">${num}</div>`;
     }).join('');
 
-  } catch(e) {
-    console.error('loadDetail error:', e);
-    // Restore previous view instead of showing blank screen
-    show('home-view');
-    if (window.innerWidth < 900) show('bottomNav');
-    const homeEl = document.getElementById('home-view');
-    if (homeEl) {
-      homeEl.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--text-muted);">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <h3 style="color:var(--text);margin:0;">Gagal Memuat Anime</h3>
-          <p style="margin:0;text-align:center;max-width:300px;">Tidak bisa mengambil data anime ini. Coba lagi atau pilih anime lain.</p>
-          <button onclick="switchTab('home')" style="padding:10px 24px;border-radius:20px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:14px;">Kembali ke Beranda</button>
-        </div>`;
-    }
-  } finally { loader(false); }
+  } catch(e) { console.error(e); } finally { loader(false); }
 }
 
 // ─── WATCH ────────────────────────────────────────────
