@@ -191,46 +191,57 @@ async function detail(link) {
   const episodes = [];
   const epSeen = new Set();
 
-  // Regex longgar: tangkap semua URL yang mengandung /episode/ di dalamnya
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().trim();
-    // Cocokkan berbagai format: /episode/1, /episode/01, /episode/1-sub-indo, dll
-    if (!href.match(/\/episode\/[\d]/)) return;
+  function addEpisode(href, text) {
+    if (!href || href === '#') return;
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (epSeen.has(fullHref)) return;
     epSeen.add(fullHref);
-    const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
+    const epNum = href.match(/\/episode\/([\d.]+)/)?.[1]
+                || href.match(/[\d]+$/)?.[0]
+                || '';
     episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
+  }
+
+  // 1. <a href="...episode/N...">
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') || '';
+    if (!href.match(/\/episode\/[\d]/)) return;
+    addEpisode(href, $(el).text().trim());
   });
 
-  // Fallback: cari di elemen dengan data-* attribute (beberapa site pakai JS render)
+  // 2. Elemen apapun dengan data-href / data-url / data-episode-url
+  $('[data-href],[data-url],[data-episode-url],[data-src]').each((_, el) => {
+    const href = $(el).attr('data-href') || $(el).attr('data-url')
+              || $(el).attr('data-episode-url') || $(el).attr('data-src') || '';
+    if (!href.match(/\/episode\/[\d]/)) return;
+    addEpisode(href, $(el).text().trim());
+  });
+
+  // 3. onclick="..." yang mengandung URL episode
+  $('[onclick]').each((_, el) => {
+    const onclick = $(el).attr('onclick') || '';
+    const m = onclick.match(/['"\`]((?:[^\'"\`]*)?\/episode\/[\d][^\'"\`]*?)['"\`]/);
+    if (!m) return;
+    addEpisode(m[1], $(el).text().trim());
+  });
+
+  // 4. Scan raw HTML untuk URL episode di dalam script/JSON inline
   if (episodes.length === 0) {
-    $('[data-episode-url], [data-url]').each((_, el) => {
-      const href = $(el).attr('data-episode-url') || $(el).attr('data-url') || '';
-      const text = $(el).text().trim();
-      if (!href.match(/\/episode\/[\d]/)) return;
-      const fullHref = href.startsWith('http') ? href : BASE + href;
-      if (epSeen.has(fullHref)) return;
-      epSeen.add(fullHref);
-      const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
-      episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
-    });
+    const rawHtml = $.html();
+    const urlRegex = /["'\`]((?:https?:\/\/[^"'\`\s]*)?(?:\/anime\/\d+\/[^"'\`\s]*)?\/episode\/[\d][^"'\`\s<>]*?)["'\`]/g;
+    let m;
+    while ((m = urlRegex.exec(rawHtml)) !== null) {
+      addEpisode(m[1], '');
+    }
+  }
+  // Fallback: kalau masih kosong, coba fetch khusus episode list
+  if (episodes.length === 0) {
+    try {
+      const epList = await fetchEpisodeList(targetUrl);
+      episodes.push(...epList);
+    } catch {}
   }
 
-  // Fallback 2: scan semua href yang mengandung kata "episode"
-  if (episodes.length === 0) {
-    $('a[href*="episode"]').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const text = $(el).text().trim();
-      if (!href || href === '#') return;
-      const fullHref = href.startsWith('http') ? href : BASE + href;
-      if (epSeen.has(fullHref)) return;
-      epSeen.add(fullHref);
-      const epNum = href.match(/[\d]+$/)?.[0] || href.match(/episode[_-]?([\d]+)/i)?.[1] || '';
-      episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
-    });
-  }
   if (MAL_CLIENT_ID) {
     try {
       const malDesc = await getMalDescription(title);
@@ -238,6 +249,33 @@ async function detail(link) {
     } catch {}
   }
   return { title, image, description, episodes, info };
+}
+
+// Coba fetch daftar episode dari endpoint khusus kuramanime (/eps atau ?page=episode)
+async function fetchEpisodeList(animeUrl) {
+  const variants = [
+    animeUrl + '?eps=1',
+    animeUrl.replace(/\/anime\//, '/eps/'),
+    animeUrl + '/episode',
+  ];
+  for (const url of variants) {
+    try {
+      const $ = await fetchPage(url);
+      const eps = [];
+      const seen = new Set();
+      $('a[href]').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        if (!href.match(/\/episode\/[\d]/)) return;
+        const fullHref = href.startsWith('http') ? href : BASE + href;
+        if (seen.has(fullHref)) return;
+        seen.add(fullHref);
+        const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
+        eps.push({ title: $(el).text().trim() || `Episode ${epNum}`, url: fullHref, date: '' });
+      });
+      if (eps.length > 0) return eps;
+    } catch {}
+  }
+  return [];
 }
 
 async function download(link) {
