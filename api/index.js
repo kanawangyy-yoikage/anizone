@@ -141,12 +141,19 @@ async function search(query) {
   const data = [];
   const seen = new Set();
 
+  // Kata-kata yang jelas bukan judul anime (navigasi, UI, dll)
+  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|profile|kategori|genre|search|cari|lainnya|selengkapnya|more|next|prev|previous|episode|batch|subtitle|sub indo|nonton|download|stream|server|kualitas|resolusi|bagikan|share|lapor|report|komentar|comment)$/i;
+
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
     const isAnime = href.match(/\/anime\/\d+\/[^/]+$/) || href.match(/^https?:\/\/[^/]+\/anime\/\d+\/[^/]+$/);
     if (!isAnime || href.includes('/episode/')) return;
-    if (text.length < 2) return;
+    // Filter: judul terlalu pendek, terlalu panjang, atau kata navigasi
+    if (text.length < 3 || text.length > 120) return;
+    if (BLACKLIST.test(text)) return;
+    // Filter: judul yang isinya cuma angka/simbol
+    if (/^[\d\s\-_.]+$/.test(text)) return;
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
