@@ -558,6 +558,44 @@ app.get('/api/watch', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// DEBUG: lihat raw HTML + semua atribut video/iframe yang berhasil di-scrape
+app.get('/api/debug-watch', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    const response = await axios.get(targetUrl, { headers: { ...headers, Referer: BASE + '/' }, timeout: 20000 });
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    const elements = [];
+    $('video').each((_, el) => {
+      elements.push({
+        tag: 'video', id: $(el).attr('id'),
+        src: $(el).attr('src'),
+        'data-hls-src': $(el).attr('data-hls-src'),
+        'data-src': $(el).attr('data-src'),
+      });
+    });
+    $('iframe').each((_, el) => {
+      elements.push({ tag: 'iframe', src: $(el).attr('src'), 'data-src': $(el).attr('data-src') });
+    });
+    $('source').each((_, el) => {
+      elements.push({ tag: 'source', src: $(el).attr('src') });
+    });
+    $('li.option, li[data-value]').each((_, el) => {
+      elements.push({ tag: 'li.option', text: $(el).text().trim().substring(0,60), 'data-value': $(el).attr('data-value') });
+    });
+    $('select option').each((_, el) => {
+      elements.push({ tag: 'option', text: $(el).text().trim(), value: $(el).attr('value') });
+    });
+
+    const playerSnippet = $('video#player, #serverSection, .plyr').first().toString().substring(0, 2000);
+
+    res.json({ status: response.status, url: targetUrl, elements, playerSnippet, htmlLength: html.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/mal/description', async (req, res) => {
   try { res.json({ description: await getMalDescription(req.query.title) }); }
   catch (e) { res.status(500).json({ error: e.message }); }
