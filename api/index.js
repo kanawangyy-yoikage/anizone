@@ -312,26 +312,36 @@ async function download(link) {
     if (src) addStream(src, serverLabel(src));
   });
 
-  // 2. <video> / <source>
+  // 2. <video> / <source> — termasuk data-hls-src yang dipakai kuramanime
   $('video, video source, source').each((_, el) => {
-    const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (src) addStream(src, 'Direct');
+    const src = $(el).attr('src') || $(el).attr('data-src')
+              || $(el).attr('data-hls-src') || $(el).attr('data-hls')
+              || $(el).attr('data-video') || '';
+    if (src) addStream(src, $(el).attr('id') === 'player' ? 'Kuramadrive' : 'Direct');
   });
 
-  // 3. Server list: select option / data-* elemen
-  $('select option, [data-provider], [data-server], [data-stream], [data-mirror]').each((_, el) => {
-    const url = $(el).attr('data-src') || $(el).attr('data-stream')
+  // 3. Server list — kuramanime pakai form#serverForm + ul.nice-select > li.option
+  // Setiap li.option punya data-value = URL embed, teks = nama server
+  $('li.option, li[data-value], select option, [data-provider], [data-server], [data-stream], [data-mirror]').each((_, el) => {
+    const url = $(el).attr('data-value') || $(el).attr('data-src') || $(el).attr('data-stream')
               || $(el).attr('data-provider') || $(el).attr('data-server')
               || $(el).attr('data-mirror') || $(el).attr('value') || '';
-    const label = $(el).text().trim() || $(el).attr('data-name') || '';
+    const label = $(el).text().trim().replace(/\(.*?\)/g, '').trim() || $(el).attr('data-name') || '';
     if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
   });
 
-  // 4. Semua elemen dengan data-src yang berupa URL
-  $('[data-src]').each((_, el) => {
-    const src = $(el).attr('data-src') || '';
+  // 3b. Form serverForm: hidden input / select dengan value URL
+  $('form#serverForm input, form#serverForm select option, #serverSection input, #serverSection option').each((_, el) => {
+    const url = $(el).attr('value') || $(el).attr('data-src') || '';
+    const label = $(el).attr('name') || $(el).text().trim() || '';
+    if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
+  });
+
+  // 4. Semua elemen dengan data-src / data-hls-src yang berupa URL
+  $('[data-src],[data-hls-src],[data-hls]').each((_, el) => {
+    const src = $(el).attr('data-hls-src') || $(el).attr('data-hls') || $(el).attr('data-src') || '';
     const label = $(el).attr('data-name') || $(el).attr('title') || $(el).text().trim() || '';
-    if (src.startsWith('http') || src.startsWith('//')) addStream(src, label);
+    if (src.startsWith('http') || src.startsWith('//')) addStream(src, label || serverLabel(src));
   });
 
   // 5. Parse <script> tags untuk pola URL streaming kuramanime
