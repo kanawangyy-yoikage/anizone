@@ -721,22 +721,46 @@ async function loadDetail(url) {
 async function loadVideo(url) {
   loader(true);
   try {
-    const data = await fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json());
     hide('detail-view'); show('watch-view');
     if (window.innerWidth < 900) hide('bottomNav');
 
-    document.getElementById('video-title').textContent = data.title;
     const player  = document.getElementById('video-player');
     const servers = document.getElementById('server-options');
-    if (data.streams && data.streams.length > 0) {
-      player.src = data.streams[0].url;
-      servers.innerHTML = data.streams.map((s, i) =>
-        `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
-      ).join('');
-    } else {
-      alert('Maaf, stream belum tersedia untuk episode ini.');
-    }
-  } catch {} finally { loader(false); }
+    const titleEl = document.getElementById('video-title');
+
+    // Kuramanime blokir scraping dari server (403), jadi embed langsung halaman episode-nya.
+    // Player kuramanime sudah ada di halaman itu — tinggal embed via iframe.
+    player.src = url;
+    titleEl.textContent = 'Memuat player...';
+    servers.innerHTML = '';
+
+    // Tetap coba ambil stream dari server untuk server alternatif (DoodStream, FileMoon, dll)
+    // Ini mungkin gagal (403) tapi tidak apa — player utama sudah via iframe
+    try {
+      const data = await Promise.race([
+        fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+      ]);
+      if (data?.title) titleEl.textContent = data.title;
+      if (data?.streams?.length > 0) {
+        // Tambahkan tombol server alternatif selain Kuramadrive (yang sudah di-embed)
+        const altStreams = data.streams.filter(s =>
+          !s.url.includes('kuramanime') && !s.url.includes('kuramadrive') && !s.url.includes(url)
+        );
+        if (altStreams.length > 0) {
+          servers.innerHTML = '<p class="server-label" style="margin-top:8px">Server Alternatif:</p>'
+            + altStreams.map((s, i) =>
+                `<button class="server-tag" onclick="changeServer('${s.url}',this)">${s.server}</button>`
+              ).join('');
+        }
+      }
+    } catch {}
+
+    loader(false);
+  } catch (e) {
+    loader(false);
+    alert('Gagal memuat episode.');
+  }
 }
 
 function changeServer(url, btn) {
