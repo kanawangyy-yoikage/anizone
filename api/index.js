@@ -281,38 +281,84 @@ async function fetchEpisodeList(animeUrl) {
 async function download(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
   const res = await axios.get(targetUrl, { headers: { ...headers, Referer: BASE + '/' }, timeout: 20000 });
-  const $ = cheerio.load(res.data);
+  const html = res.data;
+  const $ = cheerio.load(html);
   const rawTitle = $('title').text().trim();
   const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
   const streams = [];
   const seen = new Set();
-  $('iframe[src], iframe[data-src]').each((_, el) => {
-    const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (!src || src === 'about:blank' || seen.has(src)) return;
-    seen.add(src);
-    const fullSrc = src.startsWith('//') ? 'https:' + src : src;
-    let serverName = 'Stream';
+
+  function serverLabel(url, fallback) {
     try {
-      const part = new URL(fullSrc).hostname.replace(/^www\./, '').split('.')[0];
-      serverName = part.charAt(0).toUpperCase() + part.slice(1);
-    } catch {}
-    streams.push({ server: serverName, url: fullSrc });
-  });
-  $('video source[src], video[src]').each((_, el) => {
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      const name = host.split('.')[0];
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch { return fallback || 'Stream'; }
+  }
+
+  function addStream(url, label) {
+    if (!url || url === 'about:blank' || url === '#') return;
+    const full = url.startsWith('//') ? 'https:' + url
+               : url.startsWith('http') ? url
+               : BASE + url;
+    if (seen.has(full)) return;
+    seen.add(full);
+    streams.push({ server: label || serverLabel(full), url: full });
+  }
+
+  // 1. <iframe src / data-src>
+  $('iframe').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (!src || seen.has(src)) return;
-    seen.add(src);
-    streams.push({ server: 'Direct', url: src });
+    if (src) addStream(src, serverLabel(src));
   });
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().trim();
-    if (!href || seen.has(href)) return;
-    if (href.match(/\.(mp4|mkv|avi)(\?|$)/i) || text.toLowerCase().includes('download')) {
-      seen.add(href);
-      streams.push({ server: text || 'Download', url: href });
-    }
+
+  // 2. <video> / <source>
+  $('video, video source, source').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src) addStream(src, 'Direct');
   });
+
+  // 3. Server list: select option / data-* elemen
+  $('select option, [data-provider], [data-server], [data-stream], [data-mirror]').each((_, el) => {
+    const url = $(el).attr('data-src') || $(el).attr('data-stream')
+              || $(el).attr('data-provider') || $(el).attr('data-server')
+              || $(el).attr('data-mirror') || $(el).attr('value') || '';
+    const label = $(el).text().trim() || $(el).attr('data-name') || '';
+    if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
+  });
+
+  // 4. Semua elemen dengan data-src yang berupa URL
+  $('[data-src]').each((_, el) => {
+    const src = $(el).attr('data-src') || '';
+    const label = $(el).attr('data-name') || $(el).attr('title') || $(el).text().trim() || '';
+    if (src.startsWith('http') || src.startsWith('//')) addStream(src, label);
+  });
+
+  // 5. Parse <script> tags untuk pola URL streaming kuramanime
+  $('script').each((_, el) => {
+    const code = $(el).html() || '';
+
+    // Pola: "url":"https://..." atau "src":"https://..."
+    for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // Pola: var streamUrl = "..."
+    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // Pola object: {server:"Name", url:"..."}
+    for (const m of code.matchAll(/\{[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}"?(?:url|src)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}\}/gi))
+      addStream(m[2], m[1]);
+    for (const m of code.matchAll(/\{[^{}]{0,200}"?(?:url|src)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}\}/gi))
+      addStream(m[1], m[2]);
+  });
+
+  // 6. Fallback: scan raw HTML untuk domain streaming umum
+  if (streams.length === 0) {
+    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:kuramadrive|streamtape|doodstream|dood\.|filemoon|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream)[^\s"'<>]+/gi;
+    for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
+  }
+
   return { title, streams };
 }
 
