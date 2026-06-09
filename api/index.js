@@ -17,9 +17,13 @@ const headers = {
   'Pragma': 'no-cache'
 };
 
-const BASE        = 'https://otakudesu.cloud';
-const CORS_PROXY  = 'https://corsproxy.io/?url=';
-const MAL_API     = 'https://api.myanimelist.net/v2';
+const BASE          = 'https://otakudesu.blog';
+const CORS_PROXIES  = [
+  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+const MAL_API       = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
 // ─── HELPERS ──────────────────────────────────────────────
@@ -34,23 +38,32 @@ function clean(text) {
   return (text || '').replace(/\s+/g, ' ').trim();
 }
 
-// axGet: request dengan retry 1x, fallback ke CORS proxy
-function proxyUrl(url) {
-  return CORS_PROXY + encodeURIComponent(url);
-}
-
+// axGet: coba langsung dulu, kalau gagal coba tiap CORS proxy satu per satu
 async function axGet(url, extraHeaders = {}) {
   const cfg = {
     headers: { ...headers, Referer: BASE + '/', ...extraHeaders },
     timeout: 20000
   };
+
+  // 1. Coba langsung
   try {
     return await axios.get(url, cfg);
   } catch (err) {
-    // Retry via CORS proxy
-    await new Promise(r => setTimeout(r, 1000));
-    return await axios.get(proxyUrl(url), cfg);
+    // lanjut ke proxy
   }
+
+  // 2. Coba tiap CORS proxy
+  let lastErr;
+  for (const makeProxy of CORS_PROXIES) {
+    try {
+      await new Promise(r => setTimeout(r, 500));
+      return await axios.get(makeProxy(url), { ...cfg, headers: { ...cfg.headers } });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  throw lastErr;
 }
 
 // ─── SCRAPERS ─────────────────────────────────────────────
