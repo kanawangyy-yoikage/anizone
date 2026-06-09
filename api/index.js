@@ -42,49 +42,51 @@ async function fetchPage(url, retries = 2) {
   }
 }
 
-// Ambil gambar og:image dari satu halaman anime
-async function fetchAnimeImage(animeUrl) {
+// ─── IMAGE CACHE (in-memory, reset tiap restart) ───────────
+const imageCache = new Map();
+
+async function getAnimeImage(animeUrl) {
+  if (imageCache.has(animeUrl)) return imageCache.get(animeUrl);
   try {
     const $ = await fetchPage(animeUrl);
-    return $('meta[property="og:image"]').attr('content') || '';
+    const img = $('meta[property="og:image"]').attr('content') || '';
+    imageCache.set(animeUrl, img);
+    return img;
   } catch { return ''; }
 }
 
 // ─── SCRAPERS ─────────────────────────────────────────────
 
 /**
- * Anime terbaru/update
- * Scrape /quick/ongoing?order_by=update
- * Return: url = URL anime (untuk loadDetail), episodeUrl = URL episode terbaru (untuk langsung nonton)
- * Gambar diambil secara parallel dari halaman detail masing-masing anime
+ * /api/latest — kembalikan data CEPAT dulu tanpa gambar.
+ * Gambar diambil via /api/image?url=... secara lazy di frontend.
+ * URL = URL anime (untuk loadDetail), episodeUrl = episode terbaru
  */
 async function animeterbaru(page = 1) {
   const url = `${BASE}/quick/ongoing?order_by=update&page=${page}`;
   const $ = await fetchPage(url);
-  const raw = [];
+  const data = [];
   const seen = new Set();
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
 
-    // Link ke episode: /anime/{id}/{slug}/episode/{num}
     if (!href.match(/\/anime\/\d+\/[^/]+\/episode\/\d+/)) return;
 
-    // URL anime = potong /episode/{num}
-    const animeUrl = href.replace(/\/episode\/\d+$/, '');
+    // URL anime = hapus /episode/{num}
+    const animeUrl = (href.startsWith('http') ? href : BASE + href).replace(/\/episode\/\d+$/, '');
     if (seen.has(animeUrl)) return;
     seen.add(animeUrl);
 
-    // Parse "(Ep 8 / 12) Judul Anime"
     const epMatch = text.match(/^\(Ep\s*(\d+)\s*\/\s*([^)]+)\)\s*(.+)$/);
     if (!epMatch) return;
 
-    raw.push({
+    data.push({
       title: epMatch[3].trim(),
-      url: animeUrl,          // URL anime — dipakai loadDetail()
-      episodeUrl: href,       // URL episode terbaru — dipakai nonton langsung
-      image: '',
+      url: animeUrl,
+      episodeUrl: href.startsWith('http') ? href : BASE + href,
+      image: '',   // kosong dulu — frontend fetch via /api/image
       episode: epMatch[1],
       totalEpisode: epMatch[2].trim(),
       score: 'N/A',
@@ -92,20 +94,19 @@ async function animeterbaru(page = 1) {
     });
   });
 
-  // Ambil gambar secara parallel (max 10 concurrent)
-  const BATCH = 10;
-  for (let i = 0; i < raw.length; i += BATCH) {
-    const batch = raw.slice(i, i + BATCH);
-    const images = await Promise.all(batch.map(item => fetchAnimeImage(item.url)));
-    images.forEach((img, j) => { raw[i + j].image = img; });
-  }
-
-  return raw;
+  return data;
 }
 
 /**
- * Pencarian anime
- * Scrape /anime?search={query}&order_by=latest
+ * /api/image?url=... — ambil og:image dari satu halaman anime
+ * Dipakai frontend untuk lazy-load gambar setelah data tampil
+ */
+async function getImage(animeUrl) {
+  return getAnimeImage(animeUrl);
+}
+
+/**
+ * /api/search — kembalikan list anime, gambar lazy juga
  */
 async function search(query) {
   const url = `${BASE}/anime?search=${encodeURIComponent(query)}&order_by=latest`;
@@ -117,44 +118,34 @@ async function search(query) {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
 
-    // Link ke halaman anime (bukan episode, bukan nav)
-    const isAnimeLink = href.match(/\/anime\/\d+\/[^/]+$/) ||
-                        href.match(/^https?:\/\/[^/]+\/anime\/\d+\/[^/]+$/);
-    if (!isAnimeLink || href.includes('/episode/')) return;
+    const isAnime = href.match(/\/anime\/\d+\/[^/]+$/) || href.match(/^https?:\/\/[^/]+\/anime\/\d+\/[^/]+$/);
+    if (!isAnime || href.includes('/episode/')) return;
     if (text.length < 2) return;
 
-    // Normalisasi ke full URL
-    const fullHref = href.startsWith('http') ? href : (BASE + href);
+    const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
 
     data.push({ title: text, url: fullHref, image: '', type: '', score: '' });
   });
 
-  // Ambil gambar parallel
-  const BATCH = 8;
-  for (let i = 0; i < data.length; i += BATCH) {
-    const batch = data.slice(i, i + BATCH);
-    const images = await Promise.all(batch.map(item => fetchAnimeImage(item.url)));
-    images.forEach((img, j) => { data[i + j].image = img; });
-  }
-
   return data;
 }
 
 /**
- * Detail anime
- * Scrape /anime/{id}/{slug}
+ * /api/detail — detail anime lengkap dengan gambar (sekali fetch)
  */
 async function detail(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
   const $ = await fetchPage(targetUrl);
 
   const image = $('meta[property="og:image"]').attr('content') || '';
+  // Cache gambar sekalian
+  if (image) imageCache.set(targetUrl, image);
+
   const rawTitle = $('title').text().trim();
   const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
 
-  // Sinopsis: paragraf pertama yang cukup panjang
   let description = '';
   $('p').each((_, el) => {
     const txt = $(el).text().trim();
@@ -165,7 +156,6 @@ async function detail(link) {
                   $('meta[name="description"]').attr('content') || '';
   }
 
-  // Info metadata dari <li> format "Label: Nilai"
   const info = {};
   $('li').each((_, el) => {
     const text = $(el).text().trim();
@@ -176,33 +166,31 @@ async function detail(link) {
     if (key && val && val.length < 150) info[key] = val;
   });
 
-  // Daftar episode: link ke /episode/{num}
   const episodes = [];
   const epSeen = new Set();
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
     if (!href.match(/\/anime\/\d+\/[^/]+\/episode\/\d+$/)) return;
-    if (epSeen.has(href)) return;
-    epSeen.add(href);
+    const fullHref = href.startsWith('http') ? href : BASE + href;
+    if (epSeen.has(fullHref)) return;
+    epSeen.add(fullHref);
     const epNum = href.match(/\/episode\/(\d+)$/)?.[1] || '';
-    const fullHref = href.startsWith('http') ? href : (BASE + href);
     episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
   });
 
-  // Enrichment MAL
   if (MAL_CLIENT_ID) {
     try {
       const malDesc = await getMalDescription(title);
       if (malDesc) description = malDesc;
-    } catch (e) {}
+    } catch {}
   }
 
   return { title, image, description, episodes, info };
 }
 
 /**
- * Watch — scrape halaman episode untuk embed video
+ * /api/watch — embed video dari halaman episode
  */
 async function download(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
@@ -213,41 +201,35 @@ async function download(link) {
   const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
 
   const streams = [];
-  const streamSeen = new Set();
+  const seen = new Set();
 
-  // Iframe embed (player utama)
   $('iframe[src], iframe[data-src]').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (!src || src === 'about:blank' || streamSeen.has(src)) return;
-    streamSeen.add(src);
+    if (!src || src === 'about:blank' || seen.has(src)) return;
+    seen.add(src);
     const fullSrc = src.startsWith('//') ? 'https:' + src : src;
     let serverName = 'Stream';
     try {
-      const hostname = new URL(fullSrc).hostname.replace(/^www\./, '');
-      const part = hostname.split('.')[0];
+      const part = new URL(fullSrc).hostname.replace(/^www\./, '').split('.')[0];
       serverName = part.charAt(0).toUpperCase() + part.slice(1);
-    } catch (e) {}
+    } catch {}
     streams.push({ server: serverName, url: fullSrc });
   });
 
-  // Video HTML5 langsung
   $('video source[src], video[src]').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (!src || streamSeen.has(src)) return;
-    streamSeen.add(src);
+    if (!src || seen.has(src)) return;
+    seen.add(src);
     streams.push({ server: 'Direct', url: src });
   });
 
-  // Link download eksplisit
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
-    if (!href) return;
+    if (!href || seen.has(href)) return;
     if (href.match(/\.(mp4|mkv|avi)(\?|$)/i) || text.toLowerCase().includes('download')) {
-      if (!streamSeen.has(href)) {
-        streamSeen.add(href);
-        streams.push({ server: text || 'Download', url: href });
-      }
+      seen.add(href);
+      streams.push({ server: text || 'Download', url: href });
     }
   });
 
@@ -314,7 +296,6 @@ async function getScrapedSchedule() {
   const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const allItems = [];
   const seen = new Set();
-
   for (const day of days) {
     try {
       const $ = await fetchPage(`${BASE}/schedule?scheduled_day=${day}`);
@@ -323,14 +304,13 @@ async function getScrapedSchedule() {
         const text = $(el).text().trim();
         if (!href.match(/\/anime\/\d+\/[^/]+$/) || href.includes('/episode/')) return;
         if (text.length < 2) return;
-        const fullHref = href.startsWith('http') ? href : (BASE + href);
+        const fullHref = href.startsWith('http') ? href : BASE + href;
         if (seen.has(fullHref)) return;
         seen.add(fullHref);
         allItems.push({ title: text, url: fullHref, day, image: '', score: 'N/A' });
       });
     } catch (e) { console.error(`Schedule [${day}]:`, e.message); }
   }
-
   return allItems.slice(0, 60);
 }
 
@@ -365,7 +345,7 @@ async function getScrapedTrending() {
       const text = $(el).text().trim();
       if (!href.match(/\/anime\/\d+\/[^/]+$/) || href.includes('/episode/')) return;
       if (text.length < 2) return;
-      const fullHref = href.startsWith('http') ? href : (BASE + href);
+      const fullHref = href.startsWith('http') ? href : BASE + href;
       if (seen.has(fullHref)) return;
       seen.add(fullHref);
       data.push({ title: text, url: fullHref, image: '', score: 'N/A' });
@@ -419,6 +399,14 @@ app.get('/api/latest', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Endpoint baru: ambil gambar satu anime (lazy load dari frontend)
+app.get('/api/image', async (req, res) => {
+  try {
+    const img = await getImage(req.query.url);
+    res.json({ image: img });
+  } catch (e) { res.json({ image: '' }); }
+});
+
 app.get('/api/search', async (req, res) => {
   try { res.json(await search(req.query.q)); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -459,18 +447,17 @@ app.get('/api/news', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', source: 'kuramanime', version: '3.1.0' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', source: 'kuramanime', version: '3.2.0' }));
 
 // ─── STATIC ────────────────────────────────────────────────
 const path = require('path');
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get('/masuk',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get('/login',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get('/admin',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
-app.get('/panel',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('/masuk', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('/panel', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
-// ─── START ─────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API (Kuramanime) berjalan di port ${PORT}`));
 
