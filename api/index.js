@@ -17,7 +17,8 @@ const headers = {
   'Pragma': 'no-cache'
 };
 
-const BASE        = 'https://otakudesu.blog';
+const BASE        = 'https://otakudesu.cloud';
+const CORS_PROXY  = 'https://corsproxy.io/?url=';
 const MAL_API     = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
@@ -33,7 +34,11 @@ function clean(text) {
   return (text || '').replace(/\s+/g, ' ').trim();
 }
 
-// axGet: request dengan retry 1x & rotate referer
+// axGet: request dengan retry 1x, fallback ke CORS proxy
+function proxyUrl(url) {
+  return CORS_PROXY + encodeURIComponent(url);
+}
+
 async function axGet(url, extraHeaders = {}) {
   const cfg = {
     headers: { ...headers, Referer: BASE + '/', ...extraHeaders },
@@ -42,9 +47,9 @@ async function axGet(url, extraHeaders = {}) {
   try {
     return await axios.get(url, cfg);
   } catch (err) {
-    // 1 retry setelah 1 detik
+    // Retry via CORS proxy
     await new Promise(r => setTimeout(r, 1000));
-    return await axios.get(url, cfg);
+    return await axios.get(proxyUrl(url), cfg);
   }
 }
 
