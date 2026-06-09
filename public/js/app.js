@@ -10,6 +10,25 @@ if ('serviceWorker' in navigator) {
 
 const API_BASE = '/api';
 
+// Lazy-load gambar untuk elemen dengan data-anime-url
+// Dipanggil setelah kartu/slider dirender
+async function lazyLoadImages(containerEl) {
+  const imgs = (containerEl || document).querySelectorAll('img[data-anime-url]');
+  const promises = Array.from(imgs).map(async (img) => {
+    const animeUrl = img.getAttribute('data-anime-url');
+    if (!animeUrl) return;
+    try {
+      const r = await fetch(`${API_BASE}/image?url=${encodeURIComponent(animeUrl)}`);
+      const d = await r.json();
+      if (d.image) {
+        img.src = d.image;
+        img.removeAttribute('data-anime-url');
+      }
+    } catch {}
+  });
+  await Promise.all(promises);
+}
+
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
 function getUID() {
@@ -410,9 +429,13 @@ function renderHeroSlider(data, container) {
   const loopData = [...data, data[0]];
   const slidesHtml = loopData.map((a, i) => {
     let eps = a.episode ? `Ep ${(a.episode.match(/\d+(\.\d+)?/)||[''])[0]}` : '';
+    // Gambar: pakai src jika sudah ada, atau data-anime-url untuk lazy fetch
+    const imgAttr = a.image
+      ? `src="${a.image}"`
+      : `src="" data-anime-url="${a.url}" style="background:#111"`;
     return `
       <div class="hero-slide">
-        <img src="${a.image}" class="hero-bg" alt="${a.title}" loading="${i===0?'eager':'lazy'}">
+        <img ${imgAttr} class="hero-bg" alt="${a.title}" loading="${i===0?'eager':'lazy'}">
         <div class="hero-overlay"></div>
         <div class="hero-content">
           ${eps ? `<div class="hero-badge">${eps}</div>` : ''}
@@ -438,6 +461,9 @@ function renderHeroSlider(data, container) {
 
   if (container.firstChild) container.insertBefore(section, container.firstChild);
   else container.appendChild(section);
+
+  // Lazy-load gambar hero yang belum ada
+  lazyLoadImages(section);
 
   const wrapper = document.getElementById('heroWrapper');
   let cur = 0, total = loopData.length;
@@ -482,7 +508,7 @@ function renderSection(title, data, container) {
         <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i*0.04}s">
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
-              <img src="${a.image}" alt="${a.title}" loading="lazy">
+              <img ${a.image ? `src="${a.image}"` : `src="" data-anime-url="${a.url}"`} alt="${a.title}" loading="lazy">
               <div class="ep-badge">Ep ${a.episode||a.score||'?'}</div>
             </div>
           </div>
@@ -490,6 +516,7 @@ function renderSection(title, data, container) {
         </div>`).join('')}
     </div>`;
   container.appendChild(div);
+  lazyLoadImages(div);
 }
 
 // ─── CATEGORY PAGE ────────────────────────────────────
