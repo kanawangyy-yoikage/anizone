@@ -26,6 +26,10 @@ let BASE = BASE_MIRRORS[0];
 const MAL_API = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
+// Cookie kuramanime — set env var KURAMANIME_COOKIE di Railway
+// Cara dapat: buka kuramanime di browser, login, DevTools > Application > Cookies > copy semua
+const KURAMANIME_COOKIE = process.env.KURAMANIME_COOKIE || '';
+
 const headers = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -41,6 +45,7 @@ const headers = {
   'sec-fetch-site': 'none',
   'sec-fetch-user': '?1',
   'upgrade-insecure-requests': '1',
+  ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
 };
 
 // ─── AUTO-DETECT MIRROR YANG AKTIF ────────────────────────
