@@ -190,16 +190,47 @@ async function detail(link) {
   });
   const episodes = [];
   const epSeen = new Set();
+
+  // Regex longgar: tangkap semua URL yang mengandung /episode/ di dalamnya
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
-    if (!href.match(/\/anime\/\d+\/[^/]+\/episode\/\d+$/)) return;
+    // Cocokkan berbagai format: /episode/1, /episode/01, /episode/1-sub-indo, dll
+    if (!href.match(/\/episode\/[\d]/)) return;
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (epSeen.has(fullHref)) return;
     epSeen.add(fullHref);
-    const epNum = href.match(/\/episode\/(\d+)$/)?.[1] || '';
+    const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
     episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
   });
+
+  // Fallback: cari di elemen dengan data-* attribute (beberapa site pakai JS render)
+  if (episodes.length === 0) {
+    $('[data-episode-url], [data-url]').each((_, el) => {
+      const href = $(el).attr('data-episode-url') || $(el).attr('data-url') || '';
+      const text = $(el).text().trim();
+      if (!href.match(/\/episode\/[\d]/)) return;
+      const fullHref = href.startsWith('http') ? href : BASE + href;
+      if (epSeen.has(fullHref)) return;
+      epSeen.add(fullHref);
+      const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
+      episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
+    });
+  }
+
+  // Fallback 2: scan semua href yang mengandung kata "episode"
+  if (episodes.length === 0) {
+    $('a[href*="episode"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const text = $(el).text().trim();
+      if (!href || href === '#') return;
+      const fullHref = href.startsWith('http') ? href : BASE + href;
+      if (epSeen.has(fullHref)) return;
+      epSeen.add(fullHref);
+      const epNum = href.match(/[\d]+$/)?.[0] || href.match(/episode[_-]?([\d]+)/i)?.[1] || '';
+      episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
+    });
+  }
   if (MAL_CLIENT_ID) {
     try {
       const malDesc = await getMalDescription(title);
