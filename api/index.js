@@ -4,11 +4,25 @@ const cheerio = require('cheerio');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+
+// ─── CORS — izinkan semua origin ───────────────────────────
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
+app.options('*', cors());
 app.use(express.json());
 
 // ─── CONFIG ───────────────────────────────────────────────
-const BASE = 'https://v18.kuramanime.ing';
+// Daftar mirror, dicoba urut dari atas jika yang pertama gagal
+const BASE_MIRRORS = [
+  'https://v18.kuramanime.ing',
+  'https://kuramanime.net',
+  'https://kuramanime.pro',
+];
+let BASE = BASE_MIRRORS[0];
 const MAL_API = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
@@ -27,13 +41,43 @@ const headers = {
   'sec-fetch-site': 'none',
   'sec-fetch-user': '?1',
   'upgrade-insecure-requests': '1',
-  'Referer': BASE + '/'
 };
 
+// ─── AUTO-DETECT MIRROR YANG AKTIF ────────────────────────
+async function detectWorkingMirror() {
+  for (const mirror of BASE_MIRRORS) {
+    try {
+      const res = await axios.get(mirror, {
+        headers: { ...headers, Referer: mirror + '/' },
+        timeout: 8000,
+        maxRedirects: 5,
+        validateStatus: s => s < 500
+      });
+      if (res.status < 400) {
+        BASE = mirror;
+        console.log(`[Mirror] Aktif: ${BASE}`);
+        return;
+      }
+    } catch (e) {
+      console.log(`[Mirror] Gagal ${mirror}: ${e.message}`);
+    }
+  }
+  console.warn('[Mirror] Semua mirror gagal, pakai default.');
+}
+detectWorkingMirror();
+// Cek ulang setiap 10 menit
+setInterval(detectWorkingMirror, 10 * 60 * 1000);
+
+// ─── FETCH HELPER ─────────────────────────────────────────
 async function fetchPage(url, retries = 2) {
+  const fullHeaders = { ...headers, Referer: BASE + '/' };
   for (let i = 0; i <= retries; i++) {
     try {
-      const res = await axios.get(url, { headers, timeout: 20000, maxRedirects: 5 });
+      const res = await axios.get(url, {
+        headers: fullHeaders,
+        timeout: 20000,
+        maxRedirects: 5
+      });
       return cheerio.load(res.data);
     } catch (e) {
       if (i === retries) throw e;
@@ -42,7 +86,7 @@ async function fetchPage(url, retries = 2) {
   }
 }
 
-// ─── IMAGE CACHE (in-memory, reset tiap restart) ───────────
+// ─── IMAGE CACHE ──────────────────────────────────────────
 const imageCache = new Map();
 
 async function getAnimeImage(animeUrl) {
@@ -57,11 +101,6 @@ async function getAnimeImage(animeUrl) {
 
 // ─── SCRAPERS ─────────────────────────────────────────────
 
-/**
- * /api/latest — kembalikan data CEPAT dulu tanpa gambar.
- * Gambar diambil via /api/image?url=... secara lazy di frontend.
- * URL = URL anime (untuk loadDetail), episodeUrl = episode terbaru
- */
 async function animeterbaru(page = 1) {
   const url = `${BASE}/quick/ongoing?order_by=update&page=${page}`;
   const $ = await fetchPage(url);
@@ -71,22 +110,17 @@ async function animeterbaru(page = 1) {
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
-
     if (!href.match(/\/anime\/\d+\/[^/]+\/episode\/\d+/)) return;
-
-    // URL anime = hapus /episode/{num}
     const animeUrl = (href.startsWith('http') ? href : BASE + href).replace(/\/episode\/\d+$/, '');
     if (seen.has(animeUrl)) return;
     seen.add(animeUrl);
-
     const epMatch = text.match(/^\(Ep\s*(\d+)\s*\/\s*([^)]+)\)\s*(.+)$/);
     if (!epMatch) return;
-
     data.push({
       title: epMatch[3].trim(),
       url: animeUrl,
       episodeUrl: href.startsWith('http') ? href : BASE + href,
-      image: '',   // kosong dulu — frontend fetch via /api/image
+      image: '',
       episode: epMatch[1],
       totalEpisode: epMatch[2].trim(),
       score: 'N/A',
@@ -97,17 +131,10 @@ async function animeterbaru(page = 1) {
   return data;
 }
 
-/**
- * /api/image?url=... — ambil og:image dari satu halaman anime
- * Dipakai frontend untuk lazy-load gambar setelah data tampil
- */
 async function getImage(animeUrl) {
   return getAnimeImage(animeUrl);
 }
 
-/**
- * /api/search — kembalikan list anime, gambar lazy juga
- */
 async function search(query) {
   const url = `${BASE}/anime?search=${encodeURIComponent(query)}&order_by=latest`;
   const $ = await fetchPage(url);
@@ -117,35 +144,25 @@ async function search(query) {
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
-
     const isAnime = href.match(/\/anime\/\d+\/[^/]+$/) || href.match(/^https?:\/\/[^/]+\/anime\/\d+\/[^/]+$/);
     if (!isAnime || href.includes('/episode/')) return;
     if (text.length < 2) return;
-
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
-
     data.push({ title: text, url: fullHref, image: '', type: '', score: '' });
   });
 
   return data;
 }
 
-/**
- * /api/detail — detail anime lengkap dengan gambar (sekali fetch)
- */
 async function detail(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
   const $ = await fetchPage(targetUrl);
-
   const image = $('meta[property="og:image"]').attr('content') || '';
-  // Cache gambar sekalian
   if (image) imageCache.set(targetUrl, image);
-
   const rawTitle = $('title').text().trim();
   const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
-
   let description = '';
   $('p').each((_, el) => {
     const txt = $(el).text().trim();
@@ -155,7 +172,6 @@ async function detail(link) {
     description = $('meta[property="og:description"]').attr('content') ||
                   $('meta[name="description"]').attr('content') || '';
   }
-
   const info = {};
   $('li').each((_, el) => {
     const text = $(el).text().trim();
@@ -165,7 +181,6 @@ async function detail(link) {
     const val = text.substring(colonIdx + 1).trim().split('\n')[0].trim();
     if (key && val && val.length < 150) info[key] = val;
   });
-
   const episodes = [];
   const epSeen = new Set();
   $('a[href]').each((_, el) => {
@@ -178,31 +193,23 @@ async function detail(link) {
     const epNum = href.match(/\/episode\/(\d+)$/)?.[1] || '';
     episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
   });
-
   if (MAL_CLIENT_ID) {
     try {
       const malDesc = await getMalDescription(title);
       if (malDesc) description = malDesc;
     } catch {}
   }
-
   return { title, image, description, episodes, info };
 }
 
-/**
- * /api/watch — embed video dari halaman episode
- */
 async function download(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-  const res = await axios.get(targetUrl, { headers, timeout: 20000 });
+  const res = await axios.get(targetUrl, { headers: { ...headers, Referer: BASE + '/' }, timeout: 20000 });
   const $ = cheerio.load(res.data);
-
   const rawTitle = $('title').text().trim();
   const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
-
   const streams = [];
   const seen = new Set();
-
   $('iframe[src], iframe[data-src]').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
     if (!src || src === 'about:blank' || seen.has(src)) return;
@@ -215,14 +222,12 @@ async function download(link) {
     } catch {}
     streams.push({ server: serverName, url: fullSrc });
   });
-
   $('video source[src], video[src]').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
     if (!src || seen.has(src)) return;
     seen.add(src);
     streams.push({ server: 'Direct', url: src });
   });
-
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') || '';
     const text = $(el).text().trim();
@@ -232,7 +237,6 @@ async function download(link) {
       streams.push({ server: text || 'Download', url: href });
     }
   });
-
   return { title, streams };
 }
 
@@ -272,7 +276,6 @@ async function getMalSchedule() {
     if (month >= 4 && month <= 6) season = 'spring';
     else if (month >= 7 && month <= 9) season = 'summer';
     else if (month >= 10) season = 'fall';
-
     const res = await axios.get(`${MAL_API}/anime/season/${year}/${season}`, {
       headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
       params: { limit: 50, fields: 'start_date,mean,num_episodes,status,genres,main_picture,broadcast', sort: 'anime_num_list_users' }
@@ -394,12 +397,13 @@ async function getAnimeNews() {
 
 // ─── ROUTES ────────────────────────────────────────────────
 
+app.get('/api/mirror', (req, res) => res.json({ base: BASE }));
+
 app.get('/api/latest', async (req, res) => {
   try { res.json(await animeterbaru(req.query.page || 1)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { res.status(500).json({ error: e.message, base: BASE }); }
 });
 
-// Endpoint baru: ambil gambar satu anime (lazy load dari frontend)
 app.get('/api/image', async (req, res) => {
   try {
     const img = await getImage(req.query.url);
@@ -409,7 +413,7 @@ app.get('/api/image', async (req, res) => {
 
 app.get('/api/search', async (req, res) => {
   try { res.json(await search(req.query.q)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { res.status(500).json({ error: e.message, base: BASE }); }
 });
 
 app.get('/api/detail', async (req, res) => {
@@ -447,7 +451,7 @@ app.get('/api/news', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', source: 'kuramanime', version: '3.2.0' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', source: 'kuramanime', version: '3.3.0', base: BASE }));
 
 // ─── STATIC ────────────────────────────────────────────────
 const path = require('path');
@@ -459,6 +463,6 @@ app.get('/panel', (req, res) => res.sendFile(path.join(__dirname, '..', 'public'
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API (Kuramanime) berjalan di port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API berjalan di port ${PORT} | Mirror: ${BASE}`));
 
 module.exports = app;
