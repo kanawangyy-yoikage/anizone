@@ -326,7 +326,10 @@ async function search(query) {
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
-    const image = imgEl ? (imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') || '') : '';
+    const image = imgEl ? (
+      imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') ||
+      imgEl.attr('data-original') || (imgEl.attr('srcset') || '').split(' ')[0] || ''
+    ) : '';
     const genres = [];
     if (genreEl) genreEl.find('a').each((_, g) => genres.push($(g).text().trim()));
     const status = statusEl ? statusEl.text().trim() : '';
@@ -337,10 +340,11 @@ async function search(query) {
   // Selector utama otakudesu search: div.chivsrc ul li
   $('div.chivsrc ul li').each((_, el) => {
     const a = $(el).find('h2 a, .name a, h3 a').first();
+    const imgEl = $(el).find('div.thumbz img, div.thumb img, img').first();
     addResult(
       a.attr('href') || '',
       a.text().trim(),
-      $(el).find('img').first(),
+      imgEl,
       $(el).find('div.set span.lm'),
       $(el).find('div.set span.lm').last(),
       $(el).find('div.epzt')
@@ -955,6 +959,48 @@ app.get('/api/debug-watch', async (req, res) => {
     $('div.nonton-embed, div.embed-responsive').each((_, el) => elements.push({ tag:'nonton-embed', html:$(el).html()?.substring(0,200) }));
     res.json({ status:response.status, url:targetUrl, cloudflare, elements, htmlLength:html.length, activeMirror: BASE, proxySet:!!PROXY_URL });
   } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
+// ─── /api/debug-search — cek struktur HTML hasil search ──
+app.get('/api/debug-search', async (req, res) => {
+  const q = req.query.q || 'naruto';
+  try {
+    const url = `${BASE}/?s=${encodeURIComponent(q)}`;
+    const response = await axios.get(url, {
+      headers: makeHeaders(BASE + '/'),
+      timeout: 20000,
+      maxRedirects: 10,
+      ...proxyConfig(),
+    });
+    const $ = cheerio.load(response.data);
+    const info = {
+      activeMirror: BASE,
+      searchUrl: url,
+      title: $('title').text().trim(),
+      selectors: {
+        'div.chivsrc ul li': $('div.chivsrc ul li').length,
+        'div.chivsrc': $('div.chivsrc').length,
+        'div.venz ul li': $('div.venz ul li').length,
+      },
+      sampleItems: [],
+    };
+    $('div.chivsrc ul li').slice(0, 3).each((_, el) => {
+      const a = $(el).find('h2 a, .name a, h3 a').first();
+      const img = $(el).find('img').first();
+      info.sampleItems.push({
+        title: a.text().trim(),
+        href: a.attr('href'),
+        imgSrc: img.attr('src'),
+        imgDataSrc: img.attr('data-src'),
+        imgDataLazy: img.attr('data-lazy-src'),
+        imgSrcset: (img.attr('srcset') || '').substring(0, 100),
+        liHtml: $(el).html()?.substring(0, 300),
+      });
+    });
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message, activeMirror: BASE });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════
