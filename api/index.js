@@ -273,7 +273,7 @@ async function animeterbaru(page = 1) {
   }
 
   // Coba selector utama otakudesu
-  extractItems('div.venz ul li', 'h2.jdlflm a', 'img', 'div.epz', 'div.epztipe', 'div.newnime');
+  extractItems('div.venz ul li, .vezone li, .venser li', 'h2.jdlflm a, h2 a', 'div.thumbz img, div.thumb img, img', 'div.epz', 'div.epztipe', 'div.newnime');
 
   // Fallback 1: beberapa mirror pakai div.chblock
   if (data.length === 0) {
@@ -337,9 +337,9 @@ async function search(query) {
     data.push({ title, url: fullHref, image, type: status || 'Anime', score: rating || 'N/A', genres });
   }
 
-  // Selector utama otakudesu search: div.chivsrc ul li
-  $('div.chivsrc ul li').each((_, el) => {
-    const a = $(el).find('h2 a, .name a, h3 a').first();
+  // Selector otakudesu search: .chivsrc li (bukan div.chivsrc)
+  $('.chivsrc li').each((_, el) => {
+    const a = $(el).find('h2 a, .name a, h3 a, a').first();
     const imgEl = $(el).find('div.thumbz img, div.thumb img, img').first();
     addResult(
       a.attr('href') || '',
@@ -978,37 +978,25 @@ app.get('/api/debug-search', async (req, res) => {
       searchUrl: url,
       title: $('title').text().trim(),
       selectors: {
-        'div.chivsrc ul li': $('div.chivsrc ul li').length,
-        'div.chivsrc': $('div.chivsrc').length,
-        'div.venz ul li': $('div.venz ul li').length,
-        // tambahan cek semua div/ul/li yang ada
-        'ul li': $('ul li').length,
-        'article': $('article').length,
-        '.post': $('.post').length,
-        '.type-post': $('.type-post').length,
+        '.chivsrc li': $('.chivsrc li').length,
+        '.chivsrc': $('.chivsrc').length,
+        '.vezone li': $('.vezone li').length,
+        '.venser li': $('.venser li').length,
       },
-      // Ambil semua class dari div/ul/li/article untuk ketahui strukturnya
-      topLevelDivClasses: [],
-      // Potongan HTML mentah area konten utama
-      rawContentHtml: '',
       sampleItems: [],
     };
-
-    // Kumpulkan semua class unik dari elemen di body
-    const classSet = new Set();
-    $('body *').each((_, el) => {
-      const cls = $(el).attr('class');
-      if (cls) cls.split(/\s+/).forEach(c => { if (c) classSet.add(c); });
+    $('.chivsrc li').slice(0, 3).each((_, el) => {
+      const a = $(el).find('h2 a, .name a, h3 a, a').first();
+      const img = $(el).find('div.thumbz img, div.thumb img, img').first();
+      info.sampleItems.push({
+        title: a.text().trim(),
+        href: a.attr('href'),
+        imgSrc: img.attr('src'),
+        imgDataSrc: img.attr('data-src'),
+        imgSrcset: (img.attr('srcset') || '').substring(0, 120),
+        liHtml: $(el).html()?.substring(0, 400),
+      });
     });
-    info.topLevelDivClasses = [...classSet].slice(0, 80);
-
-    // Ambil HTML mentah dari elemen pertama yang berisi link /anime/
-    $('*').each((_, el) => {
-      if ($(el).find('a[href*="/anime/"]').length > 2 && !info.rawContentHtml) {
-        info.rawContentHtml = $(el).html()?.substring(0, 1500) || '';
-      }
-    });
-
     res.json(info);
   } catch (e) {
     res.status(500).json({ error: e.message, activeMirror: BASE });
