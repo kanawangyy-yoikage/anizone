@@ -11,28 +11,19 @@ app.options('*', cors());
 app.use(express.json());
 
 // ─── CONFIG ───────────────────────────────────────────────
+// Mirror otakudesu — coba dari yang paling baru
 const BASE_MIRRORS = [
-  'https://v18.kuramanime.ing',
-  'https://kuramanime.net',
-  'https://kuramanime.pro',
-  'https://kuramanime.run',
-  'https://kuramanime.site',
-  'https://kuramanime.fun',
-  'https://kuramanime.live',
-  'https://kuramanime.one',
-  'https://v17.kuramanime.ing',
-  'https://v16.kuramanime.ing',
+  'https://otakudesu.blog',
+  'https://otakudesu.cloud',
+  'https://otakudesu.lol',
+  'https://otakudesu.cam',
+  'https://otakudesu.ink',
 ];
 let BASE = BASE_MIRRORS[0];
 const MAL_API = 'https://api.myanimelist.net/v2';
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
 
-// Cookie kuramanime — set env var KURAMANIME_COOKIE di Railway
-// Cara dapat: login di browser → DevTools > Application > Cookies → copy semua
-// Pastikan include: cf_clearance, laravel_session, XSRF-TOKEN
-const KURAMANIME_COOKIE = process.env.KURAMANIME_COOKIE || '';
-
-// Proxy HTTP opsional — set PROXY_URL di Railway jika IP Railway diblokir
+// Proxy HTTP opsional — set PROXY_URL di Railway jika IP diblokir
 // Format: http://user:pass@host:port  atau  http://host:port
 const PROXY_URL = process.env.PROXY_URL || '';
 
@@ -67,7 +58,6 @@ function makeHeaders(referer) {
     'Sec-Fetch-User': '?1',
     'Upgrade-Insecure-Requests': '1',
     'Referer': referer || BASE + '/',
-    ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
   };
 }
 
@@ -121,13 +111,13 @@ async function detectWorkingMirror() {
         return;
       }
       if (isCloudflareBlock($)) {
-        console.log(`[Mirror] Cloudflare block di ${mirror} — set KURAMANIME_COOKIE`);
+        console.log(`[Mirror] Cloudflare block di ${mirror}`);
       }
     } catch (e) {
       console.log(`[Mirror] Gagal ${mirror}: ${e.message}`);
     }
   }
-  console.warn('[Mirror] Semua mirror gagal. Pakai default. Pastikan KURAMANIME_COOKIE sudah di-set.');
+  console.warn('[Mirror] Semua mirror gagal. Pakai default.');
 }
 detectWorkingMirror();
 setInterval(detectWorkingMirror, 10 * 60 * 1000);
@@ -144,7 +134,7 @@ async function fetchPage(url, retries = 2) {
       });
       const $ = cheerio.load(res.data);
       if (isCloudflareBlock($)) {
-        throw new Error('Cloudflare block — set env var KURAMANIME_COOKIE (include cf_clearance)');
+        throw new Error('Cloudflare block — coba set PROXY_URL atau tunggu beberapa menit');
       }
       return $;
     } catch (e) {
@@ -166,154 +156,153 @@ async function getAnimeImage(animeUrl) {
   } catch { return ''; }
 }
 
-// ─── SCRAPERS ─────────────────────────────────────────────
+// ─── SCRAPERS OTAKUDESU ───────────────────────────────────
+//
+// Struktur halaman otakudesu:
+//   Ongoing  : BASE/?page=N  → div.venz > ul > li  dengan class .episodelist
+//   Completed: BASE/complete-anime/?page=N → sama
+//   Search   : BASE/?s=QUERY → div.chivsrc > ul > li
+//   Detail   : BASE/anime/SLUG/  → div.infoanime, div.episodelist
+//   Episode  : BASE/episode/SLUG/ → div.nonton-embed iframe, div.download-eps
+//
+// Semua URL bersifat "slug-based":
+//   Anime  : https://otakudesu.blog/anime/shingeki-no-kyojin-sub-indo/
+//   Episode: https://otakudesu.blog/episode/snk-episode-1-sub-indo/
 
+// ─── anime terbaru (ongoing) ─────────────────────────────
 async function animeterbaru(page = 1) {
-  const url = `${BASE}/quick/ongoing?order_by=update&page=${page}`;
+  // Otakudesu halaman depan = ongoing, halaman page=N via /?page=N
+  const url = page > 1 ? `${BASE}/?page=${page}` : `${BASE}/`;
   const $ = await fetchPage(url);
   const data = [];
   const seen = new Set();
 
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().trim();
-    if (!href.match(/\/anime\/\d+\/[^/]+\/episode\/\d+/)) return;
-    const animeUrl = (href.startsWith('http') ? href : BASE + href).replace(/\/episode\/\d+$/, '');
-    if (seen.has(animeUrl)) return;
-    seen.add(animeUrl);
-    const epMatch = text.match(/^\(Ep\s*(\d+)\s*\/\s*([^)]+)\)\s*(.+)$/);
-    if (!epMatch) return;
+  // Setiap item ongoing ada di div.venz ul li
+  $('div.venz ul li').each((_, el) => {
+    const a = $(el).find('h2.jdlflm a').first();
+    const title = a.text().trim();
+    const href = a.attr('href') || '';
+    if (!href || !title) return;
+    if (seen.has(href)) return;
+    seen.add(href);
+
+    const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
+    const episodeText = $(el).find('div.epz').text().trim(); // "Episode 10"
+    const epMatch = episodeText.match(/(\d+)/);
+    const episode = epMatch ? epMatch[1] : '?';
+    const totalEl = $(el).find('div.epztipe').text().trim(); // "Ongoing" / "Completed"
+    const type = $(el).find('div.epztipe').text().trim() || 'Anime';
+
+    // episodeUrl: href adalah URL anime, kita konstruksi URL episode dari teks episode
     data.push({
-      title: epMatch[3].trim(),
-      url: animeUrl,
-      episodeUrl: href.startsWith('http') ? href : BASE + href,
-      image: '',
-      episode: epMatch[1],
-      totalEpisode: epMatch[2].trim(),
+      title,
+      url: href,
+      episodeUrl: href, // detail halaman anime, bukan direct episode
+      image,
+      episode,
+      totalEpisode: '?',
       score: 'N/A',
-      type: 'Anime',
+      type,
     });
   });
 
   return data;
 }
 
+// ─── search ───────────────────────────────────────────────
 async function search(query) {
-  const url = `${BASE}/anime?search=${encodeURIComponent(query)}&order_by=latest`;
+  const url = `${BASE}/?s=${encodeURIComponent(query)}`;
   const $ = await fetchPage(url);
   const data = [];
   const seen = new Set();
-  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|profile|kategori|genre|search|cari|lainnya|selengkapnya|more|next|prev|previous|episode|batch|subtitle|sub indo|nonton|download|stream|server|kualitas|resolusi|bagikan|share|lapor|report|komentar|comment)$/i;
 
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().trim();
-    const isAnime = href.match(/\/anime\/\d+\/[^/]+$/) || href.match(/^https?:\/\/[^/]+\/anime\/\d+\/[^/]+$/);
-    if (!isAnime || href.includes('/episode/')) return;
-    if (text.length < 3 || text.length > 120 || BLACKLIST.test(text)) return;
-    if (/^[\d\s\-_.]+$/.test(text)) return;
-    const fullHref = href.startsWith('http') ? href : BASE + href;
-    if (seen.has(fullHref)) return;
-    seen.add(fullHref);
-    data.push({ title: text, url: fullHref, image: '', type: '', score: '' });
+  // Hasil search ada di div.chivsrc ul li
+  $('div.chivsrc ul li').each((_, el) => {
+    const a = $(el).find('h2 a').first();
+    const title = a.text().trim();
+    const href = a.attr('href') || '';
+    if (!href || !title || title.length < 2) return;
+    if (seen.has(href)) return;
+    seen.add(href);
+
+    const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
+    const genres = [];
+    $(el).find('div.set span.lm a').each((_, g) => genres.push($(g).text().trim()));
+    const status = $(el).find('div.set span.lm').last().text().trim();
+    const rating = $(el).find('div.epzt').text().replace('Rating', '').trim();
+
+    data.push({
+      title,
+      url: href,
+      image,
+      type: status || 'Anime',
+      score: rating || '',
+      genres,
+    });
   });
+
   return data;
 }
 
+// ─── detail anime ─────────────────────────────────────────
 async function detail(link) {
   const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
   const $ = await fetchPage(targetUrl);
-  const image = $('meta[property="og:image"]').attr('content') || '';
+
+  const image = $('meta[property="og:image"]').attr('content')
+    || $('div.fotoanime img').attr('src')
+    || $('div.infoanime img').attr('src')
+    || '';
   if (image) imageCache.set(targetUrl, image);
+
   const rawTitle = $('title').text().trim();
-  const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
-  let description = '';
-  $('p').each((_, el) => {
-    const txt = $(el).text().trim();
-    if (txt.length > 80 && !description) description = txt;
-  });
-  if (!description) {
-    description = $('meta[property="og:description"]').attr('content') ||
-                  $('meta[name="description"]').attr('content') || '';
-  }
+  // Hapus suffix " – Otakudesu" atau " - Otakudesu" dari title
+  const title = rawTitle.replace(/\s*[-–]\s*Otakudesu\s*$/i, '').trim()
+    || $('h1.entry-title').text().trim()
+    || $('div.infoanime h1').text().trim();
+
+  // Synopsis
+  let description = $('div.sinopc').text().trim()
+    || $('meta[property="og:description"]').attr('content')
+    || $('meta[name="description"]').attr('content')
+    || '';
+
+  // Info tabel (judul_jepang, studio, skor, dll)
   const info = {};
-  $('li').each((_, el) => {
+  $('div.infoanime table tr, div.infozin span').each((_, el) => {
     const text = $(el).text().trim();
     const colonIdx = text.indexOf(':');
-    if (colonIdx < 1 || colonIdx > 30) return;
+    if (colonIdx < 1 || colonIdx > 40) return;
     const key = text.substring(0, colonIdx).trim().toLowerCase().replace(/\s+/g, '_');
     const val = text.substring(colonIdx + 1).trim().split('\n')[0].trim();
-    if (key && val && val.length < 150) info[key] = val;
+    if (key && val && val.length < 200) info[key] = val;
   });
+
+  // Daftar episode
   const episodes = [];
   const epSeen = new Set();
 
-  function addEpisode(href, text) {
-    if (!href || href === '#') return;
-    const fullHref = href.startsWith('http') ? href : BASE + href;
-    if (epSeen.has(fullHref)) return;
-    epSeen.add(fullHref);
-    const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || href.match(/[\d]+$/)?.[0] || '';
-    episodes.push({ title: text || `Episode ${epNum}`, url: fullHref, date: '' });
-  }
-
-  $('a[href]').each((_, el) => {
+  // Otakudesu menyimpan daftar episode di div.episodelist ul li a
+  $('div.episodelist ul li a, div.lstsz ul li a').each((_, el) => {
     const href = $(el).attr('href') || '';
-    if (!href.match(/\/episode\/[\d]/)) return;
-    addEpisode(href, $(el).text().trim());
+    const text = $(el).text().trim();
+    if (!href || epSeen.has(href)) return;
+    epSeen.add(href);
+    episodes.push({
+      title: text || `Episode`,
+      url: href.startsWith('http') ? href : BASE + href,
+      date: $(el).closest('li').find('span.zeebr').text().trim() || '',
+    });
   });
-  $('[data-href],[data-url],[data-episode-url],[data-src]').each((_, el) => {
-    const href = $(el).attr('data-href') || $(el).attr('data-url') || $(el).attr('data-episode-url') || $(el).attr('data-src') || '';
-    if (!href.match(/\/episode\/[\d]/)) return;
-    addEpisode(href, $(el).text().trim());
-  });
-  $('[onclick]').each((_, el) => {
-    const onclick = $(el).attr('onclick') || '';
-    const m = onclick.match(/['"` ]((?:[^'"` ]*)?\/episode\/[\d][^'"` ]*?)['"` ]/);
-    if (!m) return;
-    addEpisode(m[1], $(el).text().trim());
-  });
-  if (episodes.length === 0) {
-    const rawHtml = $.html();
-    const urlRegex = /["'`]((?:https?:\/\/[^"'`\s]*)?(?:\/anime\/\d+\/[^"'`\s]*)?\/episode\/[\d][^"'`\s<>]*?)["'`]/g;
-    let m;
-    while ((m = urlRegex.exec(rawHtml)) !== null) addEpisode(m[1], '');
-  }
-  if (episodes.length === 0) {
-    try { episodes.push(...(await fetchEpisodeList(targetUrl))); } catch {}
-  }
+
   if (MAL_CLIENT_ID) {
     try { const d = await getMalDescription(title); if (d) description = d; } catch {}
   }
+
   return { title, image, description, episodes, info };
 }
 
-async function fetchEpisodeList(animeUrl) {
-  const variants = [animeUrl + '?eps=1', animeUrl.replace(/\/anime\//, '/eps/'), animeUrl + '/episode'];
-  for (const url of variants) {
-    try {
-      const $ = await fetchPage(url);
-      const eps = [];
-      const seen = new Set();
-      $('a[href]').each((_, el) => {
-        const href = $(el).attr('href') || '';
-        if (!href.match(/\/episode\/[\d]/)) return;
-        const fullHref = href.startsWith('http') ? href : BASE + href;
-        if (seen.has(fullHref)) return;
-        seen.add(fullHref);
-        const epNum = href.match(/\/episode\/([\d.]+)/)?.[1] || '';
-        eps.push({ title: $(el).text().trim() || `Episode ${epNum}`, url: fullHref, date: '' });
-      });
-      if (eps.length > 0) return eps;
-    } catch {}
-  }
-  return [];
-}
-
-// ─── DOWNLOAD / STREAM SCRAPER ────────────────────────────
-// Mengklasifikasi tiap stream sebagai 'hls', 'direct', atau 'embed'
-// dan menambahkan proxyUrl yg siap dipakai frontend
-
+// ─── download / stream dari halaman episode ───────────────
 function classifyStream(url) {
   if (!url) return 'embed';
   if (url.includes('.m3u8')) return 'hls';
@@ -330,7 +319,6 @@ function buildProxyUrl(streamUrl, referer, req) {
   if (type === 'direct') {
     return `${base}/api/proxy?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent(referer)}`;
   }
-  // embed — tidak di-proxy, langsung digunakan sebagai iframe src
   return streamUrl;
 }
 
@@ -344,10 +332,10 @@ async function download(link, req) {
   const html = res.data;
   const $ = cheerio.load(html);
 
-  if (isCloudflareBlock($)) throw new Error('Cloudflare block — set KURAMANIME_COOKIE');
+  if (isCloudflareBlock($)) throw new Error('Cloudflare block — coba set PROXY_URL');
 
   const rawTitle = $('title').text().trim();
-  const title = rawTitle.replace(/\s*[-–]\s*Kuramanime\s*$/i, '').trim();
+  const title = rawTitle.replace(/\s*[-–]\s*Otakudesu\s*$/i, '').trim();
   const streams = [];
   const seen = new Set();
 
@@ -361,7 +349,7 @@ async function download(link, req) {
 
   function addStream(url, label) {
     if (!url || url === 'about:blank' || url === '#') return;
-    const full = url.startsWith('//') ? 'https:' + url
+    const full = url.startsWith('//')  ? 'https:' + url
                : url.startsWith('http') ? url
                : BASE + url;
     if (seen.has(full)) return;
@@ -371,104 +359,76 @@ async function download(link, req) {
     streams.push({ server: label || serverLabel(full), url: full, proxyUrl, type });
   }
 
-  // 1. iframe
+  // 1. iframe streaming — otakudesu pakai div.nonton-embed > iframe
+  $('div.nonton-embed iframe, div.embed-responsive iframe, #embed iframe, iframe[src*="desustream"], iframe[src*="desusub"], iframe[src*="otakustream"], iframe[src*="play"]').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src) addStream(src, serverLabel(src));
+  });
+
+  // Semua iframe lainnya sebagai fallback
   $('iframe').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
     if (src) addStream(src, serverLabel(src));
   });
 
-  // 2. video / source dengan berbagai atribut HLS kuramanime
+  // 2. video / source tag
   $('video, video source, source').each((_, el) => {
     ['src','data-src','data-hls-src','data-hls','data-video','data-file'].forEach(attr => {
       const v = $(el).attr(attr);
-      if (v) addStream(v, attr.includes('hls') ? 'Kuramadrive' : 'Direct');
+      if (v) addStream(v, attr.includes('hls') ? 'Desustream' : 'Direct');
     });
   });
 
-  // 3. Server-list kuramanime (li.option, select option)
-  $('li.option, li[data-value], select option, [data-provider], [data-server], [data-stream], [data-mirror]').each((_, el) => {
-    const url = $(el).attr('data-value') || $(el).attr('data-src') || $(el).attr('data-stream')
-              || $(el).attr('data-provider') || $(el).attr('data-server')
-              || $(el).attr('data-mirror') || $(el).attr('value') || '';
-    const label = $(el).text().trim().replace(/\(.*?\)/g, '').trim() || $(el).attr('data-name') || '';
+  // 3. Tombol server otakudesu — li.server dengan data-* atau onclick
+  // Otakudesu: ul.server-list li[data-server], atau button[data-src], span.server
+  $('li[data-server], li[data-src], button[data-src], [data-server], [data-mirror]').each((_, el) => {
+    const url = $(el).attr('data-server') || $(el).attr('data-src') || $(el).attr('data-mirror') || '';
+    const label = $(el).text().trim() || $(el).attr('data-name') || '';
     if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
   });
 
-  // 3b. form#serverForm
-  $('form#serverForm input, form#serverForm select option, #serverSection input, #serverSection option').each((_, el) => {
-    const url = $(el).attr('value') || $(el).attr('data-src') || '';
-    const label = $(el).attr('name') || $(el).text().trim() || '';
-    if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
+  // 4. div.mirrorstream, div.stream-server — struktur otakudesu modern
+  $('div.mirrorstream ul li, div.stream-server ul li').each((_, el) => {
+    const a = $(el).find('a').first();
+    const url = a.attr('href') || a.attr('data-src') || $(el).attr('data-src') || '';
+    const label = a.text().trim() || $(el).text().trim() || '';
+    if (url && url !== '#') addStream(url, label || serverLabel(url));
   });
 
-  // 3c. Tombol/link server kuramanime gaya baru (div/button dengan data-*)
-  $('[data-eps-url],[data-video-url],[data-stream-url],[data-embed],[data-iframe],[data-player]').each((_, el) => {
-    const attrs = ['data-eps-url','data-video-url','data-stream-url','data-embed','data-iframe','data-player'];
-    attrs.forEach(attr => {
-      const v = $(el).attr(attr);
-      if (v && (v.startsWith('http') || v.startsWith('//')))
-        addStream(v, $(el).text().trim() || $(el).attr('data-name') || serverLabel(v));
-    });
-  });
-
-  // 3d. Elemen dengan class mengandung "server" / "provider" / "mirror"
-  $('[class*="server"],[class*="provider"],[class*="mirror"],[class*="stream-btn"],[class*="eps-btn"]').each((_, el) => {
-    const url = $(el).attr('data-src') || $(el).attr('data-url') || $(el).attr('data-value')
-              || $(el).attr('href') || '';
-    if (url && (url.startsWith('http') || url.startsWith('//')))
-      addStream(url, $(el).text().trim() || serverLabel(url));
-  });
-
-  // 4. data-src / data-hls-src global
-  $('[data-src],[data-hls-src],[data-hls],[data-file]').each((_, el) => {
-    ['data-hls-src','data-hls','data-src','data-file'].forEach(attr => {
-      const v = $(el).attr(attr);
-      if (v && (v.startsWith('http') || v.startsWith('//'))) {
-        addStream(v, $(el).attr('data-name') || $(el).attr('title') || serverLabel(v));
-      }
-    });
-  });
-
-  // 5. Script inline — diperluas untuk pola baru kuramanime
+  // 5. Script inline — cari URL streaming
   $('script').each((_, el) => {
     const code = $(el).html() || '';
 
-    // Pola JSON key-value standar
+    // pola JSON key-value standar
     for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe|file|hls|video|player)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
       addStream(m[1], serverLabel(m[1]));
 
-    // Pola assignment JS
-    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl|hlsUrl|fileUrl|epsUrl|watchUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
+    // pola assignment JS
+    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl|hlsUrl|fileUrl|epsUrl|watchUrl|streamLink|playUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
       addStream(m[1], serverLabel(m[1]));
 
-    // Pola objek {server, url}
-    for (const m of code.matchAll(/\{[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}"?(?:url|src|file)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}\}/gi))
-      addStream(m[2], m[1]);
-    for (const m of code.matchAll(/\{[^{}]{0,200}"?(?:url|src|file)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}\}/gi))
-      addStream(m[1], m[2]);
-
-    // Pola array server kuramanime baru: [{label:'...', file:'...'}, ...]
+    // pola {label, file} — banyak dipakai player JW / Plyr
     for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}\}/gi))
       addStream(m[2], m[1]);
     for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}\}/gi))
       addStream(m[1], m[2]);
 
-    // Pola var/const/let langsung menyimpan URL
+    // pola var/const/let = URL video langsung
     for (const m of code.matchAll(/(?:var|const|let)\s+\w+\s*=\s*["'`](https?:\/\/[^"'`\n]*\.(?:m3u8|mp4|webm)[^"'`\n]*)["'`]/gi))
       addStream(m[1], serverLabel(m[1]));
 
-    // URL di dalam fungsi setup/init player
+    // pola setup/init player
     for (const m of code.matchAll(/(?:setup|init|load|source|setSource)\s*\(\s*\{[^}]{0,400}["'](?:file|src|url)["']\s*:\s*["'](https?:\/\/[^"']+)["']/gi))
       addStream(m[1], serverLabel(m[1]));
   });
 
-  // 6. Fallback: scan raw HTML untuk domain streaming — diperluas
+  // 6. Fallback: domain streaming yang umum dipakai otakudesu
   if (streams.length === 0) {
-    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:kuramadrive|kuracdn|kuramavid|streamtape|doodstream|dood\.|filemoon|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream|statically)[^\s"'<>]+/gi;
+    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:desustream|desusub|desuvid|otakustream|filemoon|streamtape|doodstream|dood\.|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream|statically)[^\s"'<>]+/gi;
     for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
   }
 
-  // 7. Last resort: ambil SEMUA URL yang mengandung .m3u8 atau .mp4 dari raw HTML
+  // 7. Last resort: semua URL .m3u8 atau .mp4 dari raw HTML
   if (streams.length === 0) {
     const pat = /https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4|webm)(?:\?[^\s"'<>]*)?/gi;
     for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
@@ -528,25 +488,23 @@ async function getMalSchedule() {
 }
 
 async function getScrapedSchedule() {
-  const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-  const allItems = [];
-  const seen = new Set();
-  for (const day of days) {
-    try {
-      const $ = await fetchPage(`${BASE}/schedule?scheduled_day=${day}`);
-      $('a[href]').each((_, el) => {
-        const href = $(el).attr('href') || '';
-        const text = $(el).text().trim();
-        if (!href.match(/\/anime\/\d+\/[^/]+$/) || href.includes('/episode/')) return;
-        if (text.length < 2) return;
-        const fullHref = href.startsWith('http') ? href : BASE + href;
-        if (seen.has(fullHref)) return;
-        seen.add(fullHref);
-        allItems.push({ title: text, url: fullHref, day, image: '', score: 'N/A' });
-      });
-    } catch (e) { console.error(`Schedule [${day}]:`, e.message); }
-  }
-  return allItems.slice(0, 60);
+  // Otakudesu tidak punya halaman jadwal khusus per hari,
+  // gunakan halaman ongoing sebagai fallback jadwal
+  try {
+    const $ = await fetchPage(`${BASE}/`);
+    const allItems = [];
+    const seen = new Set();
+    $('div.venz ul li').each((_, el) => {
+      const a = $(el).find('h2.jdlflm a').first();
+      const title = a.text().trim();
+      const href = a.attr('href') || '';
+      if (!href || !title || seen.has(href)) return;
+      seen.add(href);
+      const image = $(el).find('img').attr('src') || '';
+      allItems.push({ title, url: href, day: 'ongoing', image, score: 'N/A' });
+    });
+    return allItems.slice(0, 60);
+  } catch { return []; }
 }
 
 // ─── TRENDING ─────────────────────────────────────────────
@@ -569,17 +527,17 @@ async function getMalTrending() {
 
 async function getScrapedTrending() {
   try {
-    const $ = await fetchPage(`${BASE}/quick/ongoing?order_by=popular`);
+    // Otakudesu: halaman utama sudah berisi ongoing terpopuler
+    const $ = await fetchPage(`${BASE}/`);
     const data = []; const seen = new Set();
-    $('a[href]').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const text = $(el).text().trim();
-      if (!href.match(/\/anime\/\d+\/[^/]+$/) || href.includes('/episode/')) return;
-      if (text.length < 2) return;
-      const fullHref = href.startsWith('http') ? href : BASE + href;
-      if (seen.has(fullHref)) return;
-      seen.add(fullHref);
-      data.push({ title: text, url: fullHref, image: '', score: 'N/A' });
+    $('div.venz ul li').each((_, el) => {
+      const a = $(el).find('h2.jdlflm a').first();
+      const title = a.text().trim();
+      const href = a.attr('href') || '';
+      if (!href || !title || seen.has(href)) return;
+      seen.add(href);
+      const image = $(el).find('img').attr('src') || '';
+      data.push({ title, url: href, image, score: 'N/A' });
     });
     return data.slice(0, 20);
   } catch { return []; }
@@ -627,17 +585,16 @@ async function getAnimeNews() {
 // ─── PROXY ROUTES ─────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════
 
-// Domain yang diizinkan di proxy (cegah penyalahgunaan sebagai open proxy)
 const PROXY_ALLOWED_HOSTS = [
-  'kuramadrive', 'kuramanime', 'streamtape', 'doodstream', 'dood.',
+  'desustream', 'desusub', 'desuvid', 'otakustream',
+  'streamtape', 'doodstream', 'dood.',
   'filemoon', 'mega.nz', 'ok.ru', 'mp4upload', 'streamlare',
-  'upstream', 'mixdrop', 'fembed', 'vidstream', 'animenewsnetwork',
-  // mirror & CDN baru kuramanime
-  'v18.kuramanime', 'v17.kuramanime', 'v16.kuramanime',
-  'kuramanime.ing', 'kuramanime.run', 'kuramanime.site',
-  'kuramanime.fun', 'kuramanime.live', 'kuramanime.one',
-  'kurama-cdn', 'kuracdn', 'kuramavid',
-  // CDN video umum yang dipakai Kuramanime
+  'upstream', 'mixdrop', 'fembed', 'vidstream', 'statically',
+  'animenewsnetwork',
+  // Mirror otakudesu
+  'otakudesu.blog', 'otakudesu.cloud', 'otakudesu.lol',
+  'otakudesu.cam', 'otakudesu.ink',
+  // CDN umum
   'cdn.statically', 'statically.io',
   'storage.googleapis', 'drive.google',
   'cdn.jsdelivr',
@@ -651,8 +608,6 @@ function isAllowedProxyHost(urlStr) {
 }
 
 // ─── /api/proxy — pipe konten HTTP ke client ──────────────
-// Digunakan untuk video .mp4, segmen .ts HLS, dll.
-// Mendukung Range request (seek video)
 app.get('/api/proxy', async (req, res) => {
   const targetUrl = decodeURIComponent(req.query.url || '');
   const referer = req.query.referer ? decodeURIComponent(req.query.referer) : BASE + '/';
@@ -668,8 +623,6 @@ app.get('/api/proxy', async (req, res) => {
       ...makeHeaders(referer),
       'Origin': origin,
       'Referer': referer,
-      // Kirim cookie kuramanime ke CDN kuramadrive — token HLS terikat ke sesi
-      ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
     };
     if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
@@ -681,11 +634,6 @@ app.get('/api/proxy', async (req, res) => {
       ...proxyConfig(),
     });
 
-    // Tolak response non-video/non-manifest supaya tidak pipe halaman error HTML
-    const ct = response.headers['content-type'] || '';
-    const isMedia = ct.includes('video') || ct.includes('audio') || ct.includes('mpegurl')
-                 || ct.includes('octet-stream') || ct.includes('mp4') || ct.includes('webm')
-                 || targetUrl.match(/\.(ts|m4s|aac|vtt|srt)(\?|$)/i);
     if (response.status >= 400) {
       if (!res.headersSent) return res.status(response.status).json({ error: `CDN returned ${response.status}`, url: targetUrl });
       return;
@@ -706,14 +654,12 @@ app.get('/api/proxy', async (req, res) => {
 });
 
 // ─── /api/hls — proxy + rewrite m3u8 manifest ────────────
-// Rewrite semua URL segmen/sub-manifest supaya lewat /api/proxy atau /api/hls
 app.get('/api/hls', async (req, res) => {
   const targetUrl = decodeURIComponent(req.query.url || '');
   const referer = req.query.referer ? decodeURIComponent(req.query.referer) : BASE + '/';
 
   if (!targetUrl) return res.status(400).json({ error: 'url wajib diisi' });
 
-  // Whitelist check — tolak domain yang tidak dikenal
   if (!isAllowedProxyHost(targetUrl)) {
     return res.status(403).json({ error: 'Domain tidak diizinkan', host: (() => { try { return new URL(targetUrl).hostname; } catch { return targetUrl; } })() });
   }
@@ -723,7 +669,6 @@ app.get('/api/hls', async (req, res) => {
       headers: {
         ...makeHeaders(referer),
         'Referer': referer,
-        ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
       },
       timeout: 15000,
       maxRedirects: 10,
@@ -745,11 +690,9 @@ app.get('/api/hls', async (req, res) => {
                    : trimmed.startsWith('//') ? 'https:' + trimmed
                    : baseUrl + trimmed;
 
-      // Sub-manifest (.m3u8) → lewat /api/hls rekursif
       if (trimmed.match(/\.m3u8/i)) {
         return `/api/hls?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
       }
-      // Segmen video/audio/subtitle → lewat /api/proxy
       return `/api/proxy?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
     }).join('\n');
 
@@ -762,11 +705,10 @@ app.get('/api/hls', async (req, res) => {
   }
 });
 
-// ─── /api/player — embedded video player (dimuat di iframe) ─
-// Halaman HTML ringan dengan hls.js untuk memutar HLS atau MP4
+// ─── /api/player — embedded video player ─────────────────
 app.get('/api/player', (req, res) => {
   const streamUrl = decodeURIComponent(req.query.url || '');
-  const streamType = req.query.type || 'hls'; // 'hls' | 'direct'
+  const streamType = req.query.type || 'hls';
   const title = decodeURIComponent(req.query.title || '');
 
   if (!streamUrl) return res.status(400).send('url wajib');
@@ -830,7 +772,7 @@ if (type === 'hls' || src.includes('.m3u8')) {
   res.send(html);
 });
 
-// ─── /api/debug-html — lihat baris HTML yang mengandung keyword ─────
+// ─── /api/debug-html ──────────────────────────────────────
 app.get('/api/debug-html', async (req, res) => {
   const targetUrl = req.query.url;
   const keyword   = req.query.q || 'episode';
@@ -865,9 +807,8 @@ app.get('/api/debug-watch', async (req, res) => {
     $('video').each((_, el) => elements.push({ tag:'video', id:$(el).attr('id'), src:$(el).attr('src'), 'data-hls-src':$(el).attr('data-hls-src'), 'data-src':$(el).attr('data-src'), 'data-file':$(el).attr('data-file') }));
     $('iframe').each((_, el) => elements.push({ tag:'iframe', src:$(el).attr('src'), 'data-src':$(el).attr('data-src') }));
     $('source').each((_, el) => elements.push({ tag:'source', src:$(el).attr('src') }));
-    $('li.option, li[data-value]').each((_, el) => elements.push({ tag:'li.option', text:$(el).text().trim().substring(0,60), 'data-value':$(el).attr('data-value') }));
-    $('select option').each((_, el) => elements.push({ tag:'option', text:$(el).text().trim(), value:$(el).attr('value') }));
-    res.json({ status:response.status, url:targetUrl, cloudflare, elements, htmlLength:html.length, cookieSet:!!KURAMANIME_COOKIE, proxySet:!!PROXY_URL });
+    $('div.nonton-embed, div.embed-responsive').each((_, el) => elements.push({ tag:'nonton-embed', html:$(el).html()?.substring(0,200) }));
+    res.json({ status:response.status, url:targetUrl, cloudflare, elements, htmlLength:html.length, activeMirror: BASE, proxySet:!!PROXY_URL });
   } catch (e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -875,11 +816,8 @@ app.get('/api/debug-watch', async (req, res) => {
 // ─── API ROUTES ───────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════
 
-app.get('/api/mirror', (req, res) => res.json({ base: BASE, cookieSet: !!KURAMANIME_COOKIE, proxySet: !!PROXY_URL }));
+app.get('/api/mirror', (req, res) => res.json({ base: BASE, proxySet: !!PROXY_URL }));
 
-// ─── /api/stream-test — debug kenapa stream gagal ─────────
-// Panggil: /api/stream-test?url=<url_episode>
-// Akan return streams yang ditemukan + hasil tes akses ke tiap stream URL
 app.get('/api/stream-test', async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).json({ error: 'url wajib' });
@@ -895,7 +833,6 @@ app.get('/api/stream-test', async (req, res) => {
           headers: {
             ...makeHeaders(targetUrl),
             'Referer': targetUrl,
-            ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
           },
           timeout: 8000,
           maxRedirects: 5,
@@ -912,7 +849,6 @@ app.get('/api/stream-test', async (req, res) => {
       title,
       episodeUrl: targetUrl,
       streamCount: streams.length,
-      cookieSet: !!KURAMANIME_COOKIE,
       activeMirror: BASE,
       streams: tested,
     });
@@ -921,50 +857,9 @@ app.get('/api/stream-test', async (req, res) => {
   }
 });
 
-// ─── /api/cookie-check — debug apakah cookie masih valid ──
-app.get('/api/cookie-check', async (req, res) => {
-  const results = [];
-  for (const mirror of BASE_MIRRORS) {
-    try {
-      const r = await axios.get(mirror, {
-        headers: makeHeaders(mirror + '/'),
-        timeout: 8000,
-        maxRedirects: 5,
-        validateStatus: s => s < 600,
-        ...proxyConfig(),
-      });
-      const $ = cheerio.load(r.data);
-      const cfBlocked = isCloudflareBlock($);
-      const loggedIn = r.data.includes('logout') || r.data.includes('keluar') || r.data.includes('profile');
-      results.push({
-        mirror,
-        status: r.status,
-        cloudflareBlock: cfBlocked,
-        cookieValid: !cfBlocked && r.status < 400,
-        loggedIn,
-      });
-    } catch (e) {
-      results.push({ mirror, status: 0, error: e.message, cloudflareBlock: false, cookieValid: false });
-    }
-  }
-  const working = results.find(r => r.cookieValid);
-  res.json({
-    cookieSet: !!KURAMANIME_COOKIE,
-    proxySet: !!PROXY_URL,
-    activeMirror: BASE,
-    workingMirror: working?.mirror || null,
-    hint: !KURAMANIME_COOKIE
-      ? 'KURAMANIME_COOKIE belum di-set. Login di browser → DevTools → Application → Cookies → copy semua.'
-      : !working
-      ? 'Cookie mungkin expired atau semua mirror diblokir. Coba login ulang dan update KURAMANIME_COOKIE.'
-      : 'Cookie OK.',
-    mirrors: results,
-  });
-});
-
 app.get('/api/latest', async (req, res) => {
   try { res.json(await animeterbaru(req.query.page || 1)); }
-  catch (e) { res.status(500).json({ error: e.message, hint: 'Coba set env var KURAMANIME_COOKIE', base: BASE }); }
+  catch (e) { res.status(500).json({ error: e.message, hint: 'Pastikan mirror otakudesu aktif', base: BASE }); }
 });
 
 app.get('/api/image', async (req, res) => {
@@ -1013,8 +908,8 @@ app.get('/api/news', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({
-  status: 'ok', source: 'kuramanime', version: '3.4.0',
-  base: BASE, cookieSet: !!KURAMANIME_COOKIE, proxySet: !!PROXY_URL,
+  status: 'ok', source: 'otakudesu', version: '4.0.0',
+  base: BASE, proxySet: !!PROXY_URL,
 }));
 
 // ─── STATIC ────────────────────────────────────────────────
@@ -1028,7 +923,7 @@ app.get('*',       (req, res) => res.sendFile(path.join(__dirname, '..', 'public
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () =>
-  console.log(`AniZone API port ${PORT} | Mirror: ${BASE} | Cookie: ${KURAMANIME_COOKIE ? 'OK' : 'NOT SET'} | Proxy: ${PROXY_URL || 'none'}`)
+  console.log(`AniZone API port ${PORT} | Source: otakudesu | Mirror: ${BASE} | Proxy: ${PROXY_URL || 'none'}`)
 );
 
 module.exports = app;
