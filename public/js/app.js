@@ -718,6 +718,21 @@ async function loadDetail(url) {
 
 // ─── WATCH ────────────────────────────────────────────
 
+// Pilih URL yang tepat untuk player:
+// - HLS (.m3u8)   → /api/player?type=hls  (iframe halaman player dengan hls.js)
+// - Direct (.mp4) → /api/player?type=direct
+// - Embed URL     → langsung sebagai iframe src (kuramadrive, streamtape, dll.)
+function resolvePlayerUrl(stream, episodeUrl) {
+  const { url, proxyUrl, type } = stream;
+  if (type === 'hls' || type === 'direct') {
+    // proxyUrl sudah disiapkan server → muat lewat /api/player
+    const finalSrc = proxyUrl || url;
+    return `${API_BASE}/player?type=${type}&url=${encodeURIComponent(finalSrc)}&title=${encodeURIComponent(stream.server)}`;
+  }
+  // embed: biarkan src apa adanya (kuramadrive, streamtape, dll.)
+  return url;
+}
+
 async function loadVideo(url) {
   loader(true);
   hide('detail-view'); show('watch-view');
@@ -734,36 +749,41 @@ async function loadVideo(url) {
   try {
     const data = await Promise.race([
       fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
     ]);
 
     if (data?.title) titleEl.textContent = data.title;
 
     if (data?.streams?.length > 0) {
-      // Pakai stream pertama
-      player.src = data.streams[0].url;
-      servers.innerHTML = data.streams.map((s, i) =>
-        `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
-      ).join('');
+      // Pakai stream pertama, gunakan proxyUrl bila ada
+      const first = data.streams[0];
+      player.src = resolvePlayerUrl(first, url);
+
+      servers.innerHTML = data.streams.map((s, i) => {
+        const playUrl = resolvePlayerUrl(s, url);
+        const typeTag = s.type === 'hls' ? ' 🔴' : s.type === 'direct' ? ' 🎬' : '';
+        return `<button class="server-tag ${i===0?'active':''}" data-play-url="${playUrl}" onclick="changeServer(this)">${s.server}${typeTag}</button>`;
+      }).join('');
     } else {
-      // Server tidak bisa scrape (403) — tampilkan tombol buka langsung
+      // Stream kosong → kuramanime mungkin diblokir, arahkan langsung
       player.src = '';
       servers.innerHTML = `
         <div style="text-align:center;padding:20px 0">
-          <p style="color:var(--text-muted);margin-bottom:16px">
-            Stream tidak bisa dimuat otomatis.<br>Klik tombol di bawah untuk menonton:
+          <p style="color:var(--text-muted);margin-bottom:8px">
+            Stream tidak bisa dimuat otomatis.<br>
+            <small>Pastikan env var <code>KURAMANIME_COOKIE</code> sudah di-set di Railway.</small>
           </p>
           <a href="${url}" target="_blank" rel="noopener"
-             style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none;font-size:15px">
+             style="display:inline-block;margin-top:12px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none;font-size:15px">
             ▶ Buka di Kuramanime
           </a>
         </div>`;
     }
-  } catch {
+  } catch (e) {
     player.src = '';
     servers.innerHTML = `
       <div style="text-align:center;padding:20px 0">
-        <p style="color:var(--text-muted);margin-bottom:16px">Gagal memuat stream otomatis.</p>
+        <p style="color:var(--text-muted);margin-bottom:16px">Gagal memuat stream: ${e.message}</p>
         <a href="${url}" target="_blank" rel="noopener"
            style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none">
           ▶ Buka di Kuramanime
@@ -774,8 +794,10 @@ async function loadVideo(url) {
   }
 }
 
-function changeServer(url, btn) {
-  document.getElementById('video-player').src = url;
+function changeServer(btn) {
+  const playUrl = btn.getAttribute('data-play-url');
+  if (!playUrl) return;
+  document.getElementById('video-player').src = playUrl;
   document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
