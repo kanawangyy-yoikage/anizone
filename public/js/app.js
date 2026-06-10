@@ -281,7 +281,7 @@ async function loadLatestTab() {
         results.forEach(list => { if (Array.isArray(list)) combined.push(...list); });
         combined = removeDuplicates(combined, 'url');
         if (combined.length > 0) {
-          if (combined.length < 6) combined = [...combined, ...combined, ...combined];
+          if (combined.length < 6) combined = removeDuplicates([...combined, ...combined, ...combined], 'url');
           renderSection(sec.title, combined.slice(0, 15), container);
         }
       })();
@@ -507,11 +507,16 @@ function renderSection(title, data, container) {
       ${data.map((a,i) => {
         const badge = a.episode ? `Ep ${a.episode}` : (a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : '');
         const titleDisplay = a.title.length > 35 ? a.title.substring(0,35)+'...' : a.title;
+        // Kalau sudah ada URL gambar langsung dari scraper, pakai src langsung.
+        // Kalau tidak ada, baru pakai data-anime-url untuk lazy fetch via /api/image.
+        const imgAttr = a.image
+          ? `src="${a.image}"`
+          : `src="" data-anime-url="${a.url}" style="background:var(--bg-input)"`;
         return `
         <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i*0.04}s">
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
-              <img ${a.image ? `src="${a.image}"` : `src="" data-anime-url="${a.url}"`} alt="${a.title}" loading="lazy">
+              <img ${imgAttr} alt="${a.title}" loading="lazy" onerror="if(!this.dataset.retried){this.dataset.retried=1;this.removeAttribute('src');this.setAttribute('data-anime-url','${a.url}');lazyLoadImages(this.parentElement);}">
               ${badge ? `<div class="ep-badge">${badge}</div>` : ''}
             </div>
           </div>
@@ -551,10 +556,11 @@ async function loadCategory(genre, btn) {
       <div class="anime-grid">
         ${combined.map(a => `
           <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
+            <div class="scroll-card-img"><img src="" data-anime-url="${a.url}" style="background:var(--bg-input)" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
             <div class="scroll-card-title">${a.title}</div>
           </div>`).join('')}
       </div>`;
+    lazyLoadImages(c);
   } catch {} finally { loader(false); }
 }
 
