@@ -1,874 +1,1130 @@
-/* ═══════════════════════════════════════════════════════
-   ANIZONE 2026 — MAIN APP MODULE
-   ═══════════════════════════════════════════════════════ */
+const express = require('express');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const cors = require('cors');
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+const app = express();
+
+// ─── CORS ──────────────────────────────────────────────────
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'], credentials: false }));
+app.options('*', cors());
+app.use(express.json());
+
+// ─── CONFIG ───────────────────────────────────────────────
+// Mirror otakudesu — coba dari yang paling baru
+const BASE_MIRRORS = [
+  'https://otakudesu.blog',
+  'https://otakudesu.cloud',
+  'https://otakudesu.cam',
+  'https://otakudesu.ink',
+  'https://otakudesu.lol',
+];
+let BASE = BASE_MIRRORS[0];
+const MAL_API = 'https://api.myanimelist.net/v2';
+const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
+
+// Proxy HTTP opsional — set PROXY_URL di Railway jika IP diblokir
+// Format: http://user:pass@host:port  atau  http://host:port
+const PROXY_URL = process.env.PROXY_URL || '';
+
+// ─── ROTATING USER AGENTS ─────────────────────────────────
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+];
+let uaIdx = 0;
+function nextUA() {
+  const ua = USER_AGENTS[uaIdx % USER_AGENTS.length];
+  uaIdx++;
+  return ua;
 }
 
-const API_BASE = '/api';
+function makeHeaders(referer) {
+  const ua = nextUA();
+  return {
+    'User-Agent': ua,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Referer': referer || BASE + '/',
+  };
+}
 
-// Lazy-load gambar untuk elemen dengan data-anime-url
-// Dipanggil setelah kartu/slider dirender
-async function lazyLoadImages(containerEl) {
-  const imgs = (containerEl || document).querySelectorAll('img[data-anime-url]');
-  const promises = Array.from(imgs).map(async (img) => {
-    const animeUrl = img.getAttribute('data-anime-url');
-    if (!animeUrl) return;
-    try {
-      const r = await fetch(`${API_BASE}/image?url=${encodeURIComponent(animeUrl)}`);
-      const d = await r.json();
-      if (d.image) {
-        img.src = d.image;
-        img.removeAttribute('data-anime-url');
+// ─── AXIOS PROXY CONFIG ───────────────────────────────────
+function proxyConfig() {
+  if (!PROXY_URL) return {};
+  try {
+    const p = new URL(PROXY_URL);
+    return {
+      proxy: {
+        protocol: p.protocol.replace(':', ''),
+        host: p.hostname,
+        port: parseInt(p.port) || 8080,
+        ...(p.username ? { auth: { username: decodeURIComponent(p.username), password: decodeURIComponent(p.password) } } : {}),
       }
-    } catch {}
+    };
+  } catch { return {}; }
+}
+
+// ─── HELPER: delay ────────────────────────────────────────
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+// ─── CLOUDFLARE DETECT ────────────────────────────────────
+function isCloudflareBlock($) {
+  const title = $('title').text().toLowerCase();
+  const body = $('body').text().toLowerCase();
+  return (
+    title.includes('just a moment') ||
+    title.includes('cloudflare') ||
+    body.includes('checking your browser') ||
+    body.includes('enable javascript and cookies') ||
+    body.includes('verify you are human')
+  );
+}
+
+// ─── AUTO-DETECT MIRROR AKTIF ─────────────────────────────
+async function detectWorkingMirror() {
+  for (const mirror of BASE_MIRRORS) {
+    try {
+      const res = await axios.get(mirror, {
+        headers: makeHeaders(mirror + '/'),
+        timeout: 10000,
+        maxRedirects: 10,
+        validateStatus: s => s < 500,
+        ...proxyConfig(),
+      });
+
+      // Cek apakah redirect ke domain lain (misal otakudesu.blog -> otakudesu.cloud)
+      const finalUrl = res.request && res.request.res && res.request.res.responseUrl
+        ? res.request.res.responseUrl
+        : mirror;
+      const finalBase = finalUrl.match(/^https?:\/\/[^/]+/) ? finalUrl.match(/^https?:\/\/[^/]+/)[0] : mirror;
+
+      const $ = cheerio.load(res.data);
+      const pageTitle = $('title').text().toLowerCase();
+
+      // Jika halaman adalah halaman redirect atau parking page, skip
+      if (pageTitle.includes('redirecting') || pageTitle.includes('just a moment') ||
+          pageTitle.includes('attention required') || isCloudflareBlock($)) {
+        console.log('[Mirror] Skip ' + mirror + ' (title: "' + $('title').text().trim() + '")');
+        continue;
+      }
+
+      // Cek ada konten anime
+      const hasContent = $('div.venz').length > 0 || $('div.chblock').length > 0 ||
+                         $('div.episodelist').length > 0 || $('a[href*="/anime/"]').length > 3;
+
+      if (res.status < 400 && hasContent) {
+        BASE = finalBase !== mirror ? finalBase : mirror;
+        console.log('[Mirror] Aktif: ' + mirror + ' -> final: ' + BASE);
+        return;
+      }
+
+      console.log('[Mirror] No content di ' + mirror + ' (status: ' + res.status + ', title: "' + $('title').text().trim() + '")');
+    } catch (e) {
+      console.log('[Mirror] Gagal ' + mirror + ': ' + e.message);
+    }
+  }
+  console.warn('[Mirror] Semua mirror gagal. Pakai default:', BASE_MIRRORS[0]);
+  BASE = BASE_MIRRORS[0];
+}
+detectWorkingMirror();
+setInterval(detectWorkingMirror, 10 * 60 * 1000);
+
+// ─── FETCH HELPER ─────────────────────────────────────────
+async function fetchPage(url, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await axios.get(url, {
+        headers: makeHeaders(BASE + '/'),
+        timeout: 20000,
+        maxRedirects: 10,
+        ...proxyConfig(),
+      });
+
+      // Update BASE jika server redirect ke domain lain
+      const finalUrl = res.request && res.request.res && res.request.res.responseUrl
+        ? res.request.res.responseUrl : url;
+      const finalBase = finalUrl.match(/^https?:\/\/[^/]+/) ? finalUrl.match(/^https?:\/\/[^/]+/)[0] : null;
+      if (finalBase && finalBase !== BASE && BASE_MIRRORS.some(m => finalBase === m || finalBase.includes('otakudesu'))) {
+        console.log('[fetchPage] BASE updated: ' + BASE + ' -> ' + finalBase);
+        BASE = finalBase;
+      }
+
+      const $ = cheerio.load(res.data);
+
+      // Cek "Redirecting..." page — bukan cloudflare, tapi halaman JS redirect
+      const pageTitle = $('title').text().toLowerCase();
+      if (pageTitle.includes('redirecting') || pageTitle.includes('just a moment')) {
+        throw new Error('Halaman redirect terdeteksi (title: "' + $('title').text().trim() + '") — mirror sedang dialihkan, tunggu sebentar');
+      }
+
+      if (isCloudflareBlock($)) {
+        throw new Error('Cloudflare block — coba set PROXY_URL atau tunggu beberapa menit');
+      }
+      return $;
+    } catch (e) {
+      if (i === retries) throw e;
+      await delay(1500 * (i + 1) + Math.random() * 500);
+    }
+  }
+}
+
+// ─── IMAGE CACHE ──────────────────────────────────────────
+const imageCache = new Map();
+async function getAnimeImage(animeUrl) {
+  if (imageCache.has(animeUrl)) return imageCache.get(animeUrl);
+  try {
+    const $ = await fetchPage(animeUrl);
+    const img = $('meta[property="og:image"]').attr('content') || '';
+    imageCache.set(animeUrl, img);
+    return img;
+  } catch { return ''; }
+}
+
+// ─── SCRAPERS OTAKUDESU ───────────────────────────────────
+//
+// Struktur halaman otakudesu:
+//   Ongoing  : BASE/?page=N  → div.venz > ul > li  dengan class .episodelist
+//   Completed: BASE/complete-anime/?page=N → sama
+//   Search   : BASE/?s=QUERY → div.chivsrc > ul > li
+//   Detail   : BASE/anime/SLUG/  → div.infoanime, div.episodelist
+//   Episode  : BASE/episode/SLUG/ → div.nonton-embed iframe, div.download-eps
+//
+// Semua URL bersifat "slug-based":
+//   Anime  : https://otakudesu.blog/anime/shingeki-no-kyojin-sub-indo/
+//   Episode: https://otakudesu.blog/episode/snk-episode-1-sub-indo/
+
+// ─── anime terbaru (ongoing) ─────────────────────────────
+async function animeterbaru(page = 1) {
+  const url = page > 1 ? `${BASE}/?page=${page}` : `${BASE}/`;
+  const $ = await fetchPage(url);
+  const data = [];
+  const seen = new Set();
+
+  // Otakudesu struktur HTML (berlaku untuk semua domain mirror):
+  //   div.venz > ul > li  — setiap item ongoing
+  //     img               — thumbnail anime
+  //     h2.jdlflm > a     — judul + link ke halaman anime
+  //     div.epz           — nomor episode terbaru, mis. "Episode 12"
+  //     div.epztipe       — status, mis. "Ongoing"
+  //     div.newnime       — link ke episode terbaru (href di <a>)
+  //
+  // Fallback: beberapa mirror pakai class berbeda:
+  //   div.chblock, div.dcblock, article.episodio
+
+  function extractItems(selector, titleSel, imgSel, epSel, typeSel, epLinkSel) {
+    $(selector).each((_, el) => {
+      const a = $(el).find(titleSel).first();
+      const title = a.text().trim();
+      const href = a.attr('href') || '';
+      if (!href || !title || title.length < 2) return;
+      if (seen.has(href)) return;
+      seen.add(href);
+
+      // Image: coba semua atribut lazy-load umum
+      const imgEl = $(el).find(imgSel).first();
+      const image = imgEl.attr('src') || imgEl.attr('data-src')
+        || imgEl.attr('data-lazy-src') || imgEl.attr('data-original') || '';
+
+      // Episode number
+      const epText = $(el).find(epSel).text().trim();
+      const epMatch = epText.match(/(\d+(?:\.\d+)?)/);
+      const episode = epMatch ? epMatch[1] : '?';
+
+      const type = $(el).find(typeSel).text().trim() || 'Anime';
+
+      // episodeUrl: link langsung ke episode terbaru jika ada
+      let episodeUrl = href;
+      if (epLinkSel) {
+        const epA = $(el).find(epLinkSel + ' a').first();
+        const epHref = epA.attr('href') || '';
+        if (epHref) episodeUrl = epHref.startsWith('http') ? epHref : BASE + epHref;
+      }
+
+      data.push({
+        title,
+        url: href.startsWith('http') ? href : BASE + href,
+        episodeUrl,
+        image,
+        episode,
+        totalEpisode: '?',
+        score: 'N/A',
+        type,
+      });
+    });
+  }
+
+  // Coba selector utama otakudesu
+  extractItems('div.venz ul li', 'h2.jdlflm a', 'img', 'div.epz', 'div.epztipe', 'div.newnime');
+
+  // Fallback 1: beberapa mirror pakai div.chblock
+  if (data.length === 0) {
+    extractItems('div.chblock', '.name a, h2 a, .title a', 'img', '.chapter, .episode, .epz', '.type, .status', null);
+  }
+
+  // Fallback 2: WordPress theme lainnya yang kadang dipakai mirror
+  if (data.length === 0) {
+    extractItems('article.episodio, div.episodiotitle', 'a', 'img', '.numerando, .epnumber', '.genres a', null);
+  }
+
+  // Fallback 3: ambil semua link anime dari halaman jika semua gagal
+  if (data.length === 0) {
+    $('a[href*="/anime/"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
+      if (!href || !title || title.length < 2 || seen.has(href)) return;
+      if (title.length > 120 || /^(home|beranda|search|login|kategori)/i.test(title)) return;
+      seen.add(href);
+      const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
+      data.push({
+        title,
+        url: href.startsWith('http') ? href : BASE + href,
+        episodeUrl: href.startsWith('http') ? href : BASE + href,
+        image,
+        episode: '?',
+        totalEpisode: '?',
+        score: 'N/A',
+        type: 'Anime',
+      });
+    });
+  }
+
+  return data;
+}
+
+// ─── search ───────────────────────────────────────────────
+async function search(query) {
+  const url = `${BASE}/?s=${encodeURIComponent(query)}`;
+  const $ = await fetchPage(url);
+  const data = [];
+  const seen = new Set();
+
+  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|kategori|genre|search|cari|lainnya|more|next|prev|previous|episode|batch|subtitle|download|stream|server|komentar)$/i;
+
+  function addResult(href, title, imgEl, genreEl, statusEl, ratingEl) {
+    if (!href || !title || title.length < 2 || title.length > 120) return;
+    if (BLACKLIST.test(title.trim())) return;
+    if (/^[\d\s\-_.]+$/.test(title)) return;
+    const fullHref = href.startsWith('http') ? href : BASE + href;
+    if (seen.has(fullHref)) return;
+    seen.add(fullHref);
+    const image = imgEl ? (imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') || '') : '';
+    const genres = [];
+    if (genreEl) genreEl.find('a').each((_, g) => genres.push($(g).text().trim()));
+    const status = statusEl ? statusEl.text().trim() : '';
+    const rating = ratingEl ? ratingEl.text().replace(/rating/i, '').trim() : '';
+    data.push({ title, url: fullHref, image, type: status || 'Anime', score: rating || 'N/A', genres });
+  }
+
+  // Selector utama otakudesu search: div.chivsrc ul li
+  $('div.chivsrc ul li').each((_, el) => {
+    const a = $(el).find('h2 a, .name a, h3 a').first();
+    addResult(
+      a.attr('href') || '',
+      a.text().trim(),
+      $(el).find('img').first(),
+      $(el).find('div.set span.lm'),
+      $(el).find('div.set span.lm').last(),
+      $(el).find('div.epzt')
+    );
   });
-  await Promise.all(promises);
+
+  // Fallback: hasil search kadang ada di div.venz atau artikel biasa
+  if (data.length === 0) {
+    $('a[href*="/anime/"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
+      if (!href.match(/\/anime\/[^/]+\/?$/) || href.includes('/episode/')) return;
+      addResult(href, title, $(el).find('img').first(), null, null, null);
+    });
+  }
+
+  return data;
 }
 
-// ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
+// ─── detail anime ─────────────────────────────────────────
+async function detail(link) {
+  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
+  const $ = await fetchPage(targetUrl);
 
-function getUID() {
-  return (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+  const image = $('meta[property="og:image"]').attr('content')
+    || $('div.fotoanime img').attr('src')
+    || $('div.infoanime img').attr('src')
+    || '';
+  if (image) imageCache.set(targetUrl, image);
+
+  const rawTitle = $('title').text().trim();
+  // Hapus suffix " – Otakudesu" atau " - Otakudesu" dari title
+  const title = rawTitle.replace(/\s*[-–]\s*Otakudesu\s*$/i, '').trim()
+    || $('h1.entry-title').text().trim()
+    || $('div.infoanime h1').text().trim();
+
+  // Synopsis
+  let description = $('div.sinopc').text().trim()
+    || $('meta[property="og:description"]').attr('content')
+    || $('meta[name="description"]').attr('content')
+    || '';
+
+  // Info tabel (judul_jepang, studio, skor, dll)
+  const info = {};
+  $('div.infoanime table tr, div.infozin span').each((_, el) => {
+    const text = $(el).text().trim();
+    const colonIdx = text.indexOf(':');
+    if (colonIdx < 1 || colonIdx > 40) return;
+    const key = text.substring(0, colonIdx).trim().toLowerCase().replace(/\s+/g, '_');
+    const val = text.substring(colonIdx + 1).trim().split('\n')[0].trim();
+    if (key && val && val.length < 200) info[key] = val;
+  });
+
+  // Daftar episode
+  const episodes = [];
+  const epSeen = new Set();
+
+  // Otakudesu menyimpan daftar episode di div.episodelist ul li a
+  $('div.episodelist ul li a, div.lstsz ul li a').each((_, el) => {
+    const href = $(el).attr('href') || '';
+    const text = $(el).text().trim();
+    if (!href || epSeen.has(href)) return;
+    epSeen.add(href);
+    episodes.push({
+      title: text || `Episode`,
+      url: href.startsWith('http') ? href : BASE + href,
+      date: $(el).closest('li').find('span.zeebr').text().trim() || '',
+    });
+  });
+
+  if (MAL_CLIENT_ID) {
+    try { const d = await getMalDescription(title); if (d) description = d; } catch {}
+  }
+
+  return { title, image, description, episodes, info };
 }
 
-async function saveHistory(animeObj) {
-  const uid = getUID(); if (!uid) return;
+// ─── download / stream dari halaman episode ───────────────
+function classifyStream(url) {
+  if (!url) return 'embed';
+  if (url.includes('.m3u8')) return 'hls';
+  if (url.match(/\.(mp4|webm|mkv)(\?|$)/i)) return 'direct';
+  return 'embed';
+}
+
+function buildProxyUrl(streamUrl, referer, req) {
+  const type = classifyStream(streamUrl);
+  const base = req ? `${req.protocol}://${req.get('host')}` : '';
+  if (type === 'hls') {
+    return `${base}/api/hls?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent(referer)}`;
+  }
+  if (type === 'direct') {
+    return `${base}/api/proxy?url=${encodeURIComponent(streamUrl)}&referer=${encodeURIComponent(referer)}`;
+  }
+  return streamUrl;
+}
+
+async function download(link, req) {
+  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
+  const res = await axios.get(targetUrl, {
+    headers: makeHeaders(BASE + '/'),
+    timeout: 20000,
+    maxRedirects: 10,
+    ...proxyConfig(),
+  });
+  const html = res.data;
+  const $ = cheerio.load(html);
+
+  if (isCloudflareBlock($)) throw new Error('Cloudflare block — coba set PROXY_URL');
+
+  const rawTitle = $('title').text().trim();
+  const title = rawTitle.replace(/\s*[-–]\s*Otakudesu\s*$/i, '').trim();
+  const streams = [];
+  const seen = new Set();
+
+  function serverLabel(url, fallback) {
+    try {
+      const host = new URL(url.startsWith('//') ? 'https:' + url : url).hostname.replace(/^www\./, '');
+      const name = host.split('.')[0];
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch { return fallback || 'Stream'; }
+  }
+
+  function addStream(url, label) {
+    if (!url || url === 'about:blank' || url === '#') return;
+    const full = url.startsWith('//')  ? 'https:' + url
+               : url.startsWith('http') ? url
+               : BASE + url;
+    if (seen.has(full)) return;
+    seen.add(full);
+    const type = classifyStream(full);
+    const proxyUrl = buildProxyUrl(full, targetUrl, req);
+    streams.push({ server: label || serverLabel(full), url: full, proxyUrl, type });
+  }
+
+  // 1. iframe streaming — otakudesu pakai div.nonton-embed > iframe
+  $('div.nonton-embed iframe, div.embed-responsive iframe, #embed iframe, iframe[src*="desustream"], iframe[src*="desusub"], iframe[src*="otakustream"], iframe[src*="play"]').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src) addStream(src, serverLabel(src));
+  });
+
+  // Semua iframe lainnya sebagai fallback
+  $('iframe').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src) addStream(src, serverLabel(src));
+  });
+
+  // 2. video / source tag
+  $('video, video source, source').each((_, el) => {
+    ['src','data-src','data-hls-src','data-hls','data-video','data-file'].forEach(attr => {
+      const v = $(el).attr(attr);
+      if (v) addStream(v, attr.includes('hls') ? 'Desustream' : 'Direct');
+    });
+  });
+
+  // 3. Tombol server otakudesu — li.server dengan data-* atau onclick
+  // Otakudesu: ul.server-list li[data-server], atau button[data-src], span.server
+  $('li[data-server], li[data-src], button[data-src], [data-server], [data-mirror]').each((_, el) => {
+    const url = $(el).attr('data-server') || $(el).attr('data-src') || $(el).attr('data-mirror') || '';
+    const label = $(el).text().trim() || $(el).attr('data-name') || '';
+    if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
+  });
+
+  // 4. div.mirrorstream, div.stream-server — struktur otakudesu modern
+  $('div.mirrorstream ul li, div.stream-server ul li').each((_, el) => {
+    const a = $(el).find('a').first();
+    const url = a.attr('href') || a.attr('data-src') || $(el).attr('data-src') || '';
+    const label = a.text().trim() || $(el).text().trim() || '';
+    if (url && url !== '#') addStream(url, label || serverLabel(url));
+  });
+
+  // 5. Script inline — cari URL streaming
+  $('script').each((_, el) => {
+    const code = $(el).html() || '';
+
+    // pola JSON key-value standar
+    for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe|file|hls|video|player)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // pola assignment JS
+    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl|hlsUrl|fileUrl|epsUrl|watchUrl|streamLink|playUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // pola {label, file} — banyak dipakai player JW / Plyr
+    for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}\}/gi))
+      addStream(m[2], m[1]);
+    for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}\}/gi))
+      addStream(m[1], m[2]);
+
+    // pola var/const/let = URL video langsung
+    for (const m of code.matchAll(/(?:var|const|let)\s+\w+\s*=\s*["'`](https?:\/\/[^"'`\n]*\.(?:m3u8|mp4|webm)[^"'`\n]*)["'`]/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // pola setup/init player
+    for (const m of code.matchAll(/(?:setup|init|load|source|setSource)\s*\(\s*\{[^}]{0,400}["'](?:file|src|url)["']\s*:\s*["'](https?:\/\/[^"']+)["']/gi))
+      addStream(m[1], serverLabel(m[1]));
+  });
+
+  // 6. Fallback: domain streaming yang umum dipakai otakudesu
+  if (streams.length === 0) {
+    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:desustream|desusub|desuvid|otakustream|filemoon|streamtape|doodstream|dood\.|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream|statically)[^\s"'<>]+/gi;
+    for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
+  }
+
+  // 7. Last resort: semua URL .m3u8 atau .mp4 dari raw HTML
+  if (streams.length === 0) {
+    const pat = /https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4|webm)(?:\?[^\s"'<>]*)?/gi;
+    for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
+  }
+
+  return { title, streams };
+}
+
+// ─── MAL ──────────────────────────────────────────────────
+
+async function getMalDescription(title) {
+  if (!MAL_CLIENT_ID) return null;
   try {
-    const key = encodeURIComponent(animeObj.url).replace(/\./g, '%2E');
-    await db.collection('users').doc(uid).collection('history').doc(key)
-      .set({ ...animeObj, timestamp: Date.now() });
-  } catch {}
+    const res = await axios.get(`${MAL_API}/anime`, {
+      headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
+      params: { q: title, limit: 1, fields: 'synopsis' },
+    });
+    return res.data?.data?.[0]?.node?.synopsis || null;
+  } catch { return null; }
 }
 
-async function getHistory() {
-  const uid = getUID(); if (!uid) return [];
+async function getMalAnime(title) {
+  if (!MAL_CLIENT_ID) return null;
   try {
-    const snap = await db.collection('users').doc(uid).collection('history')
-      .orderBy('timestamp', 'desc').limit(100).get();
-    return snap.docs.map(d => d.data());
+    const res = await axios.get(`${MAL_API}/anime`, {
+      headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
+      params: { q: title, limit: 1, fields: 'synopsis,mean,genres,status,num_episodes,start_season,main_picture,rank,popularity' },
+    });
+    return res.data?.data?.[0]?.node || null;
+  } catch { return null; }
+}
+
+// ─── SCHEDULE ─────────────────────────────────────────────
+
+async function getMalSchedule() {
+  if (!MAL_CLIENT_ID) return getScrapedSchedule();
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    let season = 'winter';
+    if (month >= 4 && month <= 6) season = 'spring';
+    else if (month >= 7 && month <= 9) season = 'summer';
+    else if (month >= 10) season = 'fall';
+    const res = await axios.get(`${MAL_API}/anime/season/${year}/${season}`, {
+      headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
+      params: { limit: 50, fields: 'start_date,mean,num_episodes,status,genres,main_picture,broadcast', sort: 'anime_num_list_users' },
+    });
+    return res.data?.data?.map(d => ({
+      id: d.node.id, title: d.node.title,
+      image: d.node.main_picture?.medium || d.node.main_picture?.large,
+      score: d.node.mean || 'N/A', episodes: d.node.num_episodes || '?',
+      status: d.node.status, genres: d.node.genres?.map(g => g.name).slice(0, 3) || [],
+      broadcast: d.node.broadcast, startDate: d.node.start_date, season: `${season} ${year}`,
+    })) || [];
+  } catch { return getScrapedSchedule(); }
+}
+
+async function getScrapedSchedule() {
+  // Otakudesu tidak punya halaman jadwal khusus per hari,
+  // gunakan halaman ongoing sebagai fallback jadwal
+  try {
+    const $ = await fetchPage(`${BASE}/`);
+    const allItems = [];
+    const seen = new Set();
+    $('div.venz ul li').each((_, el) => {
+      const a = $(el).find('h2.jdlflm a').first();
+      const title = a.text().trim();
+      const href = a.attr('href') || '';
+      if (!href || !title || seen.has(href)) return;
+      seen.add(href);
+      const image = $(el).find('img').attr('src') || '';
+      allItems.push({ title, url: href, day: 'ongoing', image, score: 'N/A' });
+    });
+    return allItems.slice(0, 60);
   } catch { return []; }
 }
 
-async function toggleFavorite(url, title, image, score) {
-  const uid = getUID(); if (!uid) return;
+// ─── TRENDING ─────────────────────────────────────────────
+
+async function getMalTrending() {
+  if (!MAL_CLIENT_ID) return getScrapedTrending();
   try {
-    const key = encodeURIComponent(url).replace(/\./g, '%2E');
-    const ref = db.collection('users').doc(uid).collection('favorites').doc(key);
-    const isFav = await checkFavorite(url);
-    const favBtn = document.getElementById('favBtn');
-    if (isFav) {
-      await ref.delete();
-      favBtn?.classList.remove('active');
-    } else {
-      await ref.set({ url, title, image, score, timestamp: Date.now() });
-      favBtn?.classList.add('active');
-    }
-  } catch {}
+    const res = await axios.get(`${MAL_API}/anime/ranking`, {
+      headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
+      params: { ranking_type: 'airing', limit: 20, fields: 'mean,genres,num_episodes,status,main_picture,rank' },
+    });
+    return res.data?.data?.map(d => ({
+      rank: d.ranking?.rank, title: d.node.title,
+      image: d.node.main_picture?.medium || d.node.main_picture?.large,
+      score: d.node.mean || 'N/A', episodes: d.node.num_episodes || '?',
+      genres: d.node.genres?.map(g => g.name).slice(0, 2) || [], malId: d.node.id,
+    })) || [];
+  } catch { return getScrapedTrending(); }
 }
 
-async function checkFavorite(url) {
-  const uid = getUID(); if (!uid) return false;
+async function getScrapedTrending() {
   try {
-    const key = encodeURIComponent(url).replace(/\./g, '%2E');
-    const doc = await db.collection('users').doc(uid).collection('favorites').doc(key).get();
-    return doc.exists;
+    // Coba halaman ongoing dulu, fallback ke homepage
+    const urls = [`${BASE}/ongoing-anime/`, `${BASE}/`];
+    for (const pageUrl of urls) {
+      try {
+        const $ = await fetchPage(pageUrl);
+        const data = []; const seen = new Set();
+        // Selector utama
+        $('div.venz ul li, div.chblock, .anime-list li').each((_, el) => {
+          const a = $(el).find('h2.jdlflm a, h2 a, .name a, h3 a').first();
+          const title = a.text().trim();
+          const href = a.attr('href') || '';
+          if (!href || !title || seen.has(href)) return;
+          seen.add(href);
+          const imgEl = $(el).find('img').first();
+          const image = imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') || '';
+          data.push({ title, url: href.startsWith('http') ? href : BASE + href, image, score: 'N/A' });
+        });
+        if (data.length > 0) return data.slice(0, 20);
+      } catch {}
+    }
+    return [];
+  } catch { return []; }
+}
+
+// ─── NEWS ─────────────────────────────────────────────────
+
+async function getAnimeNews() {
+  try {
+    const res = await axios.get('https://animenewsnetwork.com/newsroom/', {
+      headers: makeHeaders('https://animenewsnetwork.com/'),
+      timeout: 12000,
+    });
+    const $ = cheerio.load(res.data);
+    const news = [];
+    $('div.herald.box.news, .news-item, article').each((_, el) => {
+      const a = $(el).find('a').first();
+      const title = a.text().trim() || $(el).find('h2, h3').text().trim();
+      const href = a.attr('href');
+      const img = $(el).find('img').first().attr('src');
+      const desc = $(el).find('p, .preview').first().text().trim();
+      const date = $(el).find('time, .date').first().text().trim();
+      if (title && title.length > 5) {
+        news.push({
+          title, url: href ? (href.startsWith('http') ? href : 'https://animenewsnetwork.com' + href) : '#',
+          image: img || '', description: desc.substring(0, 200),
+          date: date || new Date().toLocaleDateString('id-ID'),
+        });
+      }
+    });
+    if (news.length > 0) return news.slice(0, 12);
+    const latest = await animeterbaru(1);
+    return latest.slice(0, 8).map(a => ({
+      title: `Update: ${a.title} Episode ${a.episode} Tersedia`,
+      url: a.episodeUrl || a.url, image: a.image,
+      description: `Episode terbaru dari ${a.title} sudah dapat ditonton di AniZone.`,
+      date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+    }));
+  } catch {
+    return [{ title: 'AniZone 2026', url: '#', image: '', description: 'Selamat datang di AniZone.', date: new Date().toLocaleDateString('id-ID') }];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ─── PROXY ROUTES ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+const PROXY_ALLOWED_HOSTS = [
+  'desustream', 'desusub', 'desuvid', 'otakustream',
+  'streamtape', 'doodstream', 'dood.',
+  'filemoon', 'mega.nz', 'ok.ru', 'mp4upload', 'streamlare',
+  'upstream', 'mixdrop', 'fembed', 'vidstream', 'statically',
+  'animenewsnetwork',
+  // Mirror otakudesu
+  'otakudesu.blog', 'otakudesu.cloud', 'otakudesu.lol',
+  'otakudesu.cam', 'otakudesu.ink',
+  // CDN umum
+  'cdn.statically', 'statically.io',
+  'storage.googleapis', 'drive.google',
+  'cdn.jsdelivr',
+];
+
+function isAllowedProxyHost(urlStr) {
+  try {
+    const host = new URL(urlStr).hostname;
+    return PROXY_ALLOWED_HOSTS.some(d => host.includes(d));
   } catch { return false; }
 }
 
-async function getFavorites() {
-  const uid = getUID(); if (!uid) return [];
+// ─── /api/proxy — pipe konten HTTP ke client ──────────────
+app.get('/api/proxy', async (req, res) => {
+  const targetUrl = decodeURIComponent(req.query.url || '');
+  const referer = req.query.referer ? decodeURIComponent(req.query.referer) : BASE + '/';
+
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib diisi' });
+  if (!isAllowedProxyHost(targetUrl)) return res.status(403).json({ error: 'Domain tidak diizinkan', host: (() => { try { return new URL(targetUrl).hostname; } catch { return targetUrl; } })() });
+
   try {
-    const snap = await db.collection('users').doc(uid).collection('favorites')
-      .orderBy('timestamp', 'desc').get();
-    return snap.docs.map(d => d.data());
-  } catch { return []; }
-}
+    let origin;
+    try { origin = new URL(referer).origin; } catch { origin = BASE; }
 
-// ─── HOME SECTIONS CONFIG ────────────────────────────
+    const reqHeaders = {
+      ...makeHeaders(referer),
+      'Origin': origin,
+      'Referer': referer,
+    };
+    if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
-const HOME_SECTIONS = [
-  { title: "Sedang Hangat",  mode: "latest" },
-  { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
-  { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
-  { title: "Romance & Drama", queries: ["love","kanojo","romance","heroine","uso"] },
-  { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
-  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
-  { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
-];
-
-const GENRE_KEYWORDS = {
-  "Action":       ["action","shounen","fight","jujutsu","kimetsu"],
-  "Adventure":    ["adventure","journey","world","isekai"],
-  "Comedy":       ["comedy","slice of life","laugh","bocchi"],
-  "Drama":        ["drama","cry","love","romance","kanojo"],
-  "Fantasy":      ["fantasy","magic","maou","dragon","hero"],
-  "Isekai":       ["isekai","reincarnation","world","slime","tensei"],
-  "Magic":        ["magic","mahou","witch","wizard"],
-  "Romance":      ["romance","love","kanojo","couple"],
-  "School":       ["school","gakuen","classroom","student"],
-  "Sci-Fi":       ["sci-fi","science","gundam","mecha"],
-  "Slice of Life":["slice of life","daily","chill","camp"],
-  "Sports":       ["sports","soccer","football","blue lock","haikyuu"],
-};
-const KATEGORI_LIST = Object.keys(GENRE_KEYWORDS);
-let sliderInterval;
-
-// ─── THEME ───────────────────────────────────────────
-
-const moonSVG      = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-const sunSVG       = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
-const moonSVGSmall = moonSVG.replace('22" height="22"','20" height="20"');
-const sunSVGSmall  = sunSVG.replace('22" height="22"','20" height="20"');
-
-function updateThemeUI(isLight) {
-  const btn = document.getElementById('themeBtn');
-  if (btn) btn.innerHTML = isLight ? sunSVG : moonSVG;
-  const sidebarIcon = document.getElementById('sidebarThemeIcon');
-  if (sidebarIcon) sidebarIcon.innerHTML = isLight ? sunSVGSmall : moonSVGSmall;
-  const sidebarLabel = document.getElementById('sidebarThemeLabel');
-  if (sidebarLabel) sidebarLabel.textContent = isLight ? 'Mode Terang' : 'Mode Gelap';
-}
-
-function toggleTheme() {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  if (isLight) {
-    document.documentElement.removeAttribute('data-theme');
-    localStorage.setItem('theme', 'dark');
-    updateThemeUI(false);
-  } else {
-    document.documentElement.setAttribute('data-theme', 'light');
-    localStorage.setItem('theme', 'light');
-    updateThemeUI(true);
-  }
-}
-
-(function() {
-  if (localStorage.getItem('theme') === 'light')
-    document.documentElement.setAttribute('data-theme', 'light');
-})();
-
-// ─── UTILS ───────────────────────────────────────────
-
-const show    = (id) => document.getElementById(id)?.classList.remove('hidden');
-const hide    = (id) => {
-  document.getElementById(id)?.classList.add('hidden');
-  if (id === 'home-view' && sliderInterval) { clearInterval(sliderInterval); sliderInterval = null; }
-};
-const loader  = (state) => state ? show('loading') : hide('loading');
-
-function removeDuplicates(arr, key) {
-  return [...new Map(arr.map(i => [i[key], i])).values()];
-}
-
-function setSidebarActive(tabName) {
-  document.querySelectorAll('.sidebar-item[id^="stab-"]').forEach(el => el.classList.remove('active'));
-  document.getElementById('stab-' + tabName)?.classList.add('active');
-}
-
-// ─── SWITCH TAB ──────────────────────────────────────
-
-const ALL_VIEWS = ['home-view','anime-view','recent-view','favorite-view',
-                   'developer-view','detail-view','watch-view','profile-view'];
-
-function switchTab(tabName) {
-  ALL_VIEWS.forEach(v => hide(v));
-  show('bottomNav');
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  setSidebarActive(tabName);
-
-  if (tabName === 'home') {
-    show('home-view');
-    document.getElementById('tab-home')?.classList.add('active');
-    if (!document.getElementById('home-view').innerHTML.trim()) loadHome();
-  } else if (tabName === 'anime') {
-    show('anime-view');
-    document.getElementById('tab-anime')?.classList.add('active');
-    renderCategoryPage();
-  } else if (tabName === 'recent') {
-    show('recent-view');
-    document.getElementById('tab-recent')?.classList.add('active');
-    loadRecentHistory();
-  } else if (tabName === 'favorite') {
-    show('favorite-view');
-    document.getElementById('tab-favorite')?.classList.add('active');
-    loadFavorites();
-  } else if (tabName === 'developer') {
-    show('developer-view');
-    fetchWAFollowers();
-  } else if (tabName === 'profile') {
-    show('profile-view');
-    document.getElementById('tab-profile')?.classList.add('active');
-    // Profile data sudah di-load oleh onAuthStateChanged di auth.js saat halaman pertama dibuka.
-    // Tidak perlu loadUserProfile ulang — itu justru menyebabkan data overwrite dengan
-    // hasil Firestore yang bisa gagal (return {}) sehingga role jadi 'user' dan foto hilang.
-  }
-}
-
-// ─── HOME (TABS: Beranda / Trending / Jadwal / Berita) ─
-
-async function loadHome() {
-  const homeEl = document.getElementById('home-view');
-  homeEl.innerHTML = `
-    <div class="home-tab-bar">
-      <button class="home-tab active" onclick="switchHomeTab('beranda', this)">🏠 Beranda</button>
-      <button class="home-tab" onclick="switchHomeTab('trending', this)">🔥 Trending</button>
-      <button class="home-tab" onclick="switchHomeTab('jadwal', this)">📅 Jadwal Rilis</button>
-      <button class="home-tab" onclick="switchHomeTab('berita', this)">📰 Berita</button>
-    </div>
-    <div id="tab-beranda" class="home-tab-content active"></div>
-    <div id="tab-trending" class="home-tab-content"></div>
-    <div id="tab-jadwal" class="home-tab-content"></div>
-    <div id="tab-berita" class="home-tab-content"></div>`;
-
-  loadLatestTab();
-}
-
-function switchHomeTab(name, btn) {
-  document.querySelectorAll('.home-tab').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
-  const content = document.getElementById('tab-' + name);
-  if (content) content.classList.add('active');
-
-  if (name === 'trending'  && !content.innerHTML.trim()) loadTrending();
-  if (name === 'jadwal'    && !content.innerHTML.trim()) loadSchedule();
-  if (name === 'berita'    && !content.innerHTML.trim()) loadNews();
-}
-
-// ─── LATEST TAB ──────────────────────────────────────
-
-async function loadLatestTab() {
-  loader(true);
-  const container = document.getElementById('tab-beranda');
-  try {
-    let sliderData = [];
-    try { const r = await fetch(`${API_BASE}/latest`); sliderData = await r.json(); } catch {}
-
-    if (sliderData?.length > 0) {
-      const top10 = sliderData.slice(0, 10);
-      renderHeroSlider(top10, container);
-      loader(false);
-
-      top10.forEach(async (item) => {
-        try {
-          const r = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(item.url)}`);
-          const d = await r.json();
-          if (d?.info) {
-            const score = d.info.skor || d.info.score || 'N/A';
-            const type  = d.info.tipe || d.info.type  || 'Anime';
-            const musim = d.info.musim || d.info.season || '';
-            const rilis = d.info.dirilis || d.info.released || '';
-            const year  = `${musim} ${rilis}`.trim() || 'Unknown';
-            document.querySelectorAll(`.hero-meta[data-url="${item.url}"]`).forEach(el => {
-              el.innerHTML = `<span>⭐ ${score}</span> • <span>${type}</span> • <span>${year}</span>`;
-            });
-          }
-        } catch {}
-      });
-    } else { loader(false); }
-
-    for (let i = 1; i < HOME_SECTIONS.length; i++) {
-      const sec = HOME_SECTIONS[i];
-      (async () => {
-        let combined = [];
-        const results = await Promise.all(sec.queries.map(q =>
-          fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
-        ));
-        results.forEach(list => { if (Array.isArray(list)) combined.push(...list); });
-        combined = removeDuplicates(combined, 'url');
-        if (combined.length > 0) {
-          if (combined.length < 6) combined = removeDuplicates([...combined, ...combined, ...combined], 'url');
-          renderSection(sec.title, combined.slice(0, 15), container);
-        }
-      })();
-    }
-  } catch { loader(false); }
-}
-
-// ─── TRENDING TAB ─────────────────────────────────────
-
-async function loadTrending() {
-  const container = document.getElementById('tab-trending');
-  container.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
-  try {
-    const data = await fetch(`${API_BASE}/trending`).then(r => r.json());
-    if (!data?.length) {
-      container.innerHTML = '<div class="empty-state"><h2>Data trending tidak tersedia</h2></div>'; return;
-    }
-    container.innerHTML = `
-      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>🔥 Anime Trending</h2></div>
-      <div class="trending-list">
-        ${data.map((a, i) => `
-          <div class="trending-item" onclick="handleSearch('${(a.title||'').replace(/'/g,"\\'")}')">
-            <div class="trending-rank ${i < 3 ? 'top3' : ''}">${(a.rank || i+1)}</div>
-            <div class="trending-img">
-              ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;">📺</div>'}
-            </div>
-            <div class="trending-info">
-              <div class="trending-title">${a.title}</div>
-              <div class="trending-meta">
-                ${a.score ? `<span class="trending-score">⭐ ${a.score}</span>` : ''}
-                ${a.genres?.length ? `<span>${a.genres.join(', ')}</span>` : ''}
-                ${a.episodes ? `<span>${a.episodes} eps</span>` : ''}
-              </div>
-            </div>
-          </div>`).join('')}
-      </div>`;
-  } catch {
-    container.innerHTML = '<div class="empty-state"><h2>Gagal memuat trending</h2></div>';
-  }
-}
-
-// ─── SCHEDULE TAB ─────────────────────────────────────
-
-async function loadSchedule() {
-  const container = document.getElementById('tab-jadwal');
-  container.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
-  try {
-    const data = await fetch(`${API_BASE}/schedule`).then(r => r.json());
-    if (!data?.length) {
-      container.innerHTML = '<div class="empty-state"><h2>Jadwal tidak tersedia saat ini</h2></div>'; return;
-    }
-
-    // Group by day of week if broadcast info available
-    const days = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
-    const dayMap = { 'monday':'Senin','tuesday':'Selasa','wednesday':'Rabu','thursday':'Kamis','friday':'Jumat','saturday':'Sabtu','sunday':'Minggu' };
-    const grouped = {};
-    const ungrouped = [];
-
-    data.forEach(a => {
-      const dayKey = a.broadcast?.day_of_the_week;
-      if (dayKey && dayMap[dayKey]) {
-        const day = dayMap[dayKey];
-        if (!grouped[day]) grouped[day] = [];
-        grouped[day].push(a);
-      } else {
-        ungrouped.push(a);
-      }
+    const response = await axios.get(targetUrl, {
+      headers: reqHeaders,
+      responseType: 'stream',
+      timeout: 60000,
+      maxRedirects: 10,
+      ...proxyConfig(),
     });
 
-    let html = `<div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>📅 Jadwal Rilis Anime</h2></div>`;
-
-    const hasDays = Object.keys(grouped).length > 0;
-    if (hasDays) {
-      days.forEach(day => {
-        const items = grouped[day] || [];
-        if (!items.length) return;
-        html += `<div style="padding:10px 16px 8px"><span class="schedule-day-badge">${day}</span></div>`;
-        html += `<div class="schedule-grid">` + items.map(a => scheduleCard(a)).join('') + `</div>`;
-      });
-      if (ungrouped.length) {
-        html += `<div style="padding:10px 16px 8px"><span class="schedule-day-badge">Lainnya</span></div>`;
-        html += `<div class="schedule-grid">` + ungrouped.map(a => scheduleCard(a)).join('') + `</div>`;
-      }
-    } else {
-      html += `<div class="schedule-grid">` + data.map(a => scheduleCard(a)).join('') + `</div>`;
+    if (response.status >= 400) {
+      if (!res.headersSent) return res.status(response.status).json({ error: `CDN returned ${response.status}`, url: targetUrl });
+      return;
     }
 
-    container.innerHTML = html;
-  } catch {
-    container.innerHTML = '<div class="empty-state"><h2>Gagal memuat jadwal</h2></div>';
-  }
-}
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+    if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
+    if (response.headers['content-range']) res.setHeader('Content-Range', response.headers['content-range']);
+    res.setHeader('Accept-Ranges', response.headers['accept-ranges'] || 'bytes');
 
-function scheduleCard(a) {
-  const title = (a.title || '').length > 40 ? a.title.substring(0,38)+'...' : (a.title || '');
-  const onclick = a.url ? `loadDetail('${a.url}')` : `handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;
-  return `
-    <div class="schedule-card" onclick="${onclick}">
-      <div class="schedule-card-img">
-        ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:32px;">📺</div>'}
-      </div>
-      <div class="schedule-card-body">
-        <div class="schedule-card-title">${title}</div>
-        <div class="schedule-card-meta">
-          ${a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : ''}
-          ${a.episodes ? ` · ${a.episodes} eps` : ''}
-        </div>
-      </div>
-    </div>`;
-}
-
-// ─── NEWS TAB ─────────────────────────────────────────
-
-async function loadNews() {
-  const container = document.getElementById('tab-berita');
-  container.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
-  try {
-    const data = await fetch(`${API_BASE}/news`).then(r => r.json());
-    if (!data?.length) {
-      container.innerHTML = '<div class="empty-state"><h2>Berita tidak tersedia</h2></div>'; return;
-    }
-    container.innerHTML = `
-      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>📰 Berita Anime Terbaru</h2></div>
-      <div class="news-list" style="padding-bottom:80px">
-        ${data.map((n, i) => `
-          <div class="news-card" style="animation-delay:${i*0.05}s" onclick="${n.url && n.url !== '#' ? `window.open('${n.url}','_blank')` : ''}">
-            <div class="news-img">
-              ${n.image ? `<img src="${n.image}" alt="${n.title}" loading="lazy">` : `<div class="news-img-placeholder">📰</div>`}
-            </div>
-            <div class="news-info">
-              <div class="news-title">${n.title}</div>
-              ${n.description ? `<div class="news-desc">${n.description}</div>` : ''}
-              <div class="news-date">${n.date || ''}</div>
-            </div>
-          </div>`).join('')}
-      </div>`;
-  } catch {
-    container.innerHTML = '<div class="empty-state"><h2>Gagal memuat berita</h2></div>';
-  }
-}
-
-// ─── HERO SLIDER ──────────────────────────────────────
-
-function renderHeroSlider(data, container) {
-  const loopData = [...data, data[0]];
-  const slidesHtml = loopData.map((a, i) => {
-    let eps = a.episode ? `Ep ${(a.episode.match(/\d+(\.\d+)?/)||[''])[0]}` : '';
-    // Gambar: pakai src jika sudah ada, atau data-anime-url untuk lazy fetch
-    const imgAttr = a.image
-      ? `src="${a.image}"`
-      : `src="" data-anime-url="${a.url}" style="background:#111"`;
-    return `
-      <div class="hero-slide">
-        <img ${imgAttr} class="hero-bg" alt="${a.title}" loading="${i===0?'eager':'lazy'}">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-          ${eps ? `<div class="hero-badge">${eps}</div>` : ''}
-          <h2 class="hero-title">${a.title}</h2>
-          <div class="hero-meta" data-url="${a.url}"><span>⭐ ${a.score||'N/A'}</span> • <span>${a.type||'Anime'}</span></div>
-          <button onclick="loadDetail('${a.url}')" class="hero-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            Nonton Sekarang
-          </button>
-        </div>
-      </div>`;
-  }).join('');
-
-  const dotsHtml = data.map((_,i) => `<div class="hero-dot ${i===0?'active':''}" onclick="goToSlide(${i})"></div>`).join('');
-
-  const section = document.createElement('div');
-  section.className = 'hero-section-container';
-  section.innerHTML = `
-    <div class="hero-slider">
-      <div class="hero-wrapper" id="heroWrapper">${slidesHtml}</div>
-      <div class="hero-dots" id="heroDots">${dotsHtml}</div>
-    </div>`;
-
-  if (container.firstChild) container.insertBefore(section, container.firstChild);
-  else container.appendChild(section);
-
-  // Lazy-load gambar hero yang belum ada
-  lazyLoadImages(section);
-
-  const wrapper = document.getElementById('heroWrapper');
-  let cur = 0, total = loopData.length;
-  if (sliderInterval) clearInterval(sliderInterval);
-  sliderInterval = setInterval(() => {
-    if (!wrapper || document.getElementById('home-view')?.classList.contains('hidden')) return;
-    cur++;
-    wrapper.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
-    wrapper.style.transform = `translateX(-${cur*100}%)`;
-    updateHeroDots(cur % (total-1));
-    if (cur === total-1) {
-      setTimeout(() => { wrapper.style.transition='none'; cur=0; wrapper.style.transform='translateX(0)'; updateHeroDots(0); }, 600);
-    }
-  }, 5000);
-}
-
-window.goToSlide = function(index) {
-  const w = document.getElementById('heroWrapper');
-  if (!w) return;
-  w.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
-  w.style.transform = `translateX(-${index*100}%)`;
-  updateHeroDots(index);
-};
-
-function updateHeroDots(index) {
-  document.querySelectorAll('.hero-dot').forEach((d,i) => d.classList.toggle('active', i===index));
-}
-
-// ─── RENDER SECTION ──────────────────────────────────
-
-function renderSection(title, data, container) {
-  const kw = title.split(' ')[0];
-  const div = document.createElement('div');
-  div.className = 'category-section';
-  div.innerHTML = `
-    <div class="header-flex">
-      <div class="section-header"><div class="bar-accent"></div><h2>${title}</h2></div>
-      <a href="#" class="more-link" onclick="handleSearch('${kw}');return false;">Lainnya →</a>
-    </div>
-    <div class="horizontal-scroll">
-      ${data.map((a,i) => {
-        const badge = a.episode ? `Ep ${a.episode}` : (a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : '');
-        const titleDisplay = a.title.length > 35 ? a.title.substring(0,35)+'...' : a.title;
-        // Selalu pakai data-anime-url agar gambar di-fetch via /api/image (bypass hotlink protection)
-        const imgAttr = `src="" data-anime-url="${a.url}" style="background:var(--bg-input)"`;
-        return `
-        <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i*0.04}s">
-          <div class="scroll-card-outer">
-            <div class="scroll-card-img">
-              <img ${imgAttr} alt="${a.title}" loading="lazy">
-              ${badge ? `<div class="ep-badge">${badge}</div>` : ''}
-            </div>
-          </div>
-          <div class="scroll-card-title">${titleDisplay}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  container.appendChild(div);
-  lazyLoadImages(div);
-}
-
-// ─── CATEGORY PAGE ────────────────────────────────────
-
-function renderCategoryPage() {
-  const grid = document.getElementById('genre-grid');
-  if (grid.innerHTML) return;
-  grid.innerHTML = KATEGORI_LIST.map(g => `<button class="genre-btn" onclick="loadCategory('${g}',this)"><span>${g}</span></button>`).join('');
-  loadCategory(KATEGORI_LIST[0], grid.firstElementChild);
-}
-
-async function loadCategory(genre, btn) {
-  document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
-  btn?.classList.add('active');
-  loader(true);
-  try {
-    const queries = GENRE_KEYWORDS[genre] || [genre];
-    let combined = [];
-    const results = await Promise.all(queries.map(q =>
-      fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
-    ));
-    results.forEach(l => { if (Array.isArray(l)) combined.push(...l); });
-    combined = removeDuplicates(combined, 'url');
-    const c = document.getElementById('category-results-container');
-    if (!combined.length) { c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px;">Tidak ada anime ditemukan.</p>'; return; }
-    c.innerHTML = `
-      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
-      <div class="anime-grid">
-        ${combined.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="" data-anime-url="${a.url}" style="background:var(--bg-input)" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
-            <div class="scroll-card-title">${a.title}</div>
-          </div>`).join('')}
-      </div>`;
-    lazyLoadImages(c);
-  } catch {} finally { loader(false); }
-}
-
-// ─── RECENT & FAVORITES ───────────────────────────────
-
-async function loadRecentHistory() {
-  const c = document.getElementById('recent-results-container');
-  c.innerHTML = '<div class="spinner" style="margin:60px auto 20px"></div>';
-  const data = await getHistory();
-  if (!data.length) { c.innerHTML = emptyState('clock','Belum ada riwayat','Anime yang baru saja kamu tonton akan muncul di sini.'); return; }
-  c.innerHTML = `<div class="anime-grid">${data.map(a => animeCard(a)).join('')}</div>`;
-}
-
-async function loadFavorites() {
-  const c = document.getElementById('favorite-results-container');
-  c.innerHTML = '<div class="spinner" style="margin:60px auto 20px"></div>';
-  const data = await getFavorites();
-  if (!data.length) { c.innerHTML = emptyState('heart','Belum ada Favorit','Simpan anime kesukaanmu dengan menekan ikon hati.'); return; }
-  c.innerHTML = `<div class="anime-grid">${data.map(a => animeCard(a)).join('')}</div>`;
-}
-
-function animeCard(a) {
-  return `
-    <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-      <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
-      <div class="scroll-card-title">${a.title}</div>
-    </div>`;
-}
-
-function emptyState(icon, title, desc) {
-  const icons = { clock: '⏱️', heart: '❤️' };
-  return `<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">${icons[icon]||'📦'}</div><h2>${title}</h2><p>${desc}</p></div>`;
-}
-
-// ─── SEARCH ───────────────────────────────────────────
-
-async function handleSearch(manualQuery = null) {
-  const inp = document.getElementById('searchInput');
-  const query = manualQuery || inp?.value?.trim();
-  if (inp && manualQuery) inp.value = manualQuery;
-  if (!query) { switchTab('home'); return; }
-
-  switchTab('home');
-  loader(true);
-  try {
-    const data = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`).then(r => r.json());
-    const homeEl = document.getElementById('home-view');
-    homeEl.innerHTML = `
-      <div class="home-tab-bar">
-        <button class="home-tab active">🔍 Hasil Pencarian</button>
-      </div>
-      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
-      <div class="anime-grid" style="padding-bottom:80px">
-        ${data.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
-            <div class="scroll-card-title">${a.title}</div>
-          </div>`).join('')}
-      </div>`;
-  } catch {} finally { loader(false); }
-}
-
-// ─── DETAIL ───────────────────────────────────────────
-
-async function loadDetail(url) {
-  loader(true);
-  try {
-    const data = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`).then(r => r.json());
-    ALL_VIEWS.forEach(v => hide(v));
-    if (window.innerWidth < 900) hide('bottomNav');
-    show('detail-view');
-
-    const info = data.info || {};
-    const status    = info.status || 'Ongoing';
-    const score     = info.skor   || info.score    || '0';
-    const type      = info.tipe   || info.type     || 'TV';
-    const totalEps  = info.total_episode || info.episode || '?';
-    const duration  = info.durasi || info.duration || '?';
-    const musim     = info.musim  || info.season   || '';
-    const rilis     = info.dirilis|| info.released || '';
-    const seasonInfo = `${musim} ${rilis}`.trim() || 'Unknown Date';
-    const genreText = info.genre  || info.genres   || '';
-    const genres    = genreText ? genreText.split(',').map(g => g.trim()) : ['Anime'];
-    const isEps     = data.episodes?.length > 0;
-    const newestUrl = isEps ? data.episodes[0].url : '';
-    const oldestUrl = isEps ? data.episodes[data.episodes.length-1].url : '';
-
-    let newestNum = '?';
-    if (isEps) {
-      const m = data.episodes[0].title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i);
-      if (m) newestNum = m[1];
-      else { const n = data.episodes[0].title.match(/\d+/g); newestNum = n ? n[n.length-1] : data.episodes.length; }
-    }
-
-    saveHistory({ url, title: data.title, image: data.image, score });
-    const isFav = await checkFavorite(url);
-
-    // Try to fetch MAL description if local description is short
-    let description = data.description || 'Tidak ada deskripsi tersedia.';
-    if (description.length < 100) {
-      try {
-        const malRes = await fetch(`${API_BASE}/mal/description?title=${encodeURIComponent(data.title)}`);
-        const malData = await malRes.json();
-        if (malData.description) description = malData.description;
-      } catch {}
-    }
-
-    document.getElementById('anime-info').innerHTML = `
-      <div class="detail-breadcrumb">Beranda / ${data.title}</div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <h1 class="detail-title">${data.title}</h1>
-        <button id="favBtn" class="btn-fav-detail ${isFav?'active':''}"
-          onclick="toggleFavorite('${url}','${data.title.replace(/'/g,"\\'")}','${data.image}','${score}')">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="${isFav?'var(--danger)':'none'}" stroke="currentColor" stroke-width="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-        </button>
-      </div>
-      <div class="detail-subtitle">${info.japanese || data.title}</div>
-      <div class="detail-main-layout">
-        <div class="detail-poster"><img src="${data.image}" alt="${data.title}"></div>
-        <div class="detail-info-col">
-          <div class="detail-badges">
-            <span class="badge status">${status.replace(' ','_')}</span>
-            <span class="badge score">⭐ ${score}</span>
-            <span class="badge type">${type}</span>
-          </div>
-          <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
-          <div class="detail-season">${seasonInfo.toUpperCase()}</div>
-          <p class="detail-synopsis">${description}</p>
-          <div style="margin-bottom:10px"><span class="mal-badge">📊 MyAnimeList</span></div>
-          <div class="detail-actions">
-            <button class="btn-action" onclick="${oldestUrl?`loadVideo('${oldestUrl}')`:"alert('Belum ada episode')"}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nonton
-            </button>
-            <button class="btn-action" onclick="${newestUrl?`loadVideo('${newestUrl}')`:"alert('Belum ada episode')"}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Terbaru (${newestNum})
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="metadata-grid">
-        <div class="meta-item"><span class="meta-label">STATUS</span><span class="meta-pill">${status.toUpperCase()}</span></div>
-        <div class="meta-item"><span class="meta-label">TOTAL EPS</span><span class="meta-value">${totalEps}</span></div>
-        <div class="meta-item" style="grid-column:span 2"><span class="meta-label">DURASI</span><span class="meta-value">${duration}</span></div>
-      </div>`;
-
-    document.getElementById('episode-header-container').innerHTML = `
-      <div class="ep-header-wrapper">
-        <h2 class="ep-header-title">Daftar Episode</h2>
-        ${isEps ? `<div class="ep-range-badge">1 – ${newestNum}</div>` : ''}
-      </div>`;
-
-    document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
-      let num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1] || (ep.title.match(/\d+/g)||[i+1]).slice(-1)[0];
-      return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i*0.02,0.3)}s">${num}</div>`;
-    }).join('');
-
-  } catch(e) { console.error(e); } finally { loader(false); }
-}
-
-// ─── WATCH ────────────────────────────────────────────
-
-// Pilih URL yang tepat untuk player:
-// - HLS (.m3u8)   → /api/player?type=hls  (iframe halaman player dengan hls.js)
-// - Direct (.mp4) → /api/player?type=direct
-// - Embed URL     → langsung sebagai iframe src (kuramadrive, streamtape, dll.)
-function resolvePlayerUrl(stream, episodeUrl) {
-  const { url, proxyUrl, type } = stream;
-  if (type === 'hls' || type === 'direct') {
-    // proxyUrl sudah disiapkan server → muat lewat /api/player
-    const finalSrc = proxyUrl || url;
-    return `${API_BASE}/player?type=${type}&url=${encodeURIComponent(finalSrc)}&title=${encodeURIComponent(stream.server)}`;
-  }
-  // embed: biarkan src apa adanya (kuramadrive, streamtape, dll.)
-  return url;
-}
-
-async function loadVideo(url) {
-  loader(true);
-  hide('detail-view'); show('watch-view');
-  if (window.innerWidth < 900) hide('bottomNav');
-
-  const player  = document.getElementById('video-player');
-  const servers = document.getElementById('server-options');
-  const titleEl = document.getElementById('video-title');
-
-  player.src = '';
-  titleEl.textContent = 'Memuat stream...';
-  servers.innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
-
-  try {
-    const data = await Promise.race([
-      fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-    ]);
-
-    if (data?.title) titleEl.textContent = data.title;
-
-    if (data?.streams?.length > 0) {
-      // Pakai stream pertama, gunakan proxyUrl bila ada
-      const first = data.streams[0];
-      player.src = resolvePlayerUrl(first, url);
-
-      servers.innerHTML = data.streams.map((s, i) => {
-        const playUrl = resolvePlayerUrl(s, url);
-        const typeTag = s.type === 'hls' ? ' 🔴' : s.type === 'direct' ? ' 🎬' : '';
-        return `<button class="server-tag ${i===0?'active':''}" data-play-url="${playUrl}" onclick="changeServer(this)">${s.server}${typeTag}</button>`;
-      }).join('');
-    } else {
-      // Stream kosong → kuramanime mungkin diblokir, arahkan langsung
-      player.src = '';
-      servers.innerHTML = `
-        <div style="text-align:center;padding:20px 0">
-          <p style="color:var(--text-muted);margin-bottom:8px">
-            Stream tidak bisa dimuat otomatis.<br>
-            <small>Pastikan env var <code>KURAMANIME_COOKIE</code> sudah di-set di Railway.</small>
-          </p>
-          <a href="${url}" target="_blank" rel="noopener"
-             style="display:inline-block;margin-top:12px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none;font-size:15px">
-            ▶ Buka di Kuramanime
-          </a>
-        </div>`;
-    }
+    res.status(response.status);
+    response.data.pipe(res);
+    req.on('close', () => { try { response.data.destroy(); } catch {} });
   } catch (e) {
-    player.src = '';
-    servers.innerHTML = `
-      <div style="text-align:center;padding:20px 0">
-        <p style="color:var(--text-muted);margin-bottom:16px">Gagal memuat stream: ${e.message}</p>
-        <a href="${url}" target="_blank" rel="noopener"
-           style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none">
-          ▶ Buka di Kuramanime
-        </a>
-      </div>`;
-  } finally {
-    loader(false);
+    if (!res.headersSent) res.status(502).json({ error: e.message, url: targetUrl });
   }
-}
+});
 
-function changeServer(btn) {
-  const playUrl = btn.getAttribute('data-play-url');
-  if (!playUrl) return;
-  document.getElementById('video-player').src = playUrl;
-  document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
+// ─── /api/hls — proxy + rewrite m3u8 manifest ────────────
+app.get('/api/hls', async (req, res) => {
+  const targetUrl = decodeURIComponent(req.query.url || '');
+  const referer = req.query.referer ? decodeURIComponent(req.query.referer) : BASE + '/';
 
-function goHome() { switchTab('home'); }
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib diisi' });
 
-function backToDetail() {
-  hide('watch-view'); show('detail-view');
-  document.getElementById('video-player').src = '';
-  if (window.innerWidth < 900) show('bottomNav');
-}
-
-// ─── DEVELOPER TABS ───────────────────────────────────
-
-function switchDevTab(el, index) {
-  document.querySelectorAll('.social-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.querySelectorAll('[id^="dev-tab-"]').forEach(t => t.style.display = 'none');
-  const target = document.getElementById('dev-tab-' + index);
-  if (target) {
-    target.style.display = 'block';
-    target.querySelectorAll('.doc-card').forEach((c,i) => {
-      c.style.animation='none'; c.offsetHeight; c.style.animation=''; c.style.animationDelay=(i*0.08)+'s';
-    });
+  if (!isAllowedProxyHost(targetUrl)) {
+    return res.status(403).json({ error: 'Domain tidak diizinkan', host: (() => { try { return new URL(targetUrl).hostname; } catch { return targetUrl; } })() });
   }
-}
 
-async function fetchWAFollowers() {
-  const el = document.getElementById('wa-follower-count');
-  if (!el) return;
   try {
-    const res = await fetch(`https://cors.caliph.my.id/https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C`);
-    const html = await res.text();
-    const m = html.match(/([\d.,]+(?:K|M)?)\s+followers/i) || html.match(/([\d.,]+(?:K|M)?)\s+pengikut/i);
-    el.textContent = m?.[1] || '22.2K';
-  } catch { el.textContent = '22.2K'; }
-}
+    const response = await axios.get(targetUrl, {
+      headers: {
+        ...makeHeaders(referer),
+        'Referer': referer,
+      },
+      timeout: 15000,
+      maxRedirects: 10,
+      ...proxyConfig(),
+    });
 
-function toggleDevFollow(btn) {
-  const isFollowing = btn.dataset.following === 'true';
-  const checkIcon = document.getElementById('devFollowCheck');
-  const textEl    = document.getElementById('devFollowText');
-  if (isFollowing) {
-    btn.dataset.following = 'false';
-    btn.className = btn.className.replace('following','').trim();
-    if (checkIcon) checkIcon.style.display = 'none';
-    if (textEl) textEl.textContent = 'Follow';
-  } else {
-    btn.dataset.following = 'true';
-    btn.classList.add('following');
-    if (checkIcon) checkIcon.style.display = 'inline-block';
-    if (textEl) textEl.textContent = 'Following';
-    window.open('https://github.com/kanawangyy-yoikage', '_blank');
+    if (response.status >= 400) {
+      return res.status(response.status).json({ error: `CDN returned ${response.status}`, url: targetUrl });
+    }
+
+    const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+
+    const rewritten = text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return line;
+
+      const segUrl = trimmed.startsWith('http') ? trimmed
+                   : trimmed.startsWith('//') ? 'https:' + trimmed
+                   : baseUrl + trimmed;
+
+      if (trimmed.match(/\.m3u8/i)) {
+        return `/api/hls?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
+      }
+      return `/api/proxy?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
+    }).join('\n');
+
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(rewritten);
+  } catch (e) {
+    res.status(502).json({ error: e.message, url: targetUrl });
   }
+});
+
+// ─── /api/player — embedded video player ─────────────────
+app.get('/api/player', (req, res) => {
+  const streamUrl = decodeURIComponent(req.query.url || '');
+  const streamType = req.query.type || 'hls';
+  const title = decodeURIComponent(req.query.title || '');
+
+  if (!streamUrl) return res.status(400).send('url wajib');
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title.replace(/</g,'&lt;')}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; display:flex; align-items:center; justify-content:center; height:100vh; overflow:hidden; }
+  video { width:100%; height:100vh; outline:none; }
+  #err { color:#fff; font-family:sans-serif; text-align:center; padding:20px; display:none; }
+  #err a { color:#7c6af9; }
+</style>
+</head>
+<body>
+<video id="v" controls autoplay playsinline preload="auto"></video>
+<div id="err"></div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+<script>
+const video = document.getElementById('v');
+const err   = document.getElementById('err');
+const src   = ${JSON.stringify(streamUrl)};
+const type  = ${JSON.stringify(streamType)};
+
+function showError(msg) {
+  video.style.display = 'none';
+  err.style.display = 'block';
+  err.innerHTML = '<p style="margin-bottom:12px">Gagal memuat video:<br>' + msg + '</p>';
 }
 
-// ─── INIT ────────────────────────────────────────────
+if (type === 'hls' || src.includes('.m3u8')) {
+  if (Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: false, lowLatencyMode: false });
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) showError(d.details);
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+    video.play().catch(()=>{});
+  } else {
+    showError('Browser tidak mendukung HLS.');
+  }
+} else {
+  video.src = src;
+  video.play().catch(()=>{});
+  video.onerror = () => showError(video.error?.message || 'Unknown error');
+}
+</script>
+</body>
+</html>`;
 
-document.addEventListener('DOMContentLoaded', () => {
-  const isLight = localStorage.getItem('theme') === 'light';
-  updateThemeUI(isLight);
-  switchTab('home');
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.send(html);
 });
 
-document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') handleSearch();
+// ─── /api/debug-html ──────────────────────────────────────
+app.get('/api/debug-html', async (req, res) => {
+  const targetUrl = req.query.url;
+  const keyword   = req.query.q || 'episode';
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib' });
+  try {
+    const response = await axios.get(targetUrl, {
+      headers: makeHeaders(BASE + '/'),
+      timeout: 20000,
+      ...proxyConfig(),
+    });
+    const html = response.data;
+    const lines = html.split('\n')
+      .map((l, i) => ({ n: i + 1, l: l.trim() }))
+      .filter(x => x.l.toLowerCase().includes(keyword.toLowerCase()) && x.l.length < 600)
+      .slice(0, 60);
+    res.json({ keyword, total: lines.length, htmlLength: html.length, lines });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-firebase.auth().onAuthStateChanged((user) => {
-  if (!user) window.location.href = '/login';
+app.get('/api/debug-watch', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    const response = await axios.get(targetUrl, {
+      headers: makeHeaders(BASE + '/'),
+      timeout: 20000,
+      ...proxyConfig(),
+    });
+    const html = response.data;
+    const $ = cheerio.load(html);
+    const cloudflare = isCloudflareBlock($);
+    const elements = [];
+    $('video').each((_, el) => elements.push({ tag:'video', id:$(el).attr('id'), src:$(el).attr('src'), 'data-hls-src':$(el).attr('data-hls-src'), 'data-src':$(el).attr('data-src'), 'data-file':$(el).attr('data-file') }));
+    $('iframe').each((_, el) => elements.push({ tag:'iframe', src:$(el).attr('src'), 'data-src':$(el).attr('data-src') }));
+    $('source').each((_, el) => elements.push({ tag:'source', src:$(el).attr('src') }));
+    $('div.nonton-embed, div.embed-responsive').each((_, el) => elements.push({ tag:'nonton-embed', html:$(el).html()?.substring(0,200) }));
+    res.json({ status:response.status, url:targetUrl, cloudflare, elements, htmlLength:html.length, activeMirror: BASE, proxySet:!!PROXY_URL });
+  } catch (e) { res.status(500).json({ error:e.message }); }
 });
+
+// ═══════════════════════════════════════════════════════════
+// ─── API ROUTES ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+app.get('/api/mirror', (req, res) => res.json({ base: BASE, proxySet: !!PROXY_URL }));
+
+// ─── /api/debug-mirror — cek semua mirror ────────────────
+app.get('/api/debug-mirror', async (req, res) => {
+  const results = [];
+  for (const mirror of BASE_MIRRORS) {
+    try {
+      const r = await axios.get(mirror, {
+        headers: makeHeaders(mirror + '/'),
+        timeout: 8000,
+        maxRedirects: 10,
+        validateStatus: () => true,
+        ...proxyConfig(),
+      });
+      const finalUrl = r.request && r.request.res && r.request.res.responseUrl
+        ? r.request.res.responseUrl : mirror;
+      const $ = cheerio.load(r.data);
+      results.push({
+        mirror,
+        finalUrl,
+        status: r.status,
+        title: $('title').text().trim(),
+        isCloudflare: isCloudflareBlock($),
+        hasContent: $('div.venz').length > 0 || $('a[href*="/anime/"]').length > 3,
+        animeLinks: $('a[href*="/anime/"]').length,
+      });
+    } catch (e) {
+      results.push({ mirror, error: e.message });
+    }
+  }
+  res.json({ currentBase: BASE, results });
+});
+
+// ─── /api/debug-scrape — cek apakah scraping bekerja ─────
+// Panggil: /api/debug-scrape
+// Return: sample data mentah dari halaman otakudesu + info selector
+app.get('/api/debug-scrape', async (req, res) => {
+  try {
+    const $ = await fetchPage(BASE + '/');
+    const info = {
+      activeMirror: BASE,
+      title: $('title').text(),
+      isCloudflare: isCloudflareBlock($),
+      selectors: {
+        'div.venz ul li': $('div.venz ul li').length,
+        'div.chblock': $('div.chblock').length,
+        'h2.jdlflm a': $('h2.jdlflm a').length,
+        'a[href*="/anime/"]': $('a[href*="/anime/"]').length,
+        'img': $('img').length,
+        // Tambahan selector otakudesu modern
+        'div.episodelist': $('div.episodelist').length,
+        'div.frontpage': $('div.frontpage').length,
+        'div.venutama': $('div.venutama').length,
+        'div.venser': $('div.venser').length,
+        'div.rseries': $('div.rseries').length,
+      },
+      sampleItems: [],
+      sampleLinks: [],
+    };
+    // ambil max 3 item sample
+    $('div.venz ul li').slice(0, 3).each((_, el) => {
+      const a = $(el).find('h2.jdlflm a').first();
+      info.sampleItems.push({
+        title: a.text().trim(),
+        href: a.attr('href'),
+        image: $(el).find('img').attr('src') || $(el).find('img').attr('data-src'),
+        epz: $(el).find('div.epz').text().trim(),
+      });
+    });
+    // Sample link anime dari halaman
+    const linksSeen = new Set();
+    $('a[href*="/anime/"]').slice(0, 5).each((_, el) => {
+      const href = $(el).attr('href');
+      if (href && !linksSeen.has(href)) {
+        linksSeen.add(href);
+        info.sampleLinks.push({ text: $(el).text().trim().substring(0, 60), href });
+      }
+    });
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message, activeMirror: BASE });
+  }
+});
+
+app.get('/api/stream-test', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib' });
+  try {
+    const { title, streams } = await download(targetUrl, req);
+    const tested = await Promise.all(streams.map(async s => {
+      let accessible = false;
+      let statusCode = 0;
+      let errorMsg = '';
+      let contentType = '';
+      try {
+        const r = await axios.head(s.url.startsWith('//') ? 'https:' + s.url : s.url, {
+          headers: {
+            ...makeHeaders(targetUrl),
+            'Referer': targetUrl,
+          },
+          timeout: 8000,
+          maxRedirects: 5,
+          validateStatus: () => true,
+          ...proxyConfig(),
+        });
+        statusCode = r.status;
+        contentType = r.headers['content-type'] || '';
+        accessible = r.status < 400;
+      } catch (e) { errorMsg = e.message; }
+      return { ...s, accessible, statusCode, contentType, error: errorMsg || undefined };
+    }));
+    res.json({
+      title,
+      episodeUrl: targetUrl,
+      streamCount: streams.length,
+      activeMirror: BASE,
+      streams: tested,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message, hint: 'Coba /api/debug-watch?url=... untuk lihat raw HTML' });
+  }
+});
+
+app.get('/api/latest', async (req, res) => {
+  try { res.json(await animeterbaru(req.query.page || 1)); }
+  catch (e) { res.status(500).json({ error: e.message, hint: 'Pastikan mirror otakudesu aktif', base: BASE }); }
+});
+
+app.get('/api/image', async (req, res) => {
+  try { res.json({ image: await getAnimeImage(req.query.url) }); }
+  catch { res.json({ image: '' }); }
+});
+
+app.get('/api/search', async (req, res) => {
+  try { res.json(await search(req.query.q)); }
+  catch (e) { res.status(500).json({ error: e.message, base: BASE }); }
+});
+
+app.get('/api/detail', async (req, res) => {
+  try { res.json(await detail(req.query.url)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/watch', async (req, res) => {
+  try { res.json(await download(req.query.url, req)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/mal/description', async (req, res) => {
+  try { res.json({ description: await getMalDescription(req.query.title) }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/mal/anime', async (req, res) => {
+  try { res.json(await getMalAnime(req.query.title)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/schedule', async (req, res) => {
+  try { res.json(await getMalSchedule()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/trending', async (req, res) => {
+  try { res.json(await getMalTrending()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/news', async (req, res) => {
+  try { res.json(await getAnimeNews()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/health', (req, res) => res.json({
+  status: 'ok', source: 'otakudesu', version: '4.0.0',
+  base: BASE, proxySet: !!PROXY_URL,
+}));
+
+// ─── STATIC ────────────────────────────────────────────────
+const path = require('path');
+app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/masuk', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/login',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.get('/admin',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('/panel',  (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
+app.get('*',       (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () =>
+  console.log(`AniZone API port ${PORT} | Source: otakudesu | Mirror: ${BASE} | Proxy: ${PROXY_URL || 'none'}`)
+);
+
+module.exports = app;
