@@ -186,8 +186,14 @@ const imageCache = new Map();
 async function getAnimeImage(animeUrl) {
   if (imageCache.has(animeUrl)) return imageCache.get(animeUrl);
   try {
-    const $ = await fetchPage(animeUrl);
-    // Coba og:image dulu (paling reliable), lalu fallback ke img di halaman
+    const res = await axios.get(animeUrl, {
+      headers: makeHeaders(BASE + '/'),
+      timeout: 15000,
+      maxRedirects: 10,
+      ...proxyConfig(),
+    });
+    const $ = cheerio.load(res.data);
+    // og:image paling reliable untuk semua tipe halaman (anime, episode)
     const img = $('meta[property="og:image"]').attr('content')
       || $('div.fotoanime img').attr('src')
       || $('div.thumbz img').attr('src')
@@ -316,48 +322,64 @@ async function search(query) {
   const $ = await fetchPage(url);
   const data = [];
   const seen = new Set();
+  const animeSeen = new Set(); // dedupe berdasarkan slug anime
 
-  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|kategori|genre|search|cari|lainnya|more|next|prev|previous|episode|batch|subtitle|download|stream|server|komentar)$/i;
+  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|kategori|genre|search|cari|lainnya|more|next|prev|previous|subtitle|download|stream|server|komentar)$/i;
 
-  function addResult(href, title, imgEl, genreEl, statusEl, ratingEl) {
-    if (!href || !title || title.length < 2 || title.length > 120) return;
-    if (BLACKLIST.test(title.trim())) return;
-    if (/^[\d\s\-_.]+$/.test(title)) return;
+  // Hasil search otakudesu bisa berupa link episode — kita perlu cari URL anime-nya
+  // Contoh episode URL: /episode/btr-ng-episode-293-sub-indo/
+  // Kita group per judul anime (buang " Episode NNN Subtitle Indonesia" suffix)
+  function normalizeAnimeTitle(raw) {
+    return raw
+      .replace(/\s+Episode\s+[\d.]+.*$/i, '')
+      .replace(/\s+Sub(?:title)?\s+Indo(?:nesia)?.*$/i, '')
+      .trim();
+  }
+
+  $('.chivsrc li').each((_, el) => {
+    const a = $(el).find('h2 a, .name a, h3 a, a').first();
+    const rawTitle = a.text().trim();
+    const href = a.attr('href') || '';
+    if (!rawTitle || !href) return;
+    if (BLACKLIST.test(rawTitle.trim())) return;
+
+    const isEpisode = href.includes('/episode/');
+    const animeTitle = isEpisode ? normalizeAnimeTitle(rawTitle) : rawTitle;
+
+    if (animeTitle.length < 2 || animeTitle.length > 120) return;
+    if (animeSeen.has(animeTitle.toLowerCase())) return;
+    animeSeen.add(animeTitle.toLowerCase());
+
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
-    const image = imgEl ? (
-      imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') ||
-      imgEl.attr('data-original') || (imgEl.attr('srcset') || '').split(' ')[0] || ''
-    ) : '';
-    const genres = [];
-    if (genreEl) genreEl.find('a').each((_, g) => genres.push($(g).text().trim()));
-    const status = statusEl ? statusEl.text().trim() : '';
-    const rating = ratingEl ? ratingEl.text().replace(/rating/i, '').trim() : '';
-    data.push({ title, url: fullHref, image, type: status || 'Anime', score: rating || 'N/A', genres });
-  }
 
-  // Selector otakudesu search: .chivsrc li (bukan div.chivsrc)
-  $('.chivsrc li').each((_, el) => {
-    const a = $(el).find('h2 a, .name a, h3 a, a').first();
-    const imgEl = $(el).find('div.thumbz img, div.thumb img, img').first();
-    addResult(
-      a.attr('href') || '',
-      a.text().trim(),
-      imgEl,
-      $(el).find('div.set span.lm'),
-      $(el).find('div.set span.lm').last(),
-      $(el).find('div.epzt')
-    );
+    // Untuk episode URL, simpan sebagai animeUrl dengan episodeUrl = href
+    // Gambar akan di-fetch via /api/image (getAnimeImage) dari halaman ini
+    data.push({
+      title: animeTitle,
+      url: fullHref,        // dipakai untuk loadDetail dan /api/image
+      image: '',            // kosong — akan lazy-load via /api/image
+      type: 'Anime',
+      score: 'N/A',
+      genres: [],
+    });
   });
 
-  // Fallback: hasil search kadang ada di div.venz atau artikel biasa
+  // Fallback: cari link /anime/ langsung jika chivsrc kosong
   if (data.length === 0) {
     $('a[href*="/anime/"]').each((_, el) => {
       const href = $(el).attr('href') || '';
       const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
       if (!href.match(/\/anime\/[^/]+\/?$/) || href.includes('/episode/')) return;
-      addResult(href, title, $(el).find('img').first(), null, null, null);
+      if (!title || title.length < 2 || title.length > 120) return;
+      if (BLACKLIST.test(title.trim())) return;
+      const fullHref = href.startsWith('http') ? href : BASE + href;
+      if (seen.has(fullHref)) return;
+      seen.add(fullHref);
+      const imgEl = $(el).find('img').first();
+      const image = imgEl.attr('src') || imgEl.attr('data-src') || '';
+      data.push({ title, url: fullHref, image, type: 'Anime', score: 'N/A', genres: [] });
     });
   }
 
