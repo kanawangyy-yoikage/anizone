@@ -187,7 +187,12 @@ async function getAnimeImage(animeUrl) {
   if (imageCache.has(animeUrl)) return imageCache.get(animeUrl);
   try {
     const $ = await fetchPage(animeUrl);
-    const img = $('meta[property="og:image"]').attr('content') || '';
+    // Coba og:image dulu (paling reliable), lalu fallback ke img di halaman
+    const img = $('meta[property="og:image"]').attr('content')
+      || $('div.fotoanime img').attr('src')
+      || $('div.thumbz img').attr('src')
+      || $('div.thumb img').attr('src')
+      || '';
     imageCache.set(animeUrl, img);
     return img;
   } catch { return ''; }
@@ -233,10 +238,11 @@ async function animeterbaru(page = 1) {
       if (seen.has(href)) return;
       seen.add(href);
 
-      // Image: coba semua atribut lazy-load umum
-      const imgEl = $(el).find(imgSel).first();
+      // Image: otakudesu pakai div.thumb > div.thumbz > img dengan src langsung
+      const imgEl = $(el).find('div.thumbz img, div.thumb img, img').first();
       const image = imgEl.attr('src') || imgEl.attr('data-src')
-        || imgEl.attr('data-lazy-src') || imgEl.attr('data-original') || '';
+        || imgEl.attr('data-lazy-src') || imgEl.attr('data-original')
+        || (imgEl.attr('srcset') || '').split(' ')[0] || '';
 
       // Episode number
       const epText = $(el).find(epSel).text().trim();
@@ -509,6 +515,26 @@ async function download(link, req) {
   // 5. Script inline — cari URL streaming
   $('script').each((_, el) => {
     const code = $(el).html() || '';
+
+    // Otakudesu modern: URL di-encode base64 dalam variabel
+    // Contoh: var a = "aHR0cHM6Ly9..." atau atob("...")
+    for (const m of code.matchAll(/atob\s*\(\s*["']([A-Za-z0-9+/=]+)["']\s*\)/g)) {
+      try {
+        const decoded = Buffer.from(m[1], 'base64').toString('utf-8');
+        if (decoded.startsWith('http') || decoded.startsWith('//')) addStream(decoded, serverLabel(decoded));
+      } catch {}
+    }
+
+    // Base64 string yang panjang dalam variabel
+    for (const m of code.matchAll(/["']([A-Za-z0-9+/]{40,}={0,2})["']/g)) {
+      try {
+        const decoded = Buffer.from(m[1], 'base64').toString('utf-8');
+        if ((decoded.startsWith('http') || decoded.startsWith('//')) &&
+            decoded.match(/\.(m3u8|mp4|webm)/i)) {
+          addStream(decoded, serverLabel(decoded));
+        }
+      } catch {}
+    }
 
     // pola JSON key-value standar
     for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe|file|hls|video|player)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
