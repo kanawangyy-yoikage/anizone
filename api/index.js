@@ -981,22 +981,34 @@ app.get('/api/debug-search', async (req, res) => {
         'div.chivsrc ul li': $('div.chivsrc ul li').length,
         'div.chivsrc': $('div.chivsrc').length,
         'div.venz ul li': $('div.venz ul li').length,
+        // tambahan cek semua div/ul/li yang ada
+        'ul li': $('ul li').length,
+        'article': $('article').length,
+        '.post': $('.post').length,
+        '.type-post': $('.type-post').length,
       },
+      // Ambil semua class dari div/ul/li/article untuk ketahui strukturnya
+      topLevelDivClasses: [],
+      // Potongan HTML mentah area konten utama
+      rawContentHtml: '',
       sampleItems: [],
     };
-    $('div.chivsrc ul li').slice(0, 3).each((_, el) => {
-      const a = $(el).find('h2 a, .name a, h3 a').first();
-      const img = $(el).find('img').first();
-      info.sampleItems.push({
-        title: a.text().trim(),
-        href: a.attr('href'),
-        imgSrc: img.attr('src'),
-        imgDataSrc: img.attr('data-src'),
-        imgDataLazy: img.attr('data-lazy-src'),
-        imgSrcset: (img.attr('srcset') || '').substring(0, 100),
-        liHtml: $(el).html()?.substring(0, 300),
-      });
+
+    // Kumpulkan semua class unik dari elemen di body
+    const classSet = new Set();
+    $('body *').each((_, el) => {
+      const cls = $(el).attr('class');
+      if (cls) cls.split(/\s+/).forEach(c => { if (c) classSet.add(c); });
     });
+    info.topLevelDivClasses = [...classSet].slice(0, 80);
+
+    // Ambil HTML mentah dari elemen pertama yang berisi link /anime/
+    $('*').each((_, el) => {
+      if ($(el).find('a[href*="/anime/"]').length > 2 && !info.rawContentHtml) {
+        info.rawContentHtml = $(el).html()?.substring(0, 1500) || '';
+      }
+    });
+
     res.json(info);
   } catch (e) {
     res.status(500).json({ error: e.message, activeMirror: BASE });
