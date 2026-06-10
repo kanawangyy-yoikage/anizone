@@ -322,13 +322,10 @@ async function search(query) {
   const $ = await fetchPage(url);
   const data = [];
   const seen = new Set();
-  const animeSeen = new Set(); // dedupe berdasarkan slug anime
+  const animeSeen = new Set();
 
   const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|kategori|genre|search|cari|lainnya|more|next|prev|previous|subtitle|download|stream|server|komentar)$/i;
 
-  // Hasil search otakudesu bisa berupa link episode — kita perlu cari URL anime-nya
-  // Contoh episode URL: /episode/btr-ng-episode-293-sub-indo/
-  // Kita group per judul anime (buang " Episode NNN Subtitle Indonesia" suffix)
   function normalizeAnimeTitle(raw) {
     return raw
       .replace(/\s+Episode\s+[\d.]+.*$/i, '')
@@ -336,6 +333,8 @@ async function search(query) {
       .trim();
   }
 
+  // Kumpulkan semua hasil dulu
+  const rawResults = [];
   $('.chivsrc li').each((_, el) => {
     const a = $(el).find('h2 a, .name a, h3 a, a').first();
     const rawTitle = a.text().trim();
@@ -345,29 +344,21 @@ async function search(query) {
 
     const isEpisode = href.includes('/episode/');
     const animeTitle = isEpisode ? normalizeAnimeTitle(rawTitle) : rawTitle;
-
     if (animeTitle.length < 2 || animeTitle.length > 120) return;
-    if (animeSeen.has(animeTitle.toLowerCase())) return;
-    animeSeen.add(animeTitle.toLowerCase());
+
+    const key = animeTitle.toLowerCase();
+    if (animeSeen.has(key)) return;
+    animeSeen.add(key);
 
     const fullHref = href.startsWith('http') ? href : BASE + href;
     if (seen.has(fullHref)) return;
     seen.add(fullHref);
 
-    // Untuk episode URL, simpan sebagai animeUrl dengan episodeUrl = href
-    // Gambar akan di-fetch via /api/image (getAnimeImage) dari halaman ini
-    data.push({
-      title: animeTitle,
-      url: fullHref,        // dipakai untuk loadDetail dan /api/image
-      image: '',            // kosong — akan lazy-load via /api/image
-      type: 'Anime',
-      score: 'N/A',
-      genres: [],
-    });
+    rawResults.push({ title: animeTitle, url: fullHref, isEpisode });
   });
 
-  // Fallback: cari link /anime/ langsung jika chivsrc kosong
-  if (data.length === 0) {
+  // Fallback jika chivsrc kosong
+  if (rawResults.length === 0) {
     $('a[href*="/anime/"]').each((_, el) => {
       const href = $(el).attr('href') || '';
       const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
@@ -378,8 +369,51 @@ async function search(query) {
       if (seen.has(fullHref)) return;
       seen.add(fullHref);
       const imgEl = $(el).find('img').first();
-      const image = imgEl.attr('src') || imgEl.attr('data-src') || '';
-      data.push({ title, url: fullHref, image, type: 'Anime', score: 'N/A', genres: [] });
+      rawResults.push({ title, url: fullHref, isEpisode: false,
+        image: imgEl.attr('src') || imgEl.attr('data-src') || '' });
+    });
+  }
+
+  // Untuk episode URL: fetch halaman episode pertama saja untuk dapat
+  // URL anime induk + og:image, lalu apply ke semua entry judul yang sama
+  const episodeItems = rawResults.filter(r => r.isEpisode && !r.image);
+
+  // Fetch max 3 halaman episode secara paralel untuk dapat gambar
+  const imageMap = new Map(); // animeTitle.toLowerCase() -> { url, image }
+  if (episodeItems.length > 0) {
+    // Ambil 3 episode pertama (cukup untuk dapat gambar unik)
+    const toFetch = episodeItems.slice(0, 3);
+    await Promise.allSettled(toFetch.map(async item => {
+      try {
+        const r = await axios.get(item.url, {
+          headers: makeHeaders(BASE + '/'),
+          timeout: 8000,
+          maxRedirects: 5,
+          ...proxyConfig(),
+        });
+        const ep$ = cheerio.load(r.data);
+        const ogImg = ep$('meta[property="og:image"]').attr('content') || '';
+        // Cari link ke halaman anime induk
+        const animeLink = ep$('a[href*="/anime/"]').first().attr('href') || item.url;
+        const animeUrl = animeLink.startsWith('http') ? animeLink : BASE + animeLink;
+        const key = item.title.toLowerCase();
+        imageMap.set(key, { animeUrl, image: ogImg });
+        if (ogImg) imageCache.set(animeUrl, ogImg);
+      } catch {}
+    }));
+  }
+
+  // Build final result
+  for (const r of rawResults) {
+    const key = r.title.toLowerCase();
+    const fetched = imageMap.get(key);
+    data.push({
+      title: r.title,
+      url: fetched?.animeUrl || r.url,
+      image: r.image || fetched?.image || '',
+      type: 'Anime',
+      score: 'N/A',
+      genres: [],
     });
   }
 
