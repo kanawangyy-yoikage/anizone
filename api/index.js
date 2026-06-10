@@ -171,40 +171,98 @@ async function getAnimeImage(animeUrl) {
 
 // ─── anime terbaru (ongoing) ─────────────────────────────
 async function animeterbaru(page = 1) {
-  // Otakudesu halaman depan = ongoing, halaman page=N via /?page=N
   const url = page > 1 ? `${BASE}/?page=${page}` : `${BASE}/`;
   const $ = await fetchPage(url);
   const data = [];
   const seen = new Set();
 
-  // Setiap item ongoing ada di div.venz ul li
-  $('div.venz ul li').each((_, el) => {
-    const a = $(el).find('h2.jdlflm a').first();
-    const title = a.text().trim();
-    const href = a.attr('href') || '';
-    if (!href || !title) return;
-    if (seen.has(href)) return;
-    seen.add(href);
+  // Otakudesu struktur HTML (berlaku untuk semua domain mirror):
+  //   div.venz > ul > li  — setiap item ongoing
+  //     img               — thumbnail anime
+  //     h2.jdlflm > a     — judul + link ke halaman anime
+  //     div.epz           — nomor episode terbaru, mis. "Episode 12"
+  //     div.epztipe       — status, mis. "Ongoing"
+  //     div.newnime       — link ke episode terbaru (href di <a>)
+  //
+  // Fallback: beberapa mirror pakai class berbeda:
+  //   div.chblock, div.dcblock, article.episodio
 
-    const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
-    const episodeText = $(el).find('div.epz').text().trim(); // "Episode 10"
-    const epMatch = episodeText.match(/(\d+)/);
-    const episode = epMatch ? epMatch[1] : '?';
-    const totalEl = $(el).find('div.epztipe').text().trim(); // "Ongoing" / "Completed"
-    const type = $(el).find('div.epztipe').text().trim() || 'Anime';
+  function extractItems(selector, titleSel, imgSel, epSel, typeSel, epLinkSel) {
+    $(selector).each((_, el) => {
+      const a = $(el).find(titleSel).first();
+      const title = a.text().trim();
+      const href = a.attr('href') || '';
+      if (!href || !title || title.length < 2) return;
+      if (seen.has(href)) return;
+      seen.add(href);
 
-    // episodeUrl: href adalah URL anime, kita konstruksi URL episode dari teks episode
-    data.push({
-      title,
-      url: href,
-      episodeUrl: href, // detail halaman anime, bukan direct episode
-      image,
-      episode,
-      totalEpisode: '?',
-      score: 'N/A',
-      type,
+      // Image: coba semua atribut lazy-load umum
+      const imgEl = $(el).find(imgSel).first();
+      const image = imgEl.attr('src') || imgEl.attr('data-src')
+        || imgEl.attr('data-lazy-src') || imgEl.attr('data-original') || '';
+
+      // Episode number
+      const epText = $(el).find(epSel).text().trim();
+      const epMatch = epText.match(/(\d+(?:\.\d+)?)/);
+      const episode = epMatch ? epMatch[1] : '?';
+
+      const type = $(el).find(typeSel).text().trim() || 'Anime';
+
+      // episodeUrl: link langsung ke episode terbaru jika ada
+      let episodeUrl = href;
+      if (epLinkSel) {
+        const epA = $(el).find(epLinkSel + ' a').first();
+        const epHref = epA.attr('href') || '';
+        if (epHref) episodeUrl = epHref.startsWith('http') ? epHref : BASE + epHref;
+      }
+
+      data.push({
+        title,
+        url: href.startsWith('http') ? href : BASE + href,
+        episodeUrl,
+        image,
+        episode,
+        totalEpisode: '?',
+        score: 'N/A',
+        type,
+      });
     });
-  });
+  }
+
+  // Coba selector utama otakudesu
+  extractItems('div.venz ul li', 'h2.jdlflm a', 'img', 'div.epz', 'div.epztipe', 'div.newnime');
+
+  // Fallback 1: beberapa mirror pakai div.chblock
+  if (data.length === 0) {
+    extractItems('div.chblock', '.name a, h2 a, .title a', 'img', '.chapter, .episode, .epz', '.type, .status', null);
+  }
+
+  // Fallback 2: WordPress theme lainnya yang kadang dipakai mirror
+  if (data.length === 0) {
+    extractItems('article.episodio, div.episodiotitle', 'a', 'img', '.numerando, .epnumber', '.genres a', null);
+  }
+
+  // Fallback 3: ambil semua link anime dari halaman jika semua gagal
+  if (data.length === 0) {
+    $('a[href*="/anime/"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
+      if (!href || !title || title.length < 2 || seen.has(href)) return;
+      if (title.length > 120 || /^(home|beranda|search|login|kategori)/i.test(title)) return;
+      seen.add(href);
+      const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
+      data.push({
+        title,
+        url: href.startsWith('http') ? href : BASE + href,
+        episodeUrl: href.startsWith('http') ? href : BASE + href,
+        image,
+        episode: '?',
+        totalEpisode: '?',
+        score: 'N/A',
+        type: 'Anime',
+      });
+    });
+  }
 
   return data;
 }
@@ -216,30 +274,45 @@ async function search(query) {
   const data = [];
   const seen = new Set();
 
-  // Hasil search ada di div.chivsrc ul li
-  $('div.chivsrc ul li').each((_, el) => {
-    const a = $(el).find('h2 a').first();
-    const title = a.text().trim();
-    const href = a.attr('href') || '';
-    if (!href || !title || title.length < 2) return;
-    if (seen.has(href)) return;
-    seen.add(href);
+  const BLACKLIST = /^(beranda|home|trending|jadwal|login|daftar|masuk|keluar|profil|kategori|genre|search|cari|lainnya|more|next|prev|previous|episode|batch|subtitle|download|stream|server|komentar)$/i;
 
-    const image = $(el).find('img').attr('src') || $(el).find('img').attr('data-src') || '';
+  function addResult(href, title, imgEl, genreEl, statusEl, ratingEl) {
+    if (!href || !title || title.length < 2 || title.length > 120) return;
+    if (BLACKLIST.test(title.trim())) return;
+    if (/^[\d\s\-_.]+$/.test(title)) return;
+    const fullHref = href.startsWith('http') ? href : BASE + href;
+    if (seen.has(fullHref)) return;
+    seen.add(fullHref);
+    const image = imgEl ? (imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') || '') : '';
     const genres = [];
-    $(el).find('div.set span.lm a').each((_, g) => genres.push($(g).text().trim()));
-    const status = $(el).find('div.set span.lm').last().text().trim();
-    const rating = $(el).find('div.epzt').text().replace('Rating', '').trim();
+    if (genreEl) genreEl.find('a').each((_, g) => genres.push($(g).text().trim()));
+    const status = statusEl ? statusEl.text().trim() : '';
+    const rating = ratingEl ? ratingEl.text().replace(/rating/i, '').trim() : '';
+    data.push({ title, url: fullHref, image, type: status || 'Anime', score: rating || 'N/A', genres });
+  }
 
-    data.push({
-      title,
-      url: href,
-      image,
-      type: status || 'Anime',
-      score: rating || '',
-      genres,
-    });
+  // Selector utama otakudesu search: div.chivsrc ul li
+  $('div.chivsrc ul li').each((_, el) => {
+    const a = $(el).find('h2 a, .name a, h3 a').first();
+    addResult(
+      a.attr('href') || '',
+      a.text().trim(),
+      $(el).find('img').first(),
+      $(el).find('div.set span.lm'),
+      $(el).find('div.set span.lm').last(),
+      $(el).find('div.epzt')
+    );
   });
+
+  // Fallback: hasil search kadang ada di div.venz atau artikel biasa
+  if (data.length === 0) {
+    $('a[href*="/anime/"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const title = $(el).text().trim() || $(el).find('img').attr('alt') || '';
+      if (!href.match(/\/anime\/[^/]+\/?$/) || href.includes('/episode/')) return;
+      addResult(href, title, $(el).find('img').first(), null, null, null);
+    });
+  }
 
   return data;
 }
@@ -527,19 +600,27 @@ async function getMalTrending() {
 
 async function getScrapedTrending() {
   try {
-    // Otakudesu: halaman utama sudah berisi ongoing terpopuler
-    const $ = await fetchPage(`${BASE}/`);
-    const data = []; const seen = new Set();
-    $('div.venz ul li').each((_, el) => {
-      const a = $(el).find('h2.jdlflm a').first();
-      const title = a.text().trim();
-      const href = a.attr('href') || '';
-      if (!href || !title || seen.has(href)) return;
-      seen.add(href);
-      const image = $(el).find('img').attr('src') || '';
-      data.push({ title, url: href, image, score: 'N/A' });
-    });
-    return data.slice(0, 20);
+    // Coba halaman ongoing dulu, fallback ke homepage
+    const urls = [`${BASE}/ongoing-anime/`, `${BASE}/`];
+    for (const pageUrl of urls) {
+      try {
+        const $ = await fetchPage(pageUrl);
+        const data = []; const seen = new Set();
+        // Selector utama
+        $('div.venz ul li, div.chblock, .anime-list li').each((_, el) => {
+          const a = $(el).find('h2.jdlflm a, h2 a, .name a, h3 a').first();
+          const title = a.text().trim();
+          const href = a.attr('href') || '';
+          if (!href || !title || seen.has(href)) return;
+          seen.add(href);
+          const imgEl = $(el).find('img').first();
+          const image = imgEl.attr('src') || imgEl.attr('data-src') || imgEl.attr('data-lazy-src') || '';
+          data.push({ title, url: href.startsWith('http') ? href : BASE + href, image, score: 'N/A' });
+        });
+        if (data.length > 0) return data.slice(0, 20);
+      } catch {}
+    }
+    return [];
   } catch { return []; }
 }
 
@@ -817,6 +898,41 @@ app.get('/api/debug-watch', async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 
 app.get('/api/mirror', (req, res) => res.json({ base: BASE, proxySet: !!PROXY_URL }));
+
+// ─── /api/debug-scrape — cek apakah scraping bekerja ─────
+// Panggil: /api/debug-scrape
+// Return: sample data mentah dari halaman otakudesu + info selector
+app.get('/api/debug-scrape', async (req, res) => {
+  try {
+    const $ = await fetchPage(BASE + '/');
+    const info = {
+      activeMirror: BASE,
+      title: $('title').text(),
+      isCloudflare: isCloudflareBlock($),
+      selectors: {
+        'div.venz ul li': $('div.venz ul li').length,
+        'div.chblock': $('div.chblock').length,
+        'h2.jdlflm a': $('h2.jdlflm a').length,
+        'a[href*="/anime/"]': $('a[href*="/anime/"]').length,
+        'img': $('img').length,
+      },
+      sampleItems: [],
+    };
+    // ambil max 3 item sample
+    $('div.venz ul li').slice(0, 3).each((_, el) => {
+      const a = $(el).find('h2.jdlflm a').first();
+      info.sampleItems.push({
+        title: a.text().trim(),
+        href: a.attr('href'),
+        image: $(el).find('img').attr('src') || $(el).find('img').attr('data-src'),
+        epz: $(el).find('div.epz').text().trim(),
+      });
+    });
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message, activeMirror: BASE });
+  }
+});
 
 app.get('/api/stream-test', async (req, res) => {
   const targetUrl = req.query.url;
