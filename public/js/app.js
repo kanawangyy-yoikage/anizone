@@ -10,25 +10,6 @@ if ('serviceWorker' in navigator) {
 
 const API_BASE = '/api';
 
-// Lazy-load gambar untuk elemen dengan data-anime-url
-// Dipanggil setelah kartu/slider dirender
-async function lazyLoadImages(containerEl) {
-  const imgs = (containerEl || document).querySelectorAll('img[data-anime-url]');
-  const promises = Array.from(imgs).map(async (img) => {
-    const animeUrl = img.getAttribute('data-anime-url');
-    if (!animeUrl) return;
-    try {
-      const r = await fetch(`${API_BASE}/image?url=${encodeURIComponent(animeUrl)}`);
-      const d = await r.json();
-      if (d.image) {
-        img.src = d.image;
-        img.removeAttribute('data-anime-url');
-      }
-    } catch {}
-  });
-  await Promise.all(promises);
-}
-
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
 function getUID() {
@@ -281,7 +262,7 @@ async function loadLatestTab() {
         results.forEach(list => { if (Array.isArray(list)) combined.push(...list); });
         combined = removeDuplicates(combined, 'url');
         if (combined.length > 0) {
-          if (combined.length < 6) combined = removeDuplicates([...combined, ...combined, ...combined], 'url');
+          if (combined.length < 6) combined = [...combined, ...combined, ...combined];
           renderSection(sec.title, combined.slice(0, 15), container);
         }
       })();
@@ -429,13 +410,9 @@ function renderHeroSlider(data, container) {
   const loopData = [...data, data[0]];
   const slidesHtml = loopData.map((a, i) => {
     let eps = a.episode ? `Ep ${(a.episode.match(/\d+(\.\d+)?/)||[''])[0]}` : '';
-    // Gambar: pakai src jika sudah ada, atau data-anime-url untuk lazy fetch
-    const imgAttr = a.image
-      ? `src="${a.image}"`
-      : `src="" data-anime-url="${a.url}" style="background:#111"`;
     return `
       <div class="hero-slide">
-        <img ${imgAttr} class="hero-bg" alt="${a.title}" loading="${i===0?'eager':'lazy'}">
+        <img src="${a.image}" class="hero-bg" alt="${a.title}" loading="${i===0?'eager':'lazy'}">
         <div class="hero-overlay"></div>
         <div class="hero-content">
           ${eps ? `<div class="hero-badge">${eps}</div>` : ''}
@@ -461,9 +438,6 @@ function renderHeroSlider(data, container) {
 
   if (container.firstChild) container.insertBefore(section, container.firstChild);
   else container.appendChild(section);
-
-  // Lazy-load gambar hero yang belum ada
-  lazyLoadImages(section);
 
   const wrapper = document.getElementById('heroWrapper');
   let cur = 0, total = loopData.length;
@@ -504,28 +478,18 @@ function renderSection(title, data, container) {
       <a href="#" class="more-link" onclick="handleSearch('${kw}');return false;">Lainnya →</a>
     </div>
     <div class="horizontal-scroll">
-      ${data.map((a,i) => {
-        const badge = a.episode ? `Ep ${a.episode}` : (a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : '');
-        const titleDisplay = a.title.length > 35 ? a.title.substring(0,35)+'...' : a.title;
-        // Kalau sudah ada URL gambar langsung dari scraper, pakai src langsung.
-        // Kalau tidak ada, baru pakai data-anime-url untuk lazy fetch via /api/image.
-        const imgAttr = a.image
-          ? `src="${a.image}"`
-          : `src="" data-anime-url="${a.url}" style="background:var(--bg-input)"`;
-        return `
+      ${data.map((a,i) => `
         <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i*0.04}s">
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
-              <img ${imgAttr} alt="${a.title}" loading="lazy" onerror="if(!this.dataset.retried){this.dataset.retried=1;this.removeAttribute('src');this.setAttribute('data-anime-url','${a.url}');lazyLoadImages(this.parentElement);}">
-              ${badge ? `<div class="ep-badge">${badge}</div>` : ''}
+              <img src="${a.image}" alt="${a.title}" loading="lazy">
+              <div class="ep-badge">Ep ${a.episode||a.score||'?'}</div>
             </div>
           </div>
-          <div class="scroll-card-title">${titleDisplay}</div>
-        </div>`;
-      }).join('')}
+          <div class="scroll-card-title">${a.title.length>35?a.title.substring(0,35)+'...':a.title}</div>
+        </div>`).join('')}
     </div>`;
   container.appendChild(div);
-  lazyLoadImages(div);
 }
 
 // ─── CATEGORY PAGE ────────────────────────────────────
@@ -556,11 +520,10 @@ async function loadCategory(genre, btn) {
       <div class="anime-grid">
         ${combined.map(a => `
           <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="" data-anime-url="${a.url}" style="background:var(--bg-input)" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
+            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
             <div class="scroll-card-title">${a.title}</div>
           </div>`).join('')}
       </div>`;
-    lazyLoadImages(c);
   } catch {} finally { loader(false); }
 }
 
@@ -724,86 +687,29 @@ async function loadDetail(url) {
 
 // ─── WATCH ────────────────────────────────────────────
 
-// Pilih URL yang tepat untuk player:
-// - HLS (.m3u8)   → /api/player?type=hls  (iframe halaman player dengan hls.js)
-// - Direct (.mp4) → /api/player?type=direct
-// - Embed URL     → langsung sebagai iframe src (kuramadrive, streamtape, dll.)
-function resolvePlayerUrl(stream, episodeUrl) {
-  const { url, proxyUrl, type } = stream;
-  if (type === 'hls' || type === 'direct') {
-    // proxyUrl sudah disiapkan server → muat lewat /api/player
-    const finalSrc = proxyUrl || url;
-    return `${API_BASE}/player?type=${type}&url=${encodeURIComponent(finalSrc)}&title=${encodeURIComponent(stream.server)}`;
-  }
-  // embed: biarkan src apa adanya (kuramadrive, streamtape, dll.)
-  return url;
-}
-
 async function loadVideo(url) {
   loader(true);
-  hide('detail-view'); show('watch-view');
-  if (window.innerWidth < 900) hide('bottomNav');
-
-  const player  = document.getElementById('video-player');
-  const servers = document.getElementById('server-options');
-  const titleEl = document.getElementById('video-title');
-
-  player.src = '';
-  titleEl.textContent = 'Memuat stream...';
-  servers.innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
-
   try {
-    const data = await Promise.race([
-      fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json()),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-    ]);
+    const data = await fetch(`${API_BASE}/watch?url=${encodeURIComponent(url)}`).then(r => r.json());
+    hide('detail-view'); show('watch-view');
+    if (window.innerWidth < 900) hide('bottomNav');
 
-    if (data?.title) titleEl.textContent = data.title;
-
-    if (data?.streams?.length > 0) {
-      // Pakai stream pertama, gunakan proxyUrl bila ada
-      const first = data.streams[0];
-      player.src = resolvePlayerUrl(first, url);
-
-      servers.innerHTML = data.streams.map((s, i) => {
-        const playUrl = resolvePlayerUrl(s, url);
-        const typeTag = s.type === 'hls' ? ' 🔴' : s.type === 'direct' ? ' 🎬' : '';
-        return `<button class="server-tag ${i===0?'active':''}" data-play-url="${playUrl}" onclick="changeServer(this)">${s.server}${typeTag}</button>`;
-      }).join('');
+    document.getElementById('video-title').textContent = data.title;
+    const player  = document.getElementById('video-player');
+    const servers = document.getElementById('server-options');
+    if (data.streams && data.streams.length > 0) {
+      player.src = data.streams[0].url;
+      servers.innerHTML = data.streams.map((s, i) =>
+        `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
+      ).join('');
     } else {
-      // Stream kosong → kuramanime mungkin diblokir, arahkan langsung
-      player.src = '';
-      servers.innerHTML = `
-        <div style="text-align:center;padding:20px 0">
-          <p style="color:var(--text-muted);margin-bottom:8px">
-            Stream tidak bisa dimuat otomatis.<br>
-            <small>Pastikan env var <code>KURAMANIME_COOKIE</code> sudah di-set di Railway.</small>
-          </p>
-          <a href="${url}" target="_blank" rel="noopener"
-             style="display:inline-block;margin-top:12px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none;font-size:15px">
-            ▶ Buka di Kuramanime
-          </a>
-        </div>`;
+      alert('Maaf, stream belum tersedia untuk episode ini.');
     }
-  } catch (e) {
-    player.src = '';
-    servers.innerHTML = `
-      <div style="text-align:center;padding:20px 0">
-        <p style="color:var(--text-muted);margin-bottom:16px">Gagal memuat stream: ${e.message}</p>
-        <a href="${url}" target="_blank" rel="noopener"
-           style="display:inline-block;background:var(--primary);color:#fff;padding:12px 28px;border-radius:24px;font-weight:600;text-decoration:none">
-          ▶ Buka di Kuramanime
-        </a>
-      </div>`;
-  } finally {
-    loader(false);
-  }
+  } catch {} finally { loader(false); }
 }
 
-function changeServer(btn) {
-  const playUrl = btn.getAttribute('data-play-url');
-  if (!playUrl) return;
-  document.getElementById('video-player').src = playUrl;
+function changeServer(url, btn) {
+  document.getElementById('video-player').src = url;
   document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
