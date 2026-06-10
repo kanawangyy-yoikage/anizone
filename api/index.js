@@ -268,7 +268,7 @@ async function detail(link) {
   });
   if (episodes.length === 0) {
     const rawHtml = $.html();
-    const urlRegex = /["'` ]((?:https?:\/\/[^"'` \s]*)?(?:\/anime\/\d+\/[^"'` \s]*)?\/ episode\/[\d][^"'` \s<>]*?)['"` ]/g;
+    const urlRegex = /["'`]((?:https?:\/\/[^"'`\s]*)?(?:\/anime\/\d+\/[^"'`\s]*)?\/episode\/[\d][^"'`\s<>]*?)["'`]/g;
     let m;
     while ((m = urlRegex.exec(rawHtml)) !== null) addEpisode(m[1], '');
   }
@@ -740,7 +740,26 @@ if (type === 'hls' || src.includes('.m3u8')) {
   res.send(html);
 });
 
-// ─── /api/debug-watch ─────────────────────────────────────
+// ─── /api/debug-html — lihat baris HTML yang mengandung keyword ─────
+app.get('/api/debug-html', async (req, res) => {
+  const targetUrl = req.query.url;
+  const keyword   = req.query.q || 'episode';
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib' });
+  try {
+    const response = await axios.get(targetUrl, {
+      headers: makeHeaders(BASE + '/'),
+      timeout: 20000,
+      ...proxyConfig(),
+    });
+    const html = response.data;
+    const lines = html.split('\n')
+      .map((l, i) => ({ n: i + 1, l: l.trim() }))
+      .filter(x => x.l.toLowerCase().includes(keyword.toLowerCase()) && x.l.length < 600)
+      .slice(0, 60);
+    res.json({ keyword, total: lines.length, htmlLength: html.length, lines });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/debug-watch', async (req, res) => {
   try {
     const targetUrl = req.query.url;
