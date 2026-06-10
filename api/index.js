@@ -15,6 +15,13 @@ const BASE_MIRRORS = [
   'https://v18.kuramanime.ing',
   'https://kuramanime.net',
   'https://kuramanime.pro',
+  'https://kuramanime.run',
+  'https://kuramanime.site',
+  'https://kuramanime.fun',
+  'https://kuramanime.live',
+  'https://kuramanime.one',
+  'https://v17.kuramanime.ing',
+  'https://v16.kuramanime.ing',
 ];
 let BASE = BASE_MIRRORS[0];
 const MAL_API = 'https://api.myanimelist.net/v2';
@@ -394,6 +401,24 @@ async function download(link, req) {
     if (url && (url.startsWith('http') || url.startsWith('//'))) addStream(url, label || serverLabel(url));
   });
 
+  // 3c. Tombol/link server kuramanime gaya baru (div/button dengan data-*)
+  $('[data-eps-url],[data-video-url],[data-stream-url],[data-embed],[data-iframe],[data-player]').each((_, el) => {
+    const attrs = ['data-eps-url','data-video-url','data-stream-url','data-embed','data-iframe','data-player'];
+    attrs.forEach(attr => {
+      const v = $(el).attr(attr);
+      if (v && (v.startsWith('http') || v.startsWith('//')))
+        addStream(v, $(el).text().trim() || $(el).attr('data-name') || serverLabel(v));
+    });
+  });
+
+  // 3d. Elemen dengan class mengandung "server" / "provider" / "mirror"
+  $('[class*="server"],[class*="provider"],[class*="mirror"],[class*="stream-btn"],[class*="eps-btn"]').each((_, el) => {
+    const url = $(el).attr('data-src') || $(el).attr('data-url') || $(el).attr('data-value')
+              || $(el).attr('href') || '';
+    if (url && (url.startsWith('http') || url.startsWith('//')))
+      addStream(url, $(el).text().trim() || serverLabel(url));
+  });
+
   // 4. data-src / data-hls-src global
   $('[data-src],[data-hls-src],[data-hls],[data-file]').each((_, el) => {
     ['data-hls-src','data-hls','data-src','data-file'].forEach(attr => {
@@ -404,22 +429,48 @@ async function download(link, req) {
     });
   });
 
-  // 5. Script inline
+  // 5. Script inline — diperluas untuk pola baru kuramanime
   $('script').each((_, el) => {
     const code = $(el).html() || '';
-    for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe|file|hls)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
+
+    // Pola JSON key-value standar
+    for (const m of code.matchAll(/"(?:url|src|stream|embed|iframe|file|hls|video|player)"\s*:\s*"(https?:\/\/[^"]+)"/gi))
       addStream(m[1], serverLabel(m[1]));
-    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl|hlsUrl|fileUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
+
+    // Pola assignment JS
+    for (const m of code.matchAll(/(?:streamUrl|embedUrl|iframeUrl|playerUrl|videoUrl|mirrorUrl|hlsUrl|fileUrl|epsUrl|watchUrl)\s*=\s*["'`](https?:\/\/[^"'`\n]+)["'`]/gi))
       addStream(m[1], serverLabel(m[1]));
+
+    // Pola objek {server, url}
     for (const m of code.matchAll(/\{[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}"?(?:url|src|file)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}\}/gi))
       addStream(m[2], m[1]);
     for (const m of code.matchAll(/\{[^{}]{0,200}"?(?:url|src|file)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,200}"?server"?\s*:\s*"([^"]+)"[^{}]{0,200}\}/gi))
       addStream(m[1], m[2]);
+
+    // Pola array server kuramanime baru: [{label:'...', file:'...'}, ...]
+    for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}\}/gi))
+      addStream(m[2], m[1]);
+    for (const m of code.matchAll(/\{[^{}]{0,300}"?(?:file|src|url|hls)"?\s*:\s*"(https?:\/\/[^"]+)"[^{}]{0,300}"?(?:label|name|title)"?\s*:\s*"([^"]+)"[^{}]{0,300}\}/gi))
+      addStream(m[1], m[2]);
+
+    // Pola var/const/let langsung menyimpan URL
+    for (const m of code.matchAll(/(?:var|const|let)\s+\w+\s*=\s*["'`](https?:\/\/[^"'`\n]*\.(?:m3u8|mp4|webm)[^"'`\n]*)["'`]/gi))
+      addStream(m[1], serverLabel(m[1]));
+
+    // URL di dalam fungsi setup/init player
+    for (const m of code.matchAll(/(?:setup|init|load|source|setSource)\s*\(\s*\{[^}]{0,400}["'](?:file|src|url)["']\s*:\s*["'](https?:\/\/[^"']+)["']/gi))
+      addStream(m[1], serverLabel(m[1]));
   });
 
-  // 6. Fallback: scan raw HTML untuk domain streaming
+  // 6. Fallback: scan raw HTML untuk domain streaming — diperluas
   if (streams.length === 0) {
-    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:kuramadrive|streamtape|doodstream|dood\.|filemoon|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream)[^\s"'<>]+/gi;
+    const pat = /https?:\/\/(?:[a-z0-9-]+\.)?(?:kuramadrive|kuracdn|kuramavid|streamtape|doodstream|dood\.|filemoon|mega\.nz|ok\.ru|mp4upload|streamlare|upstream|mixdrop|fembed|vidstream|statically)[^\s"'<>]+/gi;
+    for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
+  }
+
+  // 7. Last resort: ambil SEMUA URL yang mengandung .m3u8 atau .mp4 dari raw HTML
+  if (streams.length === 0) {
+    const pat = /https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4|webm)(?:\?[^\s"'<>]*)?/gi;
     for (const m of html.matchAll(pat)) addStream(m[0], serverLabel(m[0]));
   }
 
@@ -581,6 +632,15 @@ const PROXY_ALLOWED_HOSTS = [
   'kuramadrive', 'kuramanime', 'streamtape', 'doodstream', 'dood.',
   'filemoon', 'mega.nz', 'ok.ru', 'mp4upload', 'streamlare',
   'upstream', 'mixdrop', 'fembed', 'vidstream', 'animenewsnetwork',
+  // mirror & CDN baru kuramanime
+  'v18.kuramanime', 'v17.kuramanime', 'v16.kuramanime',
+  'kuramanime.ing', 'kuramanime.run', 'kuramanime.site',
+  'kuramanime.fun', 'kuramanime.live', 'kuramanime.one',
+  'kurama-cdn', 'kuracdn', 'kuramavid',
+  // CDN video umum yang dipakai Kuramanime
+  'cdn.statically', 'statically.io',
+  'storage.googleapis', 'drive.google',
+  'cdn.jsdelivr',
 ];
 
 function isAllowedProxyHost(urlStr) {
@@ -786,6 +846,47 @@ app.get('/api/debug-watch', async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 
 app.get('/api/mirror', (req, res) => res.json({ base: BASE, cookieSet: !!KURAMANIME_COOKIE, proxySet: !!PROXY_URL }));
+
+// ─── /api/cookie-check — debug apakah cookie masih valid ──
+app.get('/api/cookie-check', async (req, res) => {
+  const results = [];
+  for (const mirror of BASE_MIRRORS) {
+    try {
+      const r = await axios.get(mirror, {
+        headers: makeHeaders(mirror + '/'),
+        timeout: 8000,
+        maxRedirects: 5,
+        validateStatus: s => s < 600,
+        ...proxyConfig(),
+      });
+      const $ = cheerio.load(r.data);
+      const cfBlocked = isCloudflareBlock($);
+      const loggedIn = r.data.includes('logout') || r.data.includes('keluar') || r.data.includes('profile');
+      results.push({
+        mirror,
+        status: r.status,
+        cloudflareBlock: cfBlocked,
+        cookieValid: !cfBlocked && r.status < 400,
+        loggedIn,
+      });
+    } catch (e) {
+      results.push({ mirror, status: 0, error: e.message, cloudflareBlock: false, cookieValid: false });
+    }
+  }
+  const working = results.find(r => r.cookieValid);
+  res.json({
+    cookieSet: !!KURAMANIME_COOKIE,
+    proxySet: !!PROXY_URL,
+    activeMirror: BASE,
+    workingMirror: working?.mirror || null,
+    hint: !KURAMANIME_COOKIE
+      ? 'KURAMANIME_COOKIE belum di-set. Login di browser → DevTools → Application → Cookies → copy semua.'
+      : !working
+      ? 'Cookie mungkin expired atau semua mirror diblokir. Coba login ulang dan update KURAMANIME_COOKIE.'
+      : 'Cookie OK.',
+    mirrors: results,
+  });
+});
 
 app.get('/api/latest', async (req, res) => {
   try { res.json(await animeterbaru(req.query.page || 1)); }
