@@ -15,9 +15,9 @@ app.use(express.json());
 const BASE_MIRRORS = [
   'https://otakudesu.blog',
   'https://otakudesu.cloud',
-  'https://otakudesu.lol',
   'https://otakudesu.cam',
   'https://otakudesu.ink',
+  'https://otakudesu.lol',
 ];
 let BASE = BASE_MIRRORS[0];
 const MAL_API = 'https://api.myanimelist.net/v2';
@@ -99,25 +99,45 @@ async function detectWorkingMirror() {
     try {
       const res = await axios.get(mirror, {
         headers: makeHeaders(mirror + '/'),
-        timeout: 8000,
-        maxRedirects: 5,
+        timeout: 10000,
+        maxRedirects: 10,
         validateStatus: s => s < 500,
         ...proxyConfig(),
       });
+
+      // Cek apakah redirect ke domain lain (misal otakudesu.blog -> otakudesu.cloud)
+      const finalUrl = res.request && res.request.res && res.request.res.responseUrl
+        ? res.request.res.responseUrl
+        : mirror;
+      const finalBase = finalUrl.match(/^https?:\/\/[^/]+/) ? finalUrl.match(/^https?:\/\/[^/]+/)[0] : mirror;
+
       const $ = cheerio.load(res.data);
-      if (!isCloudflareBlock($) && res.status < 400) {
-        BASE = mirror;
-        console.log(`[Mirror] Aktif: ${BASE}`);
+      const pageTitle = $('title').text().toLowerCase();
+
+      // Jika halaman adalah halaman redirect atau parking page, skip
+      if (pageTitle.includes('redirecting') || pageTitle.includes('just a moment') ||
+          pageTitle.includes('attention required') || isCloudflareBlock($)) {
+        console.log('[Mirror] Skip ' + mirror + ' (title: "' + $('title').text().trim() + '")');
+        continue;
+      }
+
+      // Cek ada konten anime
+      const hasContent = $('div.venz').length > 0 || $('div.chblock').length > 0 ||
+                         $('div.episodelist').length > 0 || $('a[href*="/anime/"]').length > 3;
+
+      if (res.status < 400 && hasContent) {
+        BASE = finalBase !== mirror ? finalBase : mirror;
+        console.log('[Mirror] Aktif: ' + mirror + ' -> final: ' + BASE);
         return;
       }
-      if (isCloudflareBlock($)) {
-        console.log(`[Mirror] Cloudflare block di ${mirror}`);
-      }
+
+      console.log('[Mirror] No content di ' + mirror + ' (status: ' + res.status + ', title: "' + $('title').text().trim() + '")');
     } catch (e) {
-      console.log(`[Mirror] Gagal ${mirror}: ${e.message}`);
+      console.log('[Mirror] Gagal ' + mirror + ': ' + e.message);
     }
   }
-  console.warn('[Mirror] Semua mirror gagal. Pakai default.');
+  console.warn('[Mirror] Semua mirror gagal. Pakai default:', BASE_MIRRORS[0]);
+  BASE = BASE_MIRRORS[0];
 }
 detectWorkingMirror();
 setInterval(detectWorkingMirror, 10 * 60 * 1000);
@@ -129,10 +149,27 @@ async function fetchPage(url, retries = 2) {
       const res = await axios.get(url, {
         headers: makeHeaders(BASE + '/'),
         timeout: 20000,
-        maxRedirects: 5,
+        maxRedirects: 10,
         ...proxyConfig(),
       });
+
+      // Update BASE jika server redirect ke domain lain
+      const finalUrl = res.request && res.request.res && res.request.res.responseUrl
+        ? res.request.res.responseUrl : url;
+      const finalBase = finalUrl.match(/^https?:\/\/[^/]+/) ? finalUrl.match(/^https?:\/\/[^/]+/)[0] : null;
+      if (finalBase && finalBase !== BASE && BASE_MIRRORS.some(m => finalBase === m || finalBase.includes('otakudesu'))) {
+        console.log('[fetchPage] BASE updated: ' + BASE + ' -> ' + finalBase);
+        BASE = finalBase;
+      }
+
       const $ = cheerio.load(res.data);
+
+      // Cek "Redirecting..." page — bukan cloudflare, tapi halaman JS redirect
+      const pageTitle = $('title').text().toLowerCase();
+      if (pageTitle.includes('redirecting') || pageTitle.includes('just a moment')) {
+        throw new Error('Halaman redirect terdeteksi (title: "' + $('title').text().trim() + '") — mirror sedang dialihkan, tunggu sebentar');
+      }
+
       if (isCloudflareBlock($)) {
         throw new Error('Cloudflare block — coba set PROXY_URL atau tunggu beberapa menit');
       }
@@ -400,6 +437,7 @@ async function download(link, req) {
   const res = await axios.get(targetUrl, {
     headers: makeHeaders(BASE + '/'),
     timeout: 20000,
+    maxRedirects: 10,
     ...proxyConfig(),
   });
   const html = res.data;
@@ -899,6 +937,37 @@ app.get('/api/debug-watch', async (req, res) => {
 
 app.get('/api/mirror', (req, res) => res.json({ base: BASE, proxySet: !!PROXY_URL }));
 
+// ─── /api/debug-mirror — cek semua mirror ────────────────
+app.get('/api/debug-mirror', async (req, res) => {
+  const results = [];
+  for (const mirror of BASE_MIRRORS) {
+    try {
+      const r = await axios.get(mirror, {
+        headers: makeHeaders(mirror + '/'),
+        timeout: 8000,
+        maxRedirects: 10,
+        validateStatus: () => true,
+        ...proxyConfig(),
+      });
+      const finalUrl = r.request && r.request.res && r.request.res.responseUrl
+        ? r.request.res.responseUrl : mirror;
+      const $ = cheerio.load(r.data);
+      results.push({
+        mirror,
+        finalUrl,
+        status: r.status,
+        title: $('title').text().trim(),
+        isCloudflare: isCloudflareBlock($),
+        hasContent: $('div.venz').length > 0 || $('a[href*="/anime/"]').length > 3,
+        animeLinks: $('a[href*="/anime/"]').length,
+      });
+    } catch (e) {
+      results.push({ mirror, error: e.message });
+    }
+  }
+  res.json({ currentBase: BASE, results });
+});
+
 // ─── /api/debug-scrape — cek apakah scraping bekerja ─────
 // Panggil: /api/debug-scrape
 // Return: sample data mentah dari halaman otakudesu + info selector
@@ -915,8 +984,15 @@ app.get('/api/debug-scrape', async (req, res) => {
         'h2.jdlflm a': $('h2.jdlflm a').length,
         'a[href*="/anime/"]': $('a[href*="/anime/"]').length,
         'img': $('img').length,
+        // Tambahan selector otakudesu modern
+        'div.episodelist': $('div.episodelist').length,
+        'div.frontpage': $('div.frontpage').length,
+        'div.venutama': $('div.venutama').length,
+        'div.venser': $('div.venser').length,
+        'div.rseries': $('div.rseries').length,
       },
       sampleItems: [],
+      sampleLinks: [],
     };
     // ambil max 3 item sample
     $('div.venz ul li').slice(0, 3).each((_, el) => {
@@ -927,6 +1003,15 @@ app.get('/api/debug-scrape', async (req, res) => {
         image: $(el).find('img').attr('src') || $(el).find('img').attr('data-src'),
         epz: $(el).find('div.epz').text().trim(),
       });
+    });
+    // Sample link anime dari halaman
+    const linksSeen = new Set();
+    $('a[href*="/anime/"]').slice(0, 5).each((_, el) => {
+      const href = $(el).attr('href');
+      if (href && !linksSeen.has(href)) {
+        linksSeen.add(href);
+        info.sampleLinks.push({ text: $(el).text().trim().substring(0, 60), href });
+      }
     });
     res.json(info);
   } catch (e) {
