@@ -658,12 +658,18 @@ app.get('/api/proxy', async (req, res) => {
   const referer = req.query.referer ? decodeURIComponent(req.query.referer) : BASE + '/';
 
   if (!targetUrl) return res.status(400).json({ error: 'url wajib diisi' });
-  if (!isAllowedProxyHost(targetUrl)) return res.status(403).json({ error: 'Domain tidak diizinkan' });
+  if (!isAllowedProxyHost(targetUrl)) return res.status(403).json({ error: 'Domain tidak diizinkan', host: (() => { try { return new URL(targetUrl).hostname; } catch { return targetUrl; } })() });
 
   try {
+    let origin;
+    try { origin = new URL(referer).origin; } catch { origin = BASE; }
+
     const reqHeaders = {
       ...makeHeaders(referer),
-      'Origin': new URL(referer).origin,
+      'Origin': origin,
+      'Referer': referer,
+      // Kirim cookie kuramanime ke CDN kuramadrive — token HLS terikat ke sesi
+      ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
     };
     if (req.headers.range) reqHeaders['Range'] = req.headers.range;
 
@@ -671,9 +677,19 @@ app.get('/api/proxy', async (req, res) => {
       headers: reqHeaders,
       responseType: 'stream',
       timeout: 60000,
-      maxRedirects: 5,
+      maxRedirects: 10,
       ...proxyConfig(),
     });
+
+    // Tolak response non-video/non-manifest supaya tidak pipe halaman error HTML
+    const ct = response.headers['content-type'] || '';
+    const isMedia = ct.includes('video') || ct.includes('audio') || ct.includes('mpegurl')
+                 || ct.includes('octet-stream') || ct.includes('mp4') || ct.includes('webm')
+                 || targetUrl.match(/\.(ts|m4s|aac|vtt|srt)(\?|$)/i);
+    if (response.status >= 400) {
+      if (!res.headersSent) return res.status(response.status).json({ error: `CDN returned ${response.status}`, url: targetUrl });
+      return;
+    }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
@@ -685,7 +701,7 @@ app.get('/api/proxy', async (req, res) => {
     response.data.pipe(res);
     req.on('close', () => { try { response.data.destroy(); } catch {} });
   } catch (e) {
-    if (!res.headersSent) res.status(502).json({ error: e.message });
+    if (!res.headersSent) res.status(502).json({ error: e.message, url: targetUrl });
   }
 });
 
@@ -697,12 +713,26 @@ app.get('/api/hls', async (req, res) => {
 
   if (!targetUrl) return res.status(400).json({ error: 'url wajib diisi' });
 
+  // Whitelist check — tolak domain yang tidak dikenal
+  if (!isAllowedProxyHost(targetUrl)) {
+    return res.status(403).json({ error: 'Domain tidak diizinkan', host: (() => { try { return new URL(targetUrl).hostname; } catch { return targetUrl; } })() });
+  }
+
   try {
     const response = await axios.get(targetUrl, {
-      headers: makeHeaders(referer),
+      headers: {
+        ...makeHeaders(referer),
+        'Referer': referer,
+        ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
+      },
       timeout: 15000,
+      maxRedirects: 10,
       ...proxyConfig(),
     });
+
+    if (response.status >= 400) {
+      return res.status(response.status).json({ error: `CDN returned ${response.status}`, url: targetUrl });
+    }
 
     const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
@@ -715,11 +745,11 @@ app.get('/api/hls', async (req, res) => {
                    : trimmed.startsWith('//') ? 'https:' + trimmed
                    : baseUrl + trimmed;
 
-      // Sub-manifest → lewat /api/hls lagi (rekursif)
-      if (trimmed.includes('.m3u8')) {
+      // Sub-manifest (.m3u8) → lewat /api/hls rekursif
+      if (trimmed.match(/\.m3u8/i)) {
         return `/api/hls?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
       }
-      // Segmen video/audio → lewat /api/proxy
+      // Segmen video/audio/subtitle → lewat /api/proxy
       return `/api/proxy?url=${encodeURIComponent(segUrl)}&referer=${encodeURIComponent(targetUrl)}`;
     }).join('\n');
 
@@ -728,7 +758,7 @@ app.get('/api/hls', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.send(rewritten);
   } catch (e) {
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: e.message, url: targetUrl });
   }
 });
 
@@ -846,6 +876,50 @@ app.get('/api/debug-watch', async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 
 app.get('/api/mirror', (req, res) => res.json({ base: BASE, cookieSet: !!KURAMANIME_COOKIE, proxySet: !!PROXY_URL }));
+
+// ─── /api/stream-test — debug kenapa stream gagal ─────────
+// Panggil: /api/stream-test?url=<url_episode>
+// Akan return streams yang ditemukan + hasil tes akses ke tiap stream URL
+app.get('/api/stream-test', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).json({ error: 'url wajib' });
+  try {
+    const { title, streams } = await download(targetUrl, req);
+    const tested = await Promise.all(streams.map(async s => {
+      let accessible = false;
+      let statusCode = 0;
+      let errorMsg = '';
+      let contentType = '';
+      try {
+        const r = await axios.head(s.url.startsWith('//') ? 'https:' + s.url : s.url, {
+          headers: {
+            ...makeHeaders(targetUrl),
+            'Referer': targetUrl,
+            ...(KURAMANIME_COOKIE ? { 'Cookie': KURAMANIME_COOKIE } : {}),
+          },
+          timeout: 8000,
+          maxRedirects: 5,
+          validateStatus: () => true,
+          ...proxyConfig(),
+        });
+        statusCode = r.status;
+        contentType = r.headers['content-type'] || '';
+        accessible = r.status < 400;
+      } catch (e) { errorMsg = e.message; }
+      return { ...s, accessible, statusCode, contentType, error: errorMsg || undefined };
+    }));
+    res.json({
+      title,
+      episodeUrl: targetUrl,
+      streamCount: streams.length,
+      cookieSet: !!KURAMANIME_COOKIE,
+      activeMirror: BASE,
+      streams: tested,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message, hint: 'Coba /api/debug-watch?url=... untuk lihat raw HTML' });
+  }
+});
 
 // ─── /api/cookie-check — debug apakah cookie masih valid ──
 app.get('/api/cookie-check', async (req, res) => {
