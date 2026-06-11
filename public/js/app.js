@@ -112,7 +112,26 @@ function updateThemeUI(isLight) {
   if (sidebarIcon) sidebarIcon.innerHTML = isLight ? sunSVGSmall : moonSVGSmall;
   const sidebarLabel = document.getElementById('sidebarThemeLabel');
   if (sidebarLabel) sidebarLabel.textContent = isLight ? 'Mode Terang' : 'Mode Gelap';
+  // sync settings dropdown
+  const settingsIcon = document.getElementById('settingsThemeIcon');
+  if (settingsIcon) settingsIcon.innerHTML = isLight ? sunSVGSmall : moonSVGSmall;
+  const settingsLabel = document.getElementById('settingsThemeLabel');
+  if (settingsLabel) settingsLabel.textContent = isLight ? 'Mode Terang' : 'Mode Gelap';
 }
+
+function toggleSettingsDropdown() {
+  const dd = document.getElementById('settingsDropdown');
+  if (!dd) return;
+  dd.classList.toggle('open');
+}
+// close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  const wrap = document.querySelector('.sidebar-settings-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('settingsDropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
 
 function toggleTheme() {
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
