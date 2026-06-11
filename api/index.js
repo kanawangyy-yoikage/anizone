@@ -97,7 +97,7 @@ async function download(link) {
   const res = await axios.get(`${PROXY}${targetUrl}`, { headers });
   const cookies = res.headers['set-cookie']?.map(v => v.split(';')[0]).join('; ') || '';
   const $ = cheerio.load(res.data);
-  const data = [];
+  const streams = [];
 
   for (const li of $('div#server > ul > li').toArray()) {
     const div = $(li).find('div');
@@ -114,11 +114,27 @@ async function download(link) {
       });
       const $$ = cheerio.load(r.data);
       const iframe = $$('iframe').attr('src');
-      if (iframe) data.push({ server: name, url: iframe });
+      if (iframe) streams.push({ server: name, url: iframe });
     } catch (e) { console.log('Error fetching server:', name); }
   }
 
-  return { title: $('h1[itemprop="name"]').text().trim(), streams: data };
+  // Scrape download links from #downloaddb
+  const downloads = [];
+  $('#downloaddb .bixbox').each((_, box) => {
+    const format = $(box).find('strong, h3, .title').first().text().trim() || 'Unknown';
+    $(box).find('li').each((_, li) => {
+      const res = $(li).find('strong').text().trim();
+      const links = [];
+      $(li).find('a').each((_, a) => {
+        const href = $(a).attr('href');
+        const host = $(a).text().trim();
+        if (href && host) links.push({ host, url: href });
+      });
+      if (links.length) downloads.push({ resolution: res, format, links });
+    });
+  });
+
+  return { title: $('h1[itemprop="name"]').text().trim(), streams, downloads };
 }
 
 // ─── MAL INTEGRATION ──────────────────────────────────────
