@@ -475,6 +475,12 @@ function renderHeroSlider(data, container) {
     <div class="hero-slider">
       <div class="hero-wrapper" id="heroWrapper">${slidesHtml}</div>
       <div class="hero-dots" id="heroDots">${dotsHtml}</div>
+      <button class="hero-arrow hero-arrow-left" onclick="heroArrow(-1)" aria-label="Sebelumnya">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="hero-arrow hero-arrow-right" onclick="heroArrow(1)" aria-label="Berikutnya">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>`;
 
   if (container.firstChild) container.insertBefore(section, container.firstChild);
@@ -482,25 +488,40 @@ function renderHeroSlider(data, container) {
 
   const wrapper = document.getElementById('heroWrapper');
   let cur = 0, total = loopData.length;
+  window._heroCur = 0;
+  window._heroTotal = total;
+
+  function slideTo(index) {
+    cur = ((index % (total-1)) + (total-1)) % (total-1);
+    window._heroCur = cur;
+    wrapper.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
+    wrapper.style.transform = `translateX(-${cur*100}%)`;
+    updateHeroDots(cur);
+  }
+
   if (sliderInterval) clearInterval(sliderInterval);
   sliderInterval = setInterval(() => {
     if (!wrapper || document.getElementById('home-view')?.classList.contains('hidden')) return;
-    cur++;
-    wrapper.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
-    wrapper.style.transform = `translateX(-${cur*100}%)`;
-    updateHeroDots(cur % (total-1));
-    if (cur === total-1) {
-      setTimeout(() => { wrapper.style.transition='none'; cur=0; wrapper.style.transform='translateX(0)'; updateHeroDots(0); }, 600);
+    const next = (window._heroCur || 0) + 1;
+    if (next === total-1) {
+      wrapper.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
+      wrapper.style.transform = `translateX(-${(total-1)*100}%)`;
+      updateHeroDots(0);
+      setTimeout(() => { wrapper.style.transition='none'; wrapper.style.transform='translateX(0)'; window._heroCur=0; }, 600);
+    } else {
+      slideTo(next);
     }
   }, 5000);
+
+  window._heroSlideTo = slideTo;
 }
 
 window.goToSlide = function(index) {
-  const w = document.getElementById('heroWrapper');
-  if (!w) return;
-  w.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
-  w.style.transform = `translateX(-${index*100}%)`;
-  updateHeroDots(index);
+  if (window._heroSlideTo) window._heroSlideTo(index);
+};
+
+window.heroArrow = function(dir) {
+  if (window._heroSlideTo) window._heroSlideTo((window._heroCur || 0) + dir);
 };
 
 function updateHeroDots(index) {
