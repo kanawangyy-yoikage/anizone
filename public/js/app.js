@@ -523,7 +523,7 @@ function renderSection(title, data, container) {
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
               <img src="${a.image}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge">Ep ${a.episode||a.score||'?'}</div>
+              <div class="ep-badge">⭐ ${a.score||'?'}</div>
             </div>
           </div>
           <div class="scroll-card-title">${a.title.length>35?a.title.substring(0,35)+'...':a.title}</div>
@@ -638,7 +638,7 @@ async function loadDetail(url) {
 
     const info = data.info || {};
     const status    = info.status || 'Ongoing';
-    const score     = info.skor   || info.score    || '0';
+    const score     = (info.skor && info.skor !== '0') ? info.skor : (info.score && info.score !== '0') ? info.score : 'N/A';
     const type      = info.tipe   || info.type     || 'TV';
     const totalEps  = info.total_episode || info.episode || '?';
     const duration  = info.durasi || info.duration || '?';
