@@ -773,6 +773,34 @@ async function loadVideo(url) {
     } else {
       alert('Maaf, stream belum tersedia untuk episode ini.');
     }
+
+    // Render download links
+    const dlSection = document.getElementById('download-section');
+    const dlList    = document.getElementById('download-list');
+    if (data.downloads && data.downloads.length > 0) {
+      // Group by format
+      const byFormat = {};
+      data.downloads.forEach(d => {
+        if (!byFormat[d.format]) byFormat[d.format] = [];
+        byFormat[d.format].push(d);
+      });
+      dlList.innerHTML = Object.entries(byFormat).map(([fmt, items]) => `
+        <div class="dl-format-group">
+          <div class="dl-format-label">${fmt}</div>
+          ${items.map(item => `
+            <div class="dl-row">
+              <span class="dl-res">${item.resolution}</span>
+              <div class="dl-links">
+                ${item.links.map(l => `<a class="dl-btn" href="${l.url}" target="_blank" rel="noopener noreferrer">${l.host}</a>`).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+      dlSection.style.display = 'block';
+    } else {
+      dlSection.style.display = 'none';
+    }
   } catch {} finally { loader(false); }
 }
 
