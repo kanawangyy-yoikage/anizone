@@ -78,11 +78,14 @@ async function detail(link) {
   const title = $('title').text().replace(' - Samehadaku', '').trim();
   let description = $('.entry-content').text().trim() || $('meta[name="description"]').attr('content') || '';
 
-  // Fetch MAL description if available
+  // Fetch MAL data (description + score) if available
   if (MAL_CLIENT_ID) {
     try {
-      const malDesc = await getMalDescription(title);
-      if (malDesc) description = malDesc;
+      const malAnime = await getMalAnime(title);
+      if (malAnime) {
+        if (malAnime.synopsis) description = malAnime.synopsis;
+        if (malAnime.mean && !info.score && !info.skor) info.score = String(malAnime.mean);
+      }
     } catch (e) {}
   }
 
