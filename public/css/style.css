@@ -588,72 +588,309 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .skeleton { background: linear-gradient(90deg, var(--bg-input) 25%, var(--surface-high) 50%, var(--bg-input) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+
 /* ═══════════════════════════════════════════════════
-   PROFILE REDESIGN — FanBias Style
+   PROFILE — FanBias Full-Width Layout
    ═══════════════════════════════════════════════════ */
 
-/* Avatar area with edit btn inline */
-.profile-avatar-area { display:flex; align-items:flex-end; justify-content:space-between; padding: 0 16px 0; margin-top:-32px; margin-bottom:4px; }
-.pfb-edit-btn { display:flex; align-items:center; gap:5px; padding:7px 14px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:20px; color:var(--text-main); font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; transition:all var(--transition); margin-bottom:4px; }
-.pfb-edit-btn:hover { background:rgba(66,133,244,0.12); border-color:rgba(66,133,244,0.4); }
-.profile-join-meta { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-muted); margin-top:6px; }
-.profile-join-meta svg { flex-shrink:0; }
+/* Page wrapper — full width, no max-width cap on mobile */
+.pfb-page { width:100%; padding-bottom:80px; }
 
-/* Section header row */
-.profile-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-.profile-section-title { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
-.profile-sec-count { font-size:11px; color:var(--text-muted); }
-.pfb-small-btn { padding:5px 12px; background:rgba(66,133,244,0.1); border:1px solid rgba(66,133,244,0.3); border-radius:20px; color:var(--accent); font-family:inherit; font-size:11px; font-weight:700; cursor:pointer; transition:all var(--transition); }
-.pfb-small-btn:hover { background:rgba(66,133,244,0.2); }
+/* ── BANNER ── */
+.pfb-banner {
+  width:100%; height:180px; position:relative;
+  background:linear-gradient(135deg,#1a237e 0%,#4285F4 50%,#A8C7FA 100%);
+  overflow:hidden;
+}
+.pfb-change-cover-btn {
+  position:absolute; top:12px; right:14px;
+  display:flex; align-items:center; gap:6px;
+  padding:7px 14px; border-radius:8px;
+  background:rgba(0,0,0,0.5); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.2); color:#fff;
+  font-family:inherit; font-size:12px; font-weight:600; cursor:pointer;
+  transition:all var(--transition);
+}
+.pfb-change-cover-btn:hover { background:rgba(0,0,0,0.7); }
 
-/* Waifu Grid */
+/* ── HEADER CARD (white box below banner) ── */
+.pfb-header-card {
+  background:var(--bg-card); border:1px solid var(--border-color);
+  border-top:none; padding:0 20px 18px; margin-bottom:12px;
+}
+.pfb-avatar-row {
+  display:flex; align-items:flex-end; justify-content:space-between;
+  margin-bottom:10px;
+}
+.pfb-avatar-wrap {
+  width:88px; height:88px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  display:flex; align-items:center; justify-content:center;
+  font-size:34px; font-weight:800; color:#fff;
+  border:4px solid var(--bg-card); overflow:hidden;
+  position:relative; margin-top:-44px; flex-shrink:0;
+}
+.pfb-avatar-wrap img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+.pfb-header-actions { display:flex; gap:8px; align-items:center; padding-top:8px; }
+.pfb-action-btn {
+  display:flex; align-items:center; gap:6px;
+  padding:8px 16px; border-radius:8px;
+  border:1px solid var(--border-color); background:var(--bg-card);
+  color:var(--text-main); font-family:inherit; font-size:13px;
+  font-weight:600; cursor:pointer; transition:all var(--transition);
+}
+.pfb-action-btn:hover { background:var(--bg-input); }
+.pfb-action-primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.pfb-action-primary:hover { opacity:.88; background:var(--accent); }
+.pfb-action-icon { padding:8px 10px; }
+
+.pfb-name-row { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+.pfb-display-name { font-size:22px; font-weight:800; }
+.pfb-verified { display:flex; align-items:center; }
+.pfb-username { font-size:13px; color:var(--text-muted); margin-bottom:6px; }
+.pfb-bio { font-size:13px; color:var(--text-muted); font-style:italic; line-height:1.5; margin-bottom:8px; }
+.pfb-badges { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.pfb-join-date {
+  display:flex; align-items:center; gap:5px;
+  font-size:12px; color:var(--text-muted);
+}
+
+/* ── STATS ── */
+.pfb-stats-row {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:10px; margin:0 0 14px;
+}
+.pfb-stat {
+  background:var(--bg-card); border:1px solid var(--border-color);
+  border-radius:var(--radius); padding:14px 10px; text-align:center;
+  transition:all var(--transition);
+}
+.pfb-stat:hover { border-color:rgba(66,133,244,0.4); background:rgba(66,133,244,0.05); }
+.pfb-stat-num {
+  display:block; font-size:22px; font-weight:800;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.pfb-stat-lbl { font-size:11px; color:var(--text-muted); font-weight:600; margin-top:3px; display:block; }
+
+/* ── MAIN GRID — 2 columns on desktop ── */
+.pfb-main-grid {
+  display:grid;
+  grid-template-columns:1fr 300px;
+  gap:14px; align-items:start;
+}
+@media(max-width:860px) { .pfb-main-grid { grid-template-columns:1fr; } }
+
+/* ── SECTION CARDS ── */
+.pfb-section-card {
+  background:var(--bg-card); border:1px solid var(--border-color);
+  border-radius:var(--radius-lg); padding:18px; margin-bottom:0;
+}
+.pfb-sidebar-col { display:flex; flex-direction:column; gap:14px; }
+
+.pfb-sec-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+}
+.pfb-sec-title {
+  display:flex; align-items:center; gap:7px;
+  font-size:12px; font-weight:700;
+  text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);
+}
+.pfb-sec-count { font-size:11px; color:var(--text-muted); font-weight:700; }
+.pfb-sort-select {
+  font-size:11px; font-family:inherit; font-weight:600;
+  background:var(--bg-input); border:1px solid var(--border-color);
+  color:var(--text-muted); border-radius:6px; padding:4px 6px; cursor:pointer;
+}
+.pfb-list-view-btn {
+  background:none; border:1px solid var(--border-color); border-radius:6px;
+  color:var(--text-muted); padding:4px 7px; cursor:pointer; display:flex;
+  align-items:center; transition:all var(--transition);
+}
+.pfb-list-view-btn:hover { color:var(--accent); border-color:var(--accent); }
+.pfb-small-btn {
+  padding:5px 12px; background:rgba(66,133,244,0.1);
+  border:1px solid rgba(66,133,244,0.3); border-radius:20px;
+  color:var(--accent); font-family:inherit; font-size:11px;
+  font-weight:700; cursor:pointer; transition:all var(--transition);
+}
+.pfb-small-btn:hover { background:rgba(66,133,244,0.22); }
+
+/* ── WAIFU GRID ── */
 .waifu-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
 .waifu-card { position:relative; cursor:pointer; }
-.waifu-card-img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:8px; border:2px solid transparent; display:block; transition:border-color 0.2s; }
+.waifu-card-img {
+  width:100%; aspect-ratio:2/3; object-fit:cover;
+  border-radius:8px; border:2px solid transparent;
+  display:block; transition:border-color 0.2s;
+  background:var(--bg-input);
+}
 .waifu-card:hover .waifu-card-img { border-color:var(--accent); }
-.waifu-ult-badge { position:absolute; top:5px; left:5px; background:var(--accent); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:.5px; }
-.waifu-del-btn { position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.7); border:none; color:#fff; width:22px; height:22px; border-radius:50%; font-size:13px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; }
+.waifu-ult-badge {
+  position:absolute; top:5px; left:5px;
+  background:var(--danger); color:#fff;
+  font-size:9px; font-weight:800; padding:2px 6px;
+  border-radius:4px; letter-spacing:.5px;
+}
+.waifu-del-btn {
+  position:absolute; top:5px; right:5px;
+  background:rgba(0,0,0,0.75); border:none; color:#fff;
+  width:22px; height:22px; border-radius:50%; font-size:14px;
+  line-height:1; cursor:pointer; display:flex;
+  align-items:center; justify-content:center;
+  opacity:0; transition:opacity 0.2s;
+}
 .waifu-card:hover .waifu-del-btn { opacity:1; }
-.waifu-card-name { font-size:11px; font-weight:700; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.waifu-card-from { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.waifu-add-card { border:1.5px dashed var(--border-color); border-radius:8px; aspect-ratio:3/4; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--text-muted); font-size:11px; transition:all var(--transition); }
+.waifu-card-name {
+  font-size:11px; font-weight:700; margin-top:5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.waifu-card-from {
+  font-size:10px; color:var(--text-muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.waifu-add-card {
+  border:1.5px dashed var(--border-color); border-radius:8px;
+  aspect-ratio:2/3; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px;
+  cursor:pointer; color:var(--text-muted); font-size:11px;
+  transition:all var(--transition);
+}
 .waifu-add-card:hover { border-color:var(--accent); color:var(--accent); background:rgba(66,133,244,0.05); }
 
-/* Anime Fav List */
-.animefav-list { display:flex; flex-direction:column; gap:6px; }
-.animefav-item { display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px; cursor:pointer; transition:background var(--transition); }
-.animefav-item:hover { background:var(--bg-input); }
-.animefav-poster { width:36px; height:52px; object-fit:cover; border-radius:5px; flex-shrink:0; background:var(--bg-input); }
+/* ── ANIME FAV THUMBNAIL GRID (sidebar) ── */
+.animefav-thumb-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.animefav-thumb {
+  position:relative; cursor:pointer; border-radius:6px; overflow:hidden;
+  border:1px solid var(--border-color); transition:all var(--transition);
+}
+.animefav-thumb:hover { border-color:var(--accent); transform:translateY(-2px); }
+.animefav-thumb img {
+  width:100%; aspect-ratio:2/3; object-fit:cover;
+  display:block; background:var(--bg-input);
+}
+.animefav-thumb-label {
+  position:absolute; bottom:0; left:0; right:0;
+  background:linear-gradient(to top,rgba(0,0,0,0.85),transparent);
+  padding:12px 5px 4px;
+  font-size:9px; font-weight:700; color:#fff;
+  text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.animefav-thumb-badge {
+  position:absolute; top:3px; left:3px;
+  background:rgba(0,0,0,0.7); color:#fff;
+  font-size:8px; padding:1px 4px; border-radius:3px;
+}
+.animefav-thumb-del {
+  position:absolute; top:3px; right:3px;
+  background:rgba(0,0,0,0.7); border:none; color:#fff;
+  width:18px; height:18px; border-radius:50%; font-size:12px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity 0.2s; line-height:1;
+}
+.animefav-thumb:hover .animefav-thumb-del { opacity:1; }
+.animefav-empty-thumb {
+  grid-column:1/-1; text-align:center;
+  color:var(--text-muted); font-size:12px; padding:20px 0;
+}
+.pfb-see-all-btn {
+  width:100%; margin-top:10px; padding:8px;
+  background:none; border:1px solid var(--border-color);
+  border-radius:8px; color:var(--text-muted);
+  font-family:inherit; font-size:12px; font-weight:600;
+  cursor:pointer; transition:all var(--transition);
+}
+.pfb-see-all-btn:hover { background:var(--bg-input); color:var(--accent); }
+
+/* ── INFO ROWS (sidebar acct info) ── */
+.pfb-info-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 0; border-bottom:1px solid var(--border-color);
+}
+.pfb-info-row:last-child { border-bottom:none; }
+.pfb-info-key {
+  font-size:12px; color:var(--text-muted); font-weight:600;
+  display:flex; align-items:center; gap:6px; flex-shrink:0;
+}
+.pfb-info-key svg { width:13px; height:13px; }
+.pfb-info-val {
+  font-size:12px; font-weight:600; color:var(--text-main);
+  text-align:right; max-width:160px; word-break:break-all;
+}
+
+/* ── MODALS ── */
+.pfb-modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.75);
+  display:none; align-items:flex-end; justify-content:center;
+  z-index:1000;
+}
+.pfb-modal-overlay.open { display:flex; }
+.pfb-modal {
+  background:var(--bg-card); border-radius:16px 16px 0 0;
+  width:100%; max-width:520px; max-height:82vh;
+  display:flex; flex-direction:column; overflow:hidden;
+  animation:pfbSlideUp 0.28s ease;
+}
+@keyframes pfbSlideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+.pfb-modal-head {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px 12px; border-bottom:1px solid var(--border-color); flex-shrink:0;
+}
+.pfb-modal-title { font-size:15px; font-weight:800; }
+.pfb-modal-close {
+  background:none; border:none; cursor:pointer;
+  color:var(--text-muted); padding:4px;
+}
+.pfb-modal-body { padding:16px 20px; overflow-y:auto; flex:1; }
+.pfb-tab-row { display:flex; gap:6px; margin-bottom:12px; }
+.pfb-tab {
+  padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700;
+  cursor:pointer; border:1px solid var(--border-color);
+  background:var(--bg-input); color:var(--text-muted);
+  font-family:inherit; transition:all var(--transition);
+}
+.pfb-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.pfb-search-input {
+  width:100%; padding:10px 14px; border:1px solid var(--border-color);
+  border-radius:10px; font-size:13px; background:var(--bg-input);
+  color:var(--text-main); font-family:inherit; margin-bottom:12px;
+  outline:none; transition:border-color var(--transition);
+}
+.pfb-search-input:focus { border-color:var(--accent); }
+.pfb-loading { text-align:center; color:var(--text-muted); font-size:13px; padding:20px 0; }
+.waifu-search-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.waifu-search-item {
+  cursor:pointer; border-radius:8px; overflow:hidden;
+  border:1px solid var(--border-color); transition:all var(--transition);
+}
+.waifu-search-item:hover { border-color:var(--accent); transform:translateY(-2px); }
+.waifu-search-item img { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; }
+.waifu-search-item-info { padding:5px 6px; }
+.waifu-search-item-name {
+  font-size:10px; font-weight:700;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.waifu-search-item-from {
+  font-size:9px; color:var(--text-muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.animefav-search-item {
+  display:flex; align-items:center; gap:10px; padding:8px;
+  border-radius:8px; cursor:pointer; transition:background var(--transition);
+  border-bottom:1px solid var(--border-color);
+}
+.animefav-search-item:last-child { border-bottom:none; }
+.animefav-search-item:hover { background:var(--bg-input); }
+.animefav-poster {
+  width:36px; height:52px; object-fit:cover;
+  border-radius:5px; flex-shrink:0; background:var(--bg-input);
+}
 .animefav-info { flex:1; min-width:0; }
 .animefav-title { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .animefav-meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
 .animefav-score { font-size:12px; color:#fbbf24; font-weight:700; flex-shrink:0; }
-.animefav-del { background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer; padding:0 4px; line-height:1; opacity:0; transition:opacity 0.2s; }
-.animefav-item:hover .animefav-del { opacity:1; }
-.animefav-empty { text-align:center; color:var(--text-muted); font-size:13px; padding:20px 0; }
 
-/* PFB Modals */
-.pfb-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; align-items:flex-end; justify-content:center; z-index:1000; }
-.pfb-modal-overlay.open { display:flex; }
-.pfb-modal { background:var(--bg-card); border-radius:16px 16px 0 0; width:100%; max-width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; animation:slideUp 0.3s ease; }
-@keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
-.pfb-modal-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border-color); flex-shrink:0; }
-.pfb-modal-title { font-size:15px; font-weight:800; }
-.pfb-modal-close { background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px; }
-.pfb-modal-body { padding:16px 20px; overflow-y:auto; flex:1; }
-.pfb-tab-row { display:flex; gap:6px; margin-bottom:12px; }
-.pfb-tab { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-muted); font-family:inherit; transition:all var(--transition); }
-.pfb-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-.pfb-search-input { width:100%; padding:10px 14px; border:1px solid var(--border-color); border-radius:10px; font-size:13px; background:var(--bg-input); color:var(--text-main); font-family:inherit; margin-bottom:12px; outline:none; transition:border-color var(--transition); }
-.pfb-search-input:focus { border-color:var(--accent); }
-.pfb-loading { text-align:center; color:var(--text-muted); font-size:13px; padding:20px 0; }
-.waifu-search-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.waifu-search-item { cursor:pointer; border-radius:8px; overflow:hidden; border:1px solid var(--border-color); transition:all var(--transition); }
-.waifu-search-item:hover { border-color:var(--accent); transform:translateY(-2px); }
-.waifu-search-item img { width:100%; aspect-ratio:3/4; object-fit:cover; display:block; }
-.waifu-search-item-info { padding:5px 6px; }
-.waifu-search-item-name { font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.waifu-search-item-from { font-size:9px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.animefav-search-item { display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px; cursor:pointer; transition:background var(--transition); border-bottom:1px solid var(--border-color); }
-.animefav-search-item:last-child { border-bottom:none; }
-.animefav-search-item:hover { background:var(--bg-input); }
+/* Profile badge reuse from existing code */
+.pfb-badge-admin { background:rgba(66,133,244,0.15); color:var(--accent); }
+.pfb-badge-user  { background:rgba(100,100,100,0.15); color:var(--text-muted); }
