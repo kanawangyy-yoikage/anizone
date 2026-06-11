@@ -9,7 +9,7 @@
 
 <br>
 
-<img src="public/pp.png" width="180"/>
+<img src="public/pp.webp" width="180"/>
 
 <br><br>
 
@@ -45,8 +45,8 @@ Jadi lahirlah AniZone.
 Menggunakan:
 - 🔥 Samehadaku Scraper
 - 📖 MyAnimeList API
-- ⚡ Vanilla JS
-- ☁️ Firebase
+- ⚡ Vanilla JS (modular)
+- ☁️ Firebase Auth + Firestore
 - 🐘 PHP optional backend
 - 🧠 sedikit kewarasan developer yang tersisa
 
@@ -55,10 +55,7 @@ Menggunakan:
 # ✨ Features
 
 ## 🎥 Anime Streaming
-Streaming anime subtitle Indonesia dengan source otomatis.
-
-Tidak host video sendiri.  
-Tenang aja, pengacara copyright gak usah lari sprint dulu.
+Streaming anime subtitle Indonesia dengan source otomatis. Multi-server support dengan pilihan server cadangan.
 
 ---
 
@@ -76,102 +73,59 @@ Biar bisa ikut nonton anime mainstream sambil pura-pura bilang:
 ---
 
 ## 📅 Anime Schedule
-Jadwal anime seasonal realtime.
+Jadwal anime seasonal realtime dikelompokkan per hari tayang.
 
 Karena manusia modern perlu sistem untuk mengatur jadwal nangis mingguan.
 
 ---
 
 ## 📰 Anime News
-Update berita anime terbaru.
-
-Termasuk:
-- studio collapse
-- author hiatus
-- adaptasi random
-- fandom ngamuk massal
+Update berita anime terbaru dari Anime News Network.
 
 ---
 
 ## 📖 MAL Synopsis Integration
-Auto fetch synopsis dan metadata dari MyAnimeList API.
-
-Karena nulis deskripsi ribuan anime manual itu termasuk tindakan kriminal terhadap mental developer.
+Auto fetch synopsis, score, dan metadata dari MyAnimeList API.
 
 ---
 
 ## 👤 Authentication System
-Firebase authentication support.
+Firebase authentication — login via email atau Google.
 
-Login system modern tanpa harus bikin session PHP horor tahun 2009.
+---
+
+## 👤 User Profile
+Edit nama, bio, avatar, dan banner profil. Tersimpan di Firestore.
+
+---
+
+## 💕 Waifu List & Anime Favorit
+Simpan waifu favorit dan list anime favorit di profil kamu. Data dari Jikan API (MAL).
 
 ---
 
 ## 🛠️ Admin Dashboard
 Panel admin buat manage sistem dan konten.
 
-Karena semua developer pasti punya mimpi bikin dashboard.  
-Entah dipakai atau gak.
-
 ---
 
 ## 📱 Progressive Web App (PWA)
-Bisa diinstall kayak aplikasi native.
-
-Browser modern benar-benar bilang:
-> "gimana kalau website pura-pura jadi app"
-
-Dan entah kenapa berhasil.
+Bisa diinstall kayak aplikasi native di HP maupun desktop.
 
 ---
 
-## ⚡ Clean URLs
-URL bersih dan enak dilihat.
-
-Bukan:
-```url
-watch.php?id=7272&type=anime_final_fix_real_v2
-```
-
-Itu bukan URL.  
-Itu teriakan minta tolong.
+## 🌙 Dark / Light Mode
+Toggle tema gelap dan terang. Preferensi tersimpan di localStorage.
 
 ---
 
 ## ☁️ Deploy Ready
-Support:
-- Vercel
-- Railway
-- VPS
-- Docker
-- Shared Hosting
-- server tua peninggalan leluhur juga mungkin bisa
+Support Railway, Vercel, Docker, dan VPS.
 
 ---
 
 ## 🐘 Optional PHP Backend
-Iya. Ada PHP juga.
-
-Sebelum frontend elitist ngamuk:
-PHP masih hidup.  
-Masih dipakai.  
-Masih menghasilkan duit.
-
-Sakit? Memang.
-
----
-
-# 🖼️ Preview
-
-## 🏠 Home Page
-
-<img src="preview/home.png"/>
-
----
-
-## 🛠️ Admin Panel
-
-<img src="preview/admin.png"/>
+Ada PHP backend alternatif untuk shared hosting atau deployment ringan.
 
 ---
 
@@ -179,46 +133,74 @@ Sakit? Memang.
 
 | Category | Technology |
 |---|---|
-| Frontend | HTML5, CSS3, Vanilla JS |
-| Backend | Node.js, Express, PHP |
+| Frontend | HTML5, CSS3, Vanilla JS (modular) |
+| Backend | Node.js, Express |
 | Database | Firebase Firestore |
 | Authentication | Firebase Auth |
 | Anime Source | Samehadaku Scraper |
-| Anime Metadata | MyAnimeList API v2 |
-| Deployment | Vercel / Railway |
+| Anime Metadata | MyAnimeList API v2 + Jikan API |
+| PHP Backend | PHP 8+ (opsional) |
+| Deployment | Railway / Vercel / Docker |
 | Developer Mental State | Critical |
 
 ---
 
 # 📂 Project Structure
 
-```bash
+```
 anizone/
 ├── api/
+│   ├── config.js          ← Konstanta: URL, proxy, headers
+│   ├── index.js           ← Entry point: Express routes + server
+│   └── services/
+│       ├── scraper.js     ← Semua logic scraping samehadaku
+│       └── mal.js         ← Integrasi MAL API + berita
+│
 ├── docker/
+│   ├── nginx.conf
+│   └── start.sh
+│
 ├── php/
-│   ├── api/
-│   ├── config/
-│   ├── functions/
-│   └── index.php
+│   └── api/
+│       ├── config.php
+│       ├── anime.php
+│       ├── favorites.php
+│       ├── firebase.php
+│       └── users.php
 │
 ├── public/
 │   ├── css/
+│   │   ├── style.css      ← Styling utama
+│   │   ├── login.css
+│   │   └── admin.css
 │   ├── js/
+│   │   ├── auth.js        ← Firebase init, profil, waifu list
+│   │   ├── login.js
+│   │   ├── admin.js
+│   │   ├── crud.js
+│   │   └── modules/       ← Modul app utama
+│   │       ├── config.js      ← Konstanta frontend (API_BASE, sections, genres)
+│   │       ├── utils.js       ← Helper: show/hide/loader/emptyState
+│   │       ├── theme.js       ← Dark/light mode + dropdown settings
+│   │       ├── firestore.js   ← History & favorites
+│   │       ├── home.js        ← Beranda, slider, trending, jadwal, berita
+│   │       ├── anime.js       ← Kategori, detail, tonton, pencarian
+│   │       ├── developer.js   ← Tab developer
+│   │       └── navigation.js  ← switchTab(), init app
 │   ├── index.html
 │   ├── login.html
 │   ├── admin.html
 │   ├── manifest.json
-│   └── sw.js
+│   ├── sw.js
+│   ├── bg.webp
+│   └── pp.webp
 │
 ├── Dockerfile
 ├── package.json
 ├── railway.toml
+├── STRUKTUR.md            ← Penjelasan detail refactoring
 └── README.md
 ```
-
-Rapih.  
-Tidak seperti folder download manusia normal.
 
 ---
 
@@ -231,160 +213,111 @@ git clone https://github.com/kanawangyy-yoikage/anizone.git
 cd anizone
 ```
 
-Selamat.  
-Sekarang punya tanggung jawab terhadap project baru yang kemungkinan bakal diupdate jam 2 pagi.
-
 ---
 
-# 📦 Install Dependencies
+## 📦 Install Dependencies
 
 ```bash
 npm install
 ```
 
-Silakan tunggu Node.js mendownload separuh isi galaksi.
-
 ---
 
-# 🔑 Environment Variables
+## 🔑 Environment Variables
 
-Create `.env`
+Buat file `.env`:
 
 ```env
 MAL_CLIENT_ID=your_myanimelist_client_id
 ```
 
-Get API key from:
+Dapatkan API key di:
 
-```url
+```
 https://myanimelist.net/apiconfig
 ```
 
-Karena semua hal sekarang perlu API key.  
-Termasuk mungkin buat buka pintu rumah nanti.
+> `MAL_CLIENT_ID` opsional — jika tidak diset, data trending dan jadwal menggunakan fallback scraping.
 
 ---
 
-# 🚀 Run Development Server
+## 🚀 Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open browser:
+Buka browser:
 
-```url
+```
 http://localhost:3000
 ```
 
-Kalau langsung jalan tanpa error:
-- hoki
-- leluhur melindungi
-- atau codingannya lagi baik hati
-
 ---
 
-# 🐘 PHP Module
+# 🐘 PHP Module (Opsional)
 
-AniZone juga punya optional PHP backend buat:
-- shared hosting
-- lightweight deployment
-- alternative API system
-- compatibility server kentang
-
-## Run PHP Server
+Backend alternatif untuk shared hosting.
 
 ```bash
 cd php
 php -S localhost:8000
 ```
 
-Open:
+Environment variables yang dibutuhkan (set di Railway atau `.env`):
 
-```url
-http://localhost:8000
+```env
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_API_KEY=your_api_key
 ```
-
-Simple.  
-Tidak perlu ritual Kubernetes dan pengorbanan tumbal DevOps.
 
 ---
 
-# ☁️ Deploy to Vercel
+# ☁️ Deploy ke Railway
 
-## Install Vercel CLI
-
-```bash
-npm install -g vercel
-```
-
-## Deploy
-
-```bash
-vercel --prod
-```
-
-Atau connect repository langsung ke:
-
-```url
-https://vercel.com/new
-```
-
-Deployment modern pada dasarnya cuma:
-> "klik tombol lalu berdoa"
+1. Push repo ke GitHub
+2. Buka [railway.app](https://railway.app) → New Project → Deploy from GitHub
+3. Set environment variable `MAL_CLIENT_ID`
+4. Done
 
 ---
 
-# 🐳 Docker Support
-
-Karena developer modern suka masukin semua hal ke container.
-
-## Build Docker Image
+# 🐳 Docker
 
 ```bash
+# Build
 docker build -t anizone .
+
+# Run
+docker run -p 3000:3000 -e MAL_CLIENT_ID=your_key anizone
 ```
-
-## Run Container
-
-```bash
-docker run -p 3000:3000 anizone
-```
-
-Anime dalam kotak.  
-Teknologi manusia makin aneh tiap tahun.
 
 ---
 
 # 📡 API Endpoints
 
-| Endpoint | Description |
+| Endpoint | Deskripsi |
 |---|---|
-| `/api/latest` | Latest anime |
-| `/api/search?q=` | Search anime |
-| `/api/detail?url=` | Anime details |
-| `/api/watch?url=` | Stream source |
-| `/api/trending` | MAL trending |
-| `/api/schedule` | Anime schedule |
-| `/api/news` | Anime news |
-| `/api/health` | Health check |
-
-API bersih.  
-Tidak ada XML kutukan dari zaman batu.
+| `GET /api/latest?page=1` | Daftar anime terbaru |
+| `GET /api/search?q=naruto` | Cari anime |
+| `GET /api/detail?url=...` | Detail anime + episode list |
+| `GET /api/watch?url=...` | Stream URL + download links |
+| `GET /api/trending` | Anime trending dari MAL |
+| `GET /api/schedule` | Jadwal rilis musim ini |
+| `GET /api/news` | Berita anime terbaru |
+| `GET /api/mal/anime?title=...` | Data MAL (score, synopsis) |
+| `GET /api/health` | Health check |
 
 ---
 
 # 🔥 Roadmap
 
 - [ ] Multi server streaming
-- [ ] Anime watchlist
 - [ ] Continue watching
-- [ ] Better dark mode
-- [ ] Mobile app version
-- [ ] Discord RPC integration
-- [ ] Recommendation AI
 - [ ] Offline caching
-- [ ] User profile customization
+- [ ] Mobile app version
+- [ ] Recommendation AI
+- [ ] Discord RPC integration
 - [ ] Mengurangi penderitaan developer sebesar 1%
 
 ---
@@ -397,24 +330,23 @@ Semua konten berasal dari pihak ketiga.
 
 Project ini dibuat untuk tujuan edukasi dan eksperimen.
 
-Support anime official kalau mampu.  
-Studio anime sudah cukup menderita.
+Support anime official kalau mampu. Studio anime sudah cukup menderita.
 
 ---
 
 # 👑 Author
 
-Made with:
-- caffeine
-- insomnia
-- seasonal anime addiction
-- keyboard abuse
+Made with caffeine, insomnia, seasonal anime addiction, dan keyboard abuse.
 
-## Caliph / YoiKage
+**Caliph / kanawangyy-yoikage**
 
-GitHub:
-```url
+```
 https://github.com/kanawangyy-yoikage
+```
+
+WhatsApp Channel:
+```
+https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C
 ```
 
 ---
@@ -429,21 +361,12 @@ Kalau project ini membantu:
 - ☕ Minum air putih
 - 💤 Tidur sesekali
 
-Serius.  
-Sebagian developer ngoding production jam 4 pagi sambil halusinasi.
-
 ---
 
 # 📜 License
 
 Licensed under MIT License.
 
-Artinya:
-- bebas dipakai
-- bebas dimodif
-- bebas didistribusi
-- bebas dibikin makin cursed
-
-Asal license aslinya tetap dicantumkan.
+Bebas dipakai, dimodif, dan didistribusi. Asal license aslinya tetap dicantumkan.
 
 Open source adalah cara manusia berbagi penderitaan secara efisien.
