@@ -443,7 +443,6 @@ function renderWaifuGrid() {
     const card = document.createElement('div');
     card.className = 'waifu-card';
     card.innerHTML = `
-      <span class="waifu-ult-badge">ULT</span>
       <button class="waifu-del-btn" onclick="removeWaifu(${w.id})" title="Hapus">×</button>
       <img class="waifu-card-img" src="${w.img}" alt="${w.name}" loading="lazy" onerror="this.src=''">
       <div class="waifu-card-name">${w.name}</div>
