@@ -117,6 +117,11 @@ function updateThemeUI(isLight) {
   if (settingsIcon) settingsIcon.innerHTML = isLight ? sunSVGSmall : moonSVGSmall;
   const settingsLabel = document.getElementById('settingsThemeLabel');
   if (settingsLabel) settingsLabel.textContent = isLight ? 'Mode Terang' : 'Mode Gelap';
+  // sync navbar dropdown
+  const navbarIcon = document.getElementById('navbarThemeIcon');
+  if (navbarIcon) navbarIcon.innerHTML = isLight ? sunSVGSmall : moonSVGSmall;
+  const navbarLabel = document.getElementById('navbarThemeLabel');
+  if (navbarLabel) navbarLabel.textContent = isLight ? 'Mode Terang' : 'Mode Gelap';
 }
 
 function toggleSettingsDropdown() {
@@ -131,6 +136,20 @@ document.addEventListener('click', function(e) {
     const dd = document.getElementById('settingsDropdown');
     if (dd) dd.classList.remove('open');
   }
+});
+
+function toggleNavbarSettings() {
+  const dd = document.getElementById('navbarSettingsDropdown');
+  if (!dd) return;
+  dd.classList.toggle('open');
+}
+function closeNavbarSettings() {
+  const dd = document.getElementById('navbarSettingsDropdown');
+  if (dd) dd.classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  const wrap = document.querySelector('.navbar-settings-wrap');
+  if (wrap && !wrap.contains(e.target)) closeNavbarSettings();
 });
 
 function toggleTheme() {
