@@ -664,7 +664,6 @@ async function loadDetail(url) {
 
     const info = data.info || {};
     const status    = info.status || 'Ongoing';
-    const score     = MAL_SCORE_CACHE.get(data.title) || MAL_SCORE_CACHE.get(url) || (info.skor && info.skor !== '0' ? info.skor : null) || (info.score && info.score !== '0' ? info.score : null) || 'N/A';
     const type      = info.tipe   || info.type     || 'TV';
     const totalEps  = info.total_episode || info.episode || '?';
     const duration  = info.durasi || info.duration || '?';
@@ -684,18 +683,21 @@ async function loadDetail(url) {
       else { const n = data.episodes[0].title.match(/\d+/g); newestNum = n ? n[n.length-1] : data.episodes.length; }
     }
 
+    // Fetch MAL data (score + description) in one request
+    let score = 'N/A';
+    let description = data.description || 'Tidak ada deskripsi tersedia.';
+    try {
+      const malRes = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(data.title)}`);
+      const malData = await malRes.json();
+      if (malData?.mean) {
+        score = String(malData.mean);
+        MAL_SCORE_CACHE.set(data.title, score);
+      }
+      if (malData?.synopsis) description = malData.synopsis;
+    } catch {}
+
     saveHistory({ url, title: data.title, image: data.image, score });
     const isFav = await checkFavorite(url);
-
-    // Try to fetch MAL description if local description is short
-    let description = data.description || 'Tidak ada deskripsi tersedia.';
-    if (description.length < 100) {
-      try {
-        const malRes = await fetch(`${API_BASE}/mal/description?title=${encodeURIComponent(data.title)}`);
-        const malData = await malRes.json();
-        if (malData.description) description = malData.description;
-      } catch {}
-    }
 
     document.getElementById('anime-info').innerHTML = `
       <div class="detail-breadcrumb">Beranda / ${data.title}</div>
