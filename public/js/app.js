@@ -186,6 +186,8 @@ function switchTab(tabName) {
     // Profile data sudah di-load oleh onAuthStateChanged di auth.js saat halaman pertama dibuka.
     // Tidak perlu loadUserProfile ulang — itu justru menyebabkan data overwrite dengan
     // hasil Firestore yang bisa gagal (return {}) sehingga role jadi 'user' dan foto hilang.
+    if (typeof loadWaifuFromFirestore === 'function') loadWaifuFromFirestore();
+    if (typeof loadAnimeFavFromFirestore === 'function') loadAnimeFavFromFirestore();
   }
 }
 

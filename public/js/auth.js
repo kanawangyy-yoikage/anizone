@@ -198,6 +198,8 @@ async function loadUserProfile(user) {
   // Show admin panel link if admin
   const adminLinkEl = document.getElementById('adminPanelLink');
   if (adminLinkEl) adminLinkEl.style.display = role === 'admin' ? '' : 'none';
+  const adminBtnEl = document.getElementById('adminPanelLinkBtn');
+  if (adminBtnEl) adminBtnEl.style.display = role === 'admin' ? '' : 'none';
 }
 
 // ── EDIT MODAL ────────────────────────────────────────
@@ -385,4 +387,257 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('editModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeEditModal();
   });
+});
+
+// ═══════════════════════════════════════════════════
+// WAIFU LIST & ANIME FAVORIT — FanBias Style
+// ═══════════════════════════════════════════════════
+
+// ── STATE ──────────────────────────────────────────
+const waifuState = { list: [] };
+const animeFavState = { list: [] };
+let waifuSearchTimer = null;
+let animeFavSearchTimer = null;
+
+// ── FIRESTORE WAIFU ────────────────────────────────
+async function loadWaifuFromFirestore() {
+  const uid = auth.currentUser?.uid; if (!uid) return;
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    waifuState.list = doc.data()?.waifuList || [];
+    renderWaifuGrid();
+  } catch {}
+}
+
+async function saveWaifuToFirestore() {
+  const uid = auth.currentUser?.uid; if (!uid) return;
+  try {
+    await db.collection('users').doc(uid).set({ waifuList: waifuState.list }, { merge: true });
+  } catch {}
+}
+
+async function loadAnimeFavFromFirestore() {
+  const uid = auth.currentUser?.uid; if (!uid) return;
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    animeFavState.list = doc.data()?.animeFavList || [];
+    renderAnimeFavList();
+  } catch {}
+}
+
+async function saveAnimeFavToFirestore() {
+  const uid = auth.currentUser?.uid; if (!uid) return;
+  try {
+    await db.collection('users').doc(uid).set({ animeFavList: animeFavState.list }, { merge: true });
+  } catch {}
+}
+
+// ── RENDER WAIFU GRID ──────────────────────────────
+function renderWaifuGrid() {
+  const grid = document.getElementById('waifuGrid');
+  const countEl = document.getElementById('waifuCount');
+  if (!grid) return;
+  if (countEl) countEl.textContent = waifuState.list.length + ' waifu';
+  grid.innerHTML = '';
+  waifuState.list.forEach(w => {
+    const card = document.createElement('div');
+    card.className = 'waifu-card';
+    card.innerHTML = `
+      <span class="waifu-ult-badge">ULT</span>
+      <button class="waifu-del-btn" onclick="removeWaifu(${w.id})" title="Hapus">×</button>
+      <img class="waifu-card-img" src="${w.img}" alt="${w.name}" loading="lazy" onerror="this.src=''">
+      <div class="waifu-card-name">${w.name}</div>
+      <div class="waifu-card-from">${w.from}</div>`;
+    grid.appendChild(card);
+  });
+  if (waifuState.list.length < 12) {
+    const add = document.createElement('div');
+    add.className = 'waifu-add-card';
+    add.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Tambah</span>`;
+    add.onclick = openWaifuModal;
+    grid.appendChild(add);
+  }
+}
+
+async function removeWaifu(id) {
+  waifuState.list = waifuState.list.filter(w => w.id !== id);
+  renderWaifuGrid();
+  await saveWaifuToFirestore();
+}
+
+// ── RENDER ANIME FAV ───────────────────────────────
+function renderAnimeFavList() {
+  const el = document.getElementById('animeFavList');
+  if (!el) return;
+  if (!animeFavState.list.length) {
+    el.innerHTML = '<div class="animefav-empty">Belum ada anime favorit ditambahkan.</div>';
+    return;
+  }
+  el.innerHTML = animeFavState.list.map(a => `
+    <div class="animefav-item">
+      <img class="animefav-poster" src="${a.poster}" alt="${a.title}" loading="lazy" onerror="this.src=''">
+      <div class="animefav-info">
+        <div class="animefav-title">${a.title}</div>
+        <div class="animefav-meta">${a.year ? a.year + ' · ' : ''}${a.ep || ''}</div>
+      </div>
+      <span class="animefav-score">★ ${a.score || '?'}</span>
+      <button class="animefav-del" onclick="removeAnimeFav(${a.id})" title="Hapus">×</button>
+    </div>`).join('');
+}
+
+async function removeAnimeFav(id) {
+  animeFavState.list = animeFavState.list.filter(a => a.id !== id);
+  renderAnimeFavList();
+  await saveAnimeFavToFirestore();
+}
+
+// ── WAIFU MODAL ────────────────────────────────────
+function openWaifuModal() {
+  document.getElementById('waifuModal').classList.add('open');
+  document.getElementById('waifuSearchInput').value = '';
+  loadPopularWaifu();
+}
+function closeWaifuModal() {
+  document.getElementById('waifuModal').classList.remove('open');
+}
+
+function switchWaifuTab(tab, btn) {
+  document.querySelectorAll('.pfb-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'popular') { document.getElementById('waifuSearchInput').value = ''; loadPopularWaifu(); }
+  else document.getElementById('waifuSearchInput').focus();
+}
+
+function debounceWaifuSearch(val) {
+  clearTimeout(waifuSearchTimer);
+  if (!val.trim()) { loadPopularWaifu(); return; }
+  waifuSearchTimer = setTimeout(() => searchWaifu(val), 600);
+}
+
+async function loadPopularWaifu() {
+  const status = document.getElementById('waifuSearchStatus');
+  const results = document.getElementById('waifuSearchResults');
+  status.style.display = 'block'; status.textContent = 'Memuat karakter populer...';
+  results.innerHTML = '';
+  try {
+    const r = await fetch('https://api.jikan.moe/v4/characters?order_by=favorites&sort=desc&limit=18');
+    const d = await r.json();
+    status.style.display = 'none';
+    renderWaifuSearchResults(d.data || []);
+  } catch { status.textContent = 'Gagal memuat. Coba lagi.'; }
+}
+
+async function searchWaifu(q) {
+  const status = document.getElementById('waifuSearchStatus');
+  const results = document.getElementById('waifuSearchResults');
+  status.style.display = 'block'; status.textContent = 'Mencari...';
+  results.innerHTML = '';
+  try {
+    const r = await fetch(`https://api.jikan.moe/v4/characters?q=${encodeURIComponent(q)}&limit=18`);
+    const d = await r.json();
+    status.style.display = 'none';
+    renderWaifuSearchResults(d.data || []);
+  } catch { status.textContent = 'Gagal mencari.'; }
+}
+
+function renderWaifuSearchResults(chars) {
+  const el = document.getElementById('waifuSearchResults');
+  if (!chars.length) { el.innerHTML = '<div class="pfb-loading">Tidak ditemukan</div>'; return; }
+  el.innerHTML = '';
+  chars.forEach(c => {
+    const img = c.images?.jpg?.image_url || '';
+    const name = c.name || 'Unknown';
+    const from = c.anime?.[0]?.anime?.title || c.manga?.[0]?.manga?.title || '?';
+    const div = document.createElement('div');
+    div.className = 'waifu-search-item';
+    const already = waifuState.list.find(w => w.id === c.mal_id);
+    div.innerHTML = `
+      <img src="${img}" alt="${name}" loading="lazy" onerror="this.src=''">
+      <div class="waifu-search-item-info">
+        <div class="waifu-search-item-name">${name}</div>
+        <div class="waifu-search-item-from">${from}</div>
+        ${already ? '<div style="font-size:9px;color:var(--accent)">✓ Ditambahkan</div>' : ''}
+      </div>`;
+    if (!already) div.onclick = () => addWaifu({ id: c.mal_id, name, from, img });
+    el.appendChild(div);
+  });
+}
+
+async function addWaifu(char) {
+  if (waifuState.list.find(w => w.id === char.id)) { closeWaifuModal(); return; }
+  if (waifuState.list.length >= 12) { alert('Maksimal 12 waifu!'); return; }
+  waifuState.list.push(char);
+  renderWaifuGrid();
+  closeWaifuModal();
+  await saveWaifuToFirestore();
+}
+
+// ── ANIME FAV MODAL ────────────────────────────────
+function openAnimeFavModal() {
+  document.getElementById('animeFavModal').classList.add('open');
+  document.getElementById('animeFavSearchInput').value = '';
+  document.getElementById('animeFavSearchResults').innerHTML = '';
+}
+function closeAnimeFavModal() {
+  document.getElementById('animeFavModal').classList.remove('open');
+}
+
+function debounceAnimeFavSearch(val) {
+  clearTimeout(animeFavSearchTimer);
+  if (!val.trim()) { document.getElementById('animeFavSearchResults').innerHTML = ''; return; }
+  animeFavSearchTimer = setTimeout(() => searchAnimeFav(val), 600);
+}
+
+async function searchAnimeFav(q) {
+  const status = document.getElementById('animeFavSearchStatus');
+  const results = document.getElementById('animeFavSearchResults');
+  status.style.display = 'block'; status.textContent = 'Mencari...';
+  results.innerHTML = '';
+  try {
+    const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10&sfw=true`);
+    const d = await r.json();
+    status.style.display = 'none';
+    renderAnimeFavSearchResults(d.data || []);
+  } catch { status.textContent = 'Gagal mencari.'; }
+}
+
+function renderAnimeFavSearchResults(animes) {
+  const el = document.getElementById('animeFavSearchResults');
+  if (!animes.length) { el.innerHTML = '<div class="pfb-loading">Tidak ditemukan</div>'; return; }
+  el.innerHTML = '';
+  animes.forEach(a => {
+    const poster = a.images?.jpg?.small_image_url || a.images?.jpg?.image_url || '';
+    const title = a.title || '?';
+    const ep = a.episodes ? a.episodes + ' ep' : '?';
+    const score = a.score || '?';
+    const year = a.year || '';
+    const already = animeFavState.list.find(f => f.id === a.mal_id);
+    const div = document.createElement('div');
+    div.className = 'animefav-search-item';
+    div.innerHTML = `
+      <img class="animefav-poster" src="${poster}" alt="${title}" loading="lazy" onerror="this.src=''">
+      <div class="animefav-info">
+        <div class="animefav-title">${title}</div>
+        <div class="animefav-meta">${year ? year + ' · ' : ''}${ep}</div>
+        ${already ? '<div style="font-size:11px;color:var(--accent)">✓ Sudah ditambahkan</div>' : ''}
+      </div>
+      <span class="animefav-score">★ ${score}</span>`;
+    if (!already) div.onclick = () => addAnimeFav({ id: a.mal_id, title, poster, ep, score, year });
+    el.appendChild(div);
+  });
+}
+
+async function addAnimeFav(anime) {
+  if (animeFavState.list.find(f => f.id === anime.id)) { closeAnimeFavModal(); return; }
+  if (animeFavState.list.length >= 10) { alert('Maksimal 10 anime favorit!'); return; }
+  animeFavState.list.push(anime);
+  renderAnimeFavList();
+  closeAnimeFavModal();
+  await saveAnimeFavToFirestore();
+}
+
+// ── CLOSE ON OVERLAY CLICK ─────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('waifuModal')?.addEventListener('click', e => { if (e.target.id === 'waifuModal') closeWaifuModal(); });
+  document.getElementById('animeFavModal')?.addEventListener('click', e => { if (e.target.id === 'animeFavModal') closeAnimeFavModal(); });
 });
