@@ -9,6 +9,7 @@ if ('serviceWorker' in navigator) {
 }
 
 const API_BASE = '/api';
+const MAL_SCORE_CACHE = new Map(); // title -> MAL mean score
 
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
@@ -542,11 +543,16 @@ async function lazyLoadScores(container) {
     const title = badge.getAttribute('data-mal-title');
     if (!title) continue;
     try {
-      const res = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(title)}`);
-      const mal = await res.json();
-      if (mal && mal.mean) {
-        badge.textContent = '⭐ ' + mal.mean;
+      let mean;
+      if (MAL_SCORE_CACHE.has(title)) {
+        mean = MAL_SCORE_CACHE.get(title);
+      } else {
+        const res = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(title)}`);
+        const mal = await res.json();
+        mean = mal?.mean || null;
+        if (mean) MAL_SCORE_CACHE.set(title, mean);
       }
+      if (mean) badge.textContent = '⭐ ' + mean;
     } catch {}
   }
 }
@@ -658,7 +664,7 @@ async function loadDetail(url) {
 
     const info = data.info || {};
     const status    = info.status || 'Ongoing';
-    const score     = (info.skor && info.skor !== '0') ? info.skor : (info.score && info.score !== '0') ? info.score : 'N/A';
+    const score     = MAL_SCORE_CACHE.get(data.title) || MAL_SCORE_CACHE.get(url) || (info.skor && info.skor !== '0' ? info.skor : null) || (info.score && info.score !== '0' ? info.score : null) || 'N/A';
     const type      = info.tipe   || info.type     || 'TV';
     const totalEps  = info.total_episode || info.episode || '?';
     const duration  = info.durasi || info.duration || '?';
