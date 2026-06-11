@@ -400,6 +400,34 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 .server-tag:hover, .server-tag.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+/* ── Download Section ── */
+#download-section { padding: 0 16px 80px; }
+.dl-format-group { margin-bottom: 20px; }
+.dl-format-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-muted);
+  border-left: 3px solid var(--accent); padding-left: 8px;
+  margin-bottom: 10px;
+}
+.dl-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+.dl-row:last-child { border-bottom: none; }
+.dl-res {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  min-width: 52px;
+}
+.dl-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.dl-btn {
+  padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  color: var(--text-muted); text-decoration: none;
+  transition: all var(--transition);
+}
+.dl-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
 /* ── BOTTOM NAV ── */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0; height: 64px;
