@@ -244,6 +244,19 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .hero-dots { position: absolute; bottom: 12px; right: 20px; display: flex; gap: 6px; }
 .hero-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.35); cursor: pointer; transition: all var(--transition); }
 .hero-dot.active { background: #fff; width: 20px; border-radius: 99px; }
+.hero-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all var(--transition);
+  backdrop-filter: blur(6px); z-index: 10;
+  opacity: 0; pointer-events: none;
+}
+.hero-slider:hover .hero-arrow { opacity: 1; pointer-events: auto; }
+.hero-arrow:hover { background: rgba(255,255,255,0.25); transform: translateY(-50%) scale(1.1); }
+.hero-arrow-left  { left: 14px; }
+.hero-arrow-right { right: 14px; }
 
 /* ── SECTIONS ── */
 .category-section { padding: 6px 0 0; }
