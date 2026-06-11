@@ -523,13 +523,32 @@ function renderSection(title, data, container) {
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
               <img src="${a.image}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge">⭐ ${a.score||'?'}</div>
+              <div class="ep-badge" data-mal-title="${(a.title||'').replace(/"/g,'')}">⭐ ${a.score||'?'}</div>
             </div>
           </div>
           <div class="scroll-card-title">${a.title.length>35?a.title.substring(0,35)+'...':a.title}</div>
         </div>`).join('')}
     </div>`;
   container.appendChild(div);
+  lazyLoadScores(div);
+}
+
+async function lazyLoadScores(container) {
+  const badges = container.querySelectorAll('.ep-badge[data-mal-title]');
+  for (const badge of badges) {
+    const currentText = badge.textContent.trim();
+    // skip if already has a valid score (not '?')
+    if (currentText !== '⭐ ?' && currentText !== '⭐ ' && currentText !== '⭐ N/A') continue;
+    const title = badge.getAttribute('data-mal-title');
+    if (!title) continue;
+    try {
+      const res = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(title)}`);
+      const mal = await res.json();
+      if (mal && mal.mean) {
+        badge.textContent = '⭐ ' + mal.mean;
+      }
+    } catch {}
+  }
 }
 
 // ─── CATEGORY PAGE ────────────────────────────────────
@@ -560,10 +579,11 @@ async function loadCategory(genre, btn) {
       <div class="anime-grid">
         ${combined.map(a => `
           <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
+            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge" data-mal-title="${(a.title||'').replace(/"/g,'')}">⭐ ${a.score||'?'}</div></div>
             <div class="scroll-card-title">${a.title}</div>
           </div>`).join('')}
       </div>`;
+    lazyLoadScores(c);
   } catch {} finally { loader(false); }
 }
 
