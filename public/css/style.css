@@ -497,28 +497,46 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .doc-card p { font-size: 13px; color: var(--text-muted); line-height: 1.7; }
 
 /* ── PROFILE ── */
-.profile-container { max-width: 520px; margin: 0 auto; padding: 20px 20px 80px; }
-.profile-header-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: visible; margin-bottom: 16px; animation: fadeInUp 0.4s ease; }
-.profile-banner { height: 90px; background: linear-gradient(135deg, #1a237e 0%, var(--accent) 50%, var(--accent-light) 100%); position: relative; border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden; }
+.profile-container { max-width: 580px; margin: 0 auto; padding: 0 0 80px; }
+
+/* ── HEADER CARD ── */
+.profile-header-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: visible; margin-bottom: 16px; animation: fadeInUp 0.4s ease; position: relative; }
+
+/* Banner — taller, like fanbias */
+.profile-banner { height: 160px; background: linear-gradient(135deg, #1a237e 0%, var(--accent) 50%, var(--accent-light) 100%); position: relative; border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden; }
+@media (min-width: 600px) { .profile-banner { height: 180px; } }
 .profile-banner-pattern { position: absolute; inset: 0; opacity: 0.15; background-image: radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px); background-size: 30px 30px; }
-.profile-header-card { position: relative; }
-.profile-avatar-wrap { position: absolute; top: 58px; left: 20px; width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-light)); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #fff; border: 3px solid var(--bg-card); overflow: hidden; z-index: 2; }
+
+/* Avatar — larger, overlapping banner */
+.profile-avatar-wrap { position: absolute; top: 118px; left: 20px; width: 86px; height: 86px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-light)); display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; color: #fff; border: 4px solid var(--bg-card); overflow: hidden; z-index: 2; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+@media (min-width: 600px) { .profile-avatar-wrap { top: 136px; width: 96px; height: 96px; } }
 .profile-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-.profile-info-body { padding: 38px 20px 20px; }
-.profile-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-.profile-name { font-size: 20px; font-weight: 800; }
-.profile-email { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
-.profile-bio-text { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-style: italic; line-height: 1.5; }
-.profile-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Avatar area row: avatar left, edit-btn right */
+.profile-avatar-area { display: flex; align-items: flex-end; justify-content: space-between; padding: 0 16px 12px; height: 52px; }
+
+/* Info body */
+.profile-info-body { padding: 14px 20px 20px; }
+.profile-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.profile-name { font-size: 22px; font-weight: 800; }
+.profile-email { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+.profile-bio-text { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.6; }
+.profile-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .profile-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
 .badge-role-admin { background: rgba(66,133,244,0.15); color: #7BAEF8; border: 1px solid rgba(66,133,244,0.3); }
 .badge-role-user { background: rgba(154,160,180,0.1); color: var(--text-muted); border: 1px solid var(--border-color); }
 .badge-method { background: rgba(168,199,250,0.08); color: var(--text-muted); border: 1px solid var(--border-color); }
-.profile-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-.profile-stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 14px 10px; text-align: center; animation: fadeInUp 0.4s ease both; transition: all var(--transition); }
+
+/* Join meta */
+.profile-join-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-bottom: 0; }
+.profile-join-meta svg { opacity: 0.6; }
+
+/* Stats row — bento style, 2 prominent + 1 */
+.profile-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; padding: 0 0; }
+.profile-stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px 10px; text-align: center; animation: fadeInUp 0.4s ease both; transition: all var(--transition); }
 .profile-stat-card:hover { background: rgba(66,133,244,0.08); border-color: rgba(66,133,244,0.3); transform: translateY(-2px); }
-.profile-stat-num { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.profile-stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 3px; }
+.profile-stat-num { font-size: 24px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.profile-stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .profile-info-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; animation: fadeInUp 0.4s ease both; }
 .profile-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px; }
 .profile-info-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
@@ -592,11 +610,11 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
    PROFILE REDESIGN — FanBias Style
    ═══════════════════════════════════════════════════ */
 
-/* Avatar area with edit btn inline */
-.profile-avatar-area { display:flex; align-items:flex-end; justify-content:space-between; padding: 0 16px 0; margin-top:-32px; margin-bottom:4px; }
-.pfb-edit-btn { display:flex; align-items:center; gap:5px; padding:7px 14px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:20px; color:var(--text-main); font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; transition:all var(--transition); margin-bottom:4px; }
+/* Avatar area with edit btn inline — taller banner overlap */
+.profile-avatar-area { display:flex; align-items:flex-end; justify-content:space-between; padding: 0 16px 0; margin-top:-48px; margin-bottom:4px; }
+.pfb-edit-btn { display:flex; align-items:center; gap:5px; padding:8px 16px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:20px; color:var(--text-main); font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; transition:all var(--transition); margin-bottom:4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 .pfb-edit-btn:hover { background:rgba(66,133,244,0.12); border-color:rgba(66,133,244,0.4); }
-.profile-join-meta { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-muted); margin-top:6px; }
+.profile-join-meta { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-muted); margin-top:8px; }
 .profile-join-meta svg { flex-shrink:0; }
 
 /* Section header row */
