@@ -119,20 +119,42 @@ async function download(link) {
   }
 
   // Scrape download links from #downloaddb
+  // Structure from samehadaku: div.download-eps#downloaddb > p(format title) > ul > li > strong(res) + span > a(host)
   const downloads = [];
-  $('#downloaddb .bixbox').each((_, box) => {
-    const format = $(box).find('strong, h3, .title').first().text().trim() || 'Unknown';
-    $(box).find('li').each((_, li) => {
-      const res = $(li).find('strong').text().trim();
+  const dlContainer = $('#downloaddb, .download-eps, [id*="download"]').first();
+  let currentFormat = 'Download';
+  dlContainer.children().each((_, el) => {
+    const tag = $(el).prop('tagName')?.toLowerCase();
+    if (tag === 'p') {
+      // Format label like "MKV" or "MP4"
+      const txt = $(el).text().trim();
+      if (txt && !$(el).find('a').length) currentFormat = txt;
+    } else if (tag === 'ul') {
+      $(el).find('li').each((_, li) => {
+        const strong = $(li).find('strong').first().text().trim();
+        const links = [];
+        $(li).find('a').each((_, a) => {
+          const href = $(a).attr('href');
+          const host = $(a).text().trim();
+          if (href && host) links.push({ host, url: href });
+        });
+        if (links.length) downloads.push({ resolution: strong || '?', format: currentFormat, links });
+      });
+    }
+  });
+  // Fallback: just grab all li with links
+  if (!downloads.length) {
+    dlContainer.find('li').each((_, li) => {
+      const strong = $(li).find('strong').first().text().trim();
       const links = [];
       $(li).find('a').each((_, a) => {
         const href = $(a).attr('href');
         const host = $(a).text().trim();
         if (href && host) links.push({ host, url: href });
       });
-      if (links.length) downloads.push({ resolution: res, format, links });
+      if (links.length) downloads.push({ resolution: strong || '?', format: 'Download', links });
     });
-  });
+  }
 
   return { title: $('h1[itemprop="name"]').text().trim(), streams, downloads };
 }
