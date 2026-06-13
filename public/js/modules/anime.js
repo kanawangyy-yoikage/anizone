@@ -151,6 +151,10 @@ async function loadDetail(url) {
     saveHistory({ url, title: data.title, image: data.image, score });
     const isFav = await checkFavorite(url);
 
+    // ── Store current anime context for continue-watching & gestures ──
+    window._currentAnime = { url, title: data.title, image: data.image, score, episodes: data.episodes || [] };
+    if (typeof GESTURES !== 'undefined') GESTURES.setEpisodeList(data.episodes || [], null);
+
     document.getElementById('anime-info').innerHTML = `
       <div class="detail-breadcrumb">Beranda / ${data.title}</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -203,6 +207,22 @@ async function loadDetail(url) {
       return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">${num}</div>`;
     }).join('');
 
+    // ── Episode progress overlay ──────────────────────────
+    if (typeof CW !== 'undefined') {
+      CW.renderEpisodeProgress(data.episodes, url);
+    }
+
+    // ── Recommendation (async, non-blocking) ─────────────
+    if (typeof loadRecommendations !== 'undefined') {
+      const detailView = document.getElementById('detail-view');
+      detailView.querySelectorAll('[id^="reco-container-"]').forEach(el => el.remove());
+      const recoContainer = document.createElement('div');
+      recoContainer.id = 'reco-container-' + Date.now();
+      recoContainer.style.cssText = 'padding-bottom:90px';
+      detailView.appendChild(recoContainer);
+      loadRecommendations(recoContainer);
+    }
+
   } catch (e) { console.error(e); } finally { loader(false); }
 }
 
@@ -217,6 +237,17 @@ async function loadVideo(url) {
     document.getElementById('video-title').textContent = data.title;
     const player  = document.getElementById('video-player');
     const servers = document.getElementById('server-options');
+
+    // ── Continue Watching: attach tracker ───────────────
+    const anime = window._currentAnime || {};
+    if (typeof CW !== 'undefined') {
+      CW.attachToPlayer(url, data.title, anime.url, anime.title, anime.image);
+    }
+    // ── Gestures: update current episode index for swipe nav ──
+    if (typeof GESTURES !== 'undefined' && anime.episodes) {
+      GESTURES.setEpisodeList(anime.episodes, url);
+    }
+
 
     if (data.streams?.length > 0) {
       player.src = data.streams[0].url;
@@ -262,7 +293,19 @@ function changeServer(url, btn) {
 
 function goHome()       { switchTab('home'); }
 function backToDetail() {
+  if (typeof CW !== 'undefined') CW.detach();
   hide('watch-view'); show('detail-view');
   document.getElementById('video-player').src = '';
   if (window.innerWidth < 900) show('bottomNav');
+}
+
+// ── Mark episode as completed manually ────────────────────
+function markEpisodeComplete() {
+  if (typeof CW === 'undefined') return;
+  const url = CW._currentUrl;
+  if (!url) return;
+  CW.markCompleted(url);
+  const bar = document.getElementById('cwProgressBar');
+  if (bar) bar.style.width = '100%';
+  if (typeof showToast === 'function') showToast('✅ Episode ditandai selesai!');
 }

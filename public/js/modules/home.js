@@ -49,6 +49,9 @@ async function loadLatestTab() {
       renderHeroSlider(top10, container);
       loader(false);
 
+      // Continue Watching strip (di bawah hero slider)
+      if (typeof CW !== 'undefined') CW.renderContinueWatchingStrip(container);
+
       // Async enrich slider dengan score & info detail
       top10.forEach(async (item) => {
         try {
