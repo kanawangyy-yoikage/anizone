@@ -119,64 +119,40 @@ async function getWatch(link) {
     }
   }
 
-  // Download links — grouped by format (MKV, MP4, dll.)
+  // Download links — grouped by format
+  // Struktur samehadaku: div.download-eps#downloaddb > p (label) + ul > li > strong (res) + span > a (host)
   const downloads = [];
 
-  // Selector berlapis untuk download section samehadaku
-  const dlContainer = $(
-    '#downloaddb, .download-eps, .episodedl, #episodedl, ' +
-    '[id*="download"], [class*="download"]'
-  ).first();
+  // Ambil SEMUA .download-eps (bisa ada beberapa: MKV, MP4, dll.)
+  const dlGroups = $('.download-eps, #downloaddb, .episodedl').toArray();
 
-  let currentFormat = 'Download';
+  // Jika tidak ada, coba selector lebih luas
+  const containers = dlGroups.length ? dlGroups : $('[id*="download"], [class*="download"]').toArray();
 
-  // Parse struktur: <p>MKV</p> <ul><li><strong>720p</strong><a>host</a></li></ul>
-  dlContainer.children().each((_, el) => {
-    const tag  = $(el).prop('tagName')?.toLowerCase();
-    const text = $(el).text().trim();
+  containers.forEach(container => {
+    // Label format dari <p> pertama di dalam container
+    const fmtEl = $(container).find('> p').first();
+    const fmt   = fmtEl.text().replace(/\s+/g, ' ').trim() || 'Download';
 
-    if ((tag === 'p' || tag === 'h3' || tag === 'h4') && !$(el).find('a').length && text) {
-      currentFormat = text;
-    } else if (tag === 'ul' || tag === 'div') {
-      $(el).find('li').each((_, li) => {
-        const resolution = $(li).find('strong, b').first().text().trim();
-        const links      = [];
-        $(li).find('a').each((_, a) => {
-          const href = $(a).attr('href');
-          const host = $(a).text().trim();
-          if (href && host) links.push({ host, url: href });
-        });
-        if (links.length) downloads.push({ resolution, format: currentFormat, links });
+    // Setiap <li> = satu baris resolusi
+    $(container).find('ul > li').each((_, li) => {
+      const resolution = $(li).find('strong, b').first().text().trim();
+      const links      = [];
+
+      // Link ada di dalam <span><a> (bukan langsung <li><a>)
+      $(li).find('span a, a').each((_, a) => {
+        const href = $(a).attr('href');
+        const host = $(a).text().trim();
+        if (href && host) links.push({ host, url: href });
       });
-    }
+
+      if (links.length) downloads.push({ resolution, format: fmt, links });
+    });
   });
 
-  // Fallback 1: coba .episodedl (struktur samehadaku alternatif)
+  // Fallback: jika masih kosong, ambil semua <li> yang ada link apapun
   if (!downloads.length) {
-    let fmt = 'Download';
-    $('div.episodedl').children().each((_, el) => {
-      const tag  = $(el).prop('tagName')?.toLowerCase();
-      const text = $(el).text().trim();
-      if ((tag === 'p' || tag === 'h3') && !$(el).find('a').length && text) {
-        fmt = text;
-      } else if (tag === 'ul') {
-        $(el).find('li').each((_, li) => {
-          const resolution = $(li).find('strong, b').first().text().trim();
-          const links      = [];
-          $(li).find('a').each((_, a) => {
-            const href = $(a).attr('href');
-            const host = $(a).text().trim();
-            if (href && host) links.push({ host, url: href });
-          });
-          if (links.length) downloads.push({ resolution, format: fmt, links });
-        });
-      }
-    });
-  }
-
-  // Fallback 2: ambil semua li berisi link download, tanpa grouping format
-  if (!downloads.length) {
-    dlContainer.find('li').each((_, li) => {
+    $('li').each((_, li) => {
       const resolution = $(li).find('strong, b').first().text().trim();
       const links      = [];
       $(li).find('a').each((_, a) => {
@@ -187,6 +163,7 @@ async function getWatch(link) {
       if (links.length) downloads.push({ resolution, format: 'Download', links });
     });
   }
+
 
   return {
     title    : $('h1[itemprop="name"]').text().trim(),
