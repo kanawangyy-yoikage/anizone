@@ -119,18 +119,27 @@ async function getWatch(link) {
     }
   }
 
-  // Download links — grouped by format (MKV, MP4, etc.)
+  // Download links — grouped by format (MKV, MP4, dll.)
   const downloads = [];
-  const dlContainer = $('#downloaddb, .download-eps, [id*="download"]').first();
-  let currentFormat  = 'Download';
 
+  // Selector berlapis untuk download section samehadaku
+  const dlContainer = $(
+    '#downloaddb, .download-eps, .episodedl, #episodedl, ' +
+    '[id*="download"], [class*="download"]'
+  ).first();
+
+  let currentFormat = 'Download';
+
+  // Parse struktur: <p>MKV</p> <ul><li><strong>720p</strong><a>host</a></li></ul>
   dlContainer.children().each((_, el) => {
-    const tag = $(el).prop('tagName')?.toLowerCase();
-    if (tag === 'p' && !$(el).find('a').length) {
-      currentFormat = $(el).text().trim() || currentFormat;
-    } else if (tag === 'ul') {
+    const tag  = $(el).prop('tagName')?.toLowerCase();
+    const text = $(el).text().trim();
+
+    if ((tag === 'p' || tag === 'h3' || tag === 'h4') && !$(el).find('a').length && text) {
+      currentFormat = text;
+    } else if (tag === 'ul' || tag === 'div') {
       $(el).find('li').each((_, li) => {
-        const resolution = $(li).find('strong').first().text().trim();
+        const resolution = $(li).find('strong, b').first().text().trim();
         const links      = [];
         $(li).find('a').each((_, a) => {
           const href = $(a).attr('href');
@@ -142,10 +151,33 @@ async function getWatch(link) {
     }
   });
 
-  // Fallback jika grouped parsing tidak menemukan apa-apa
+  // Fallback 1: coba .episodedl (struktur samehadaku alternatif)
+  if (!downloads.length) {
+    let fmt = 'Download';
+    $('div.episodedl').children().each((_, el) => {
+      const tag  = $(el).prop('tagName')?.toLowerCase();
+      const text = $(el).text().trim();
+      if ((tag === 'p' || tag === 'h3') && !$(el).find('a').length && text) {
+        fmt = text;
+      } else if (tag === 'ul') {
+        $(el).find('li').each((_, li) => {
+          const resolution = $(li).find('strong, b').first().text().trim();
+          const links      = [];
+          $(li).find('a').each((_, a) => {
+            const href = $(a).attr('href');
+            const host = $(a).text().trim();
+            if (href && host) links.push({ host, url: href });
+          });
+          if (links.length) downloads.push({ resolution, format: fmt, links });
+        });
+      }
+    });
+  }
+
+  // Fallback 2: ambil semua li berisi link download, tanpa grouping format
   if (!downloads.length) {
     dlContainer.find('li').each((_, li) => {
-      const resolution = $(li).find('strong').first().text().trim();
+      const resolution = $(li).find('strong, b').first().text().trim();
       const links      = [];
       $(li).find('a').each((_, a) => {
         const href = $(a).attr('href');
