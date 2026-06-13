@@ -13,7 +13,7 @@
 
 <br><br>
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![Node](https://img.shields.io/badge/node.js-18+-green)
 ![PHP](https://img.shields.io/badge/php-8+-777BB4)
 ![License](https://img.shields.io/badge/license-MIT-purple)
@@ -104,6 +104,36 @@ Simpan waifu favorit dan list anime favorit di profil kamu. Data dari Jikan API 
 
 ---
 
+## 📌 Watchlist / Bookmark
+Tandai anime sesuai status: Mau Nonton, Sedang Nonton, Selesai, atau Dropped. Watchlist dikelompokkan otomatis per status di tab tersendiri.
+
+---
+
+## 📊 Anime Stats
+Statistik personal di halaman profil: total episode ditonton, jumlah watchlist, skor rata-rata, estimasi jam nonton, breakdown status watchlist, dan heatmap aktivitas 35 hari terakhir.
+
+---
+
+## ▶️ Continue Watching
+Lanjutkan nonton dari posisi terakhir. Progress tiap episode disimpan otomatis dan ditampilkan sebagai strip di Beranda serta progress bar di daftar episode.
+
+---
+
+## 🔍 Advanced Search & Filter
+Overlay pencarian instan dengan filter tipe (TV/Movie/OVA/dst), status (Ongoing/Completed/Upcoming), dan sorting (relevan, skor, A-Z, Z-A, terbaru).
+
+---
+
+## ✨ Rekomendasi Personal
+Rekomendasi anime berdasarkan genre dari riwayat tontonan, plus section "Karena kamu nonton X" untuk anime yang mirip dengan tontonan terakhir.
+
+---
+
+## 📱 Mobile Gestures
+Swipe kiri/kanan saat nonton untuk ganti episode, pull-to-refresh di halaman list, double-tap player untuk fullscreen, dan swipe-up di bottom nav untuk membuka pencarian.
+
+---
+
 ## 🛠️ Admin Dashboard
 Panel admin buat manage sistem dan konten.
 
@@ -179,14 +209,20 @@ anizone/
 │   │   ├── admin.js
 │   │   ├── crud.js
 │   │   └── modules/       ← Modul app utama
-│   │       ├── config.js      ← Konstanta frontend (API_BASE, sections, genres)
-│   │       ├── utils.js       ← Helper: show/hide/loader/emptyState
-│   │       ├── theme.js       ← Dark/light mode + dropdown settings
-│   │       ├── firestore.js   ← History & favorites
-│   │       ├── home.js        ← Beranda, slider, trending, jadwal, berita
-│   │       ├── anime.js       ← Kategori, detail, tonton, pencarian
-│   │       ├── developer.js   ← Tab developer
-│   │       └── navigation.js  ← switchTab(), init app
+│   │       ├── config.js               ← Konstanta frontend (API_BASE, sections, genres)
+│   │       ├── utils.js                ← Helper: show/hide/loader/emptyState
+│   │       ├── theme.js                ← Dark/light mode + dropdown settings
+│   │       ├── firestore.js            ← History & favorites
+│   │       ├── home.js                 ← Beranda, slider, trending, jadwal, berita
+│   │       ├── anime.js                ← Kategori, detail, tonton, pencarian
+│   │       ├── developer.js            ← Tab developer
+│   │       ├── navigation.js           ← switchTab(), init app
+│   │       ├── bookmark.js             ← Watchlist (status: mau/sedang/selesai/dropped)
+│   │       ├── stats.js                ← Statistik anime di profil
+│   │       ├── continue-watching.js    ← Progress tracking & strip "Lanjutkan Nonton"
+│   │       ├── advanced-search.js      ← Overlay search + filter tipe/status/sort
+│   │       ├── recommendation.js       ← Rekomendasi berbasis genre & history
+│   │       └── gestures.js             ← Swipe episode, pull-to-refresh, dll (mobile)
 │   ├── index.html
 │   ├── login.html
 │   ├── admin.html
@@ -312,11 +348,15 @@ docker run -p 3000:3000 -e MAL_CLIENT_ID=your_key anizone
 
 # 🔥 Roadmap
 
+- [x] Continue watching
+- [x] Watchlist / Bookmark
+- [x] Anime stats & activity heatmap
+- [x] Advanced search & filter
+- [x] Rekomendasi personal (genre-based)
+- [x] Mobile gestures (swipe episode, pull-to-refresh, dll)
 - [ ] Multi server streaming
-- [ ] Continue watching
 - [ ] Offline caching
 - [ ] Mobile app version
-- [ ] Recommendation AI
 - [ ] Discord RPC integration
 - [ ] Mengurangi penderitaan developer sebesar 1%
 
