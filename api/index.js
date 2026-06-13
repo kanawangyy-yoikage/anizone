@@ -2,6 +2,7 @@
 // File ini hanya berisi setup server dan routing.
 // Logic scraping → api/services/scraper.js
 // Logic MAL      → api/services/mal.js
+// CRUD Firestore → api/routes/ (pengganti PHP di Vercel)
 // Konstanta      → api/config.js
 
 const path    = require('path');
@@ -11,11 +12,16 @@ const cors    = require('cors');
 const scraper = require('./services/scraper');
 const mal     = require('./services/mal');
 
+// CRUD routes (pengganti php/api/)
+const handleAnime     = require('./routes/anime');
+const handleUsers     = require('./routes/users');
+const handleFavorites = require('./routes/favorites');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── API Routes ────────────────────────────────────────────
+// ── Scraping & MAL Routes ─────────────────────────────────
 
 app.get('/api/latest', async (req, res) => {
   try { res.json(await scraper.getLatest(req.query.page || 1)); }
@@ -63,6 +69,15 @@ app.get('/api/news', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: '2.0.0' }));
+
+// ── CRUD Routes (pengganti PHP) ───────────────────────────
+// Dulu: /php/api/anime.php   → Sekarang: /api/crud/anime
+// Dulu: /php/api/users.php   → Sekarang: /api/crud/users
+// Dulu: /php/api/favorites.php → Sekarang: /api/crud/favorites
+
+app.all('/api/crud/anime',     (req, res) => handleAnime(req, res));
+app.all('/api/crud/users',     (req, res) => handleUsers(req, res));
+app.all('/api/crud/favorites', (req, res) => handleFavorites(req, res));
 
 // ── Static Files ──────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '..', 'public')));
