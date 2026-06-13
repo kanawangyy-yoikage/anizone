@@ -91,42 +91,33 @@ async function getWatch(link) {
   const cookies   = res.headers['set-cookie']?.map(v => v.split(';')[0]).join('; ') || '';
   const $         = cheerio.load(res.data);
 
-  // Collect server list
-  const serverEls = [];
-  $('.server.active ul li').each((_, el) => serverEls.push(el));
-  if (!serverEls.length) {
-    $('.server ul li, .mirrorstream li, .player-embed li').each((_, el) => serverEls.push(el));
+  // Collect server list — samehadaku: div#server > ul > li, div[data-post] di dalam li
+  const streams = [];
+  for (const li of $('div#server > ul > li').toArray()) {
+    const div  = $(li).find('div');
+    const post = div.attr('data-post');
+    const nume = div.attr('data-nume');
+    const type = div.attr('data-type') || 'iframe';
+    const name = $(li).find('span').text().trim() || 'Server';
+    if (!post || !nume) continue;
+
+    try {
+      const body = new URLSearchParams({ action: 'player_ajax', post, nume, type }).toString();
+      const r    = await axios.post(`${PROXY}${BASE}/wp-admin/admin-ajax.php`, body, {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie'      : cookies,
+          'Referer'     : targetUrl,
+        },
+      });
+      const $$     = cheerio.load(r.data);
+      const iframe = $$('iframe').attr('src');
+      if (iframe) streams.push({ server: name, url: iframe });
+    } catch (e) {
+      console.log('[getWatch] error fetching server:', name, e.message);
+    }
   }
-
-  // Fetch stream URLs in parallel
-  const streams = (
-    await Promise.all(
-      serverEls.map(async (el) => {
-        const post  = $(el).find('a').attr('data-post')  || $(el).attr('data-post');
-        const nume  = $(el).find('a').attr('data-nume')  || $(el).attr('data-id');
-        const type  = $(el).find('a').attr('data-type')  || 'iframe';
-        const name  = $(el).find('a').text().trim()      || $(el).text().trim() || 'Server';
-        if (!post || !nume) return null;
-
-        try {
-          const body = new URLSearchParams({ action: 'player_ajax', post, nume, type }).toString();
-          const r    = await axios.post(`${PROXY}${BASE}/wp-admin/admin-ajax.php`, body, {
-            headers: {
-              ...headers,
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Cookie'      : cookies,
-              'Referer'     : targetUrl,
-            },
-          });
-          const $$    = cheerio.load(r.data);
-          const iframe = $$('iframe').attr('src');
-          return iframe ? { server: name, url: iframe } : null;
-        } catch {
-          return null;
-        }
-      })
-    )
-  ).filter(Boolean);
 
   // Download links — grouped by format (MKV, MP4, etc.)
   const downloads = [];
@@ -151,7 +142,7 @@ async function getWatch(link) {
     }
   });
 
-  // Fallback if grouped parsing found nothing
+  // Fallback jika grouped parsing tidak menemukan apa-apa
   if (!downloads.length) {
     dlContainer.find('li').each((_, li) => {
       const resolution = $(li).find('strong').first().text().trim();
