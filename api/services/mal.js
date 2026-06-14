@@ -92,10 +92,10 @@ async function getMalTrending() {
 async function getAnimeNews() {
   const axios = require('axios');
   const cheerio = require('cheerio');
-  const { SCRAPE_HEADERS } = require('../config');
+  const { PROXY, SCRAPE_HEADERS } = require('../config');
 
   try {
-    const res   = await axios.get(`https://animenewsnetwork.com/newsroom/`, { headers: SCRAPE_HEADERS });
+    const res   = await axios.get(`${PROXY}https://animenewsnetwork.com/newsroom/`, { headers: SCRAPE_HEADERS });
     const $     = cheerio.load(res.data);
     const news  = [];
 
