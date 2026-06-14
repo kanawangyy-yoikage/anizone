@@ -8,7 +8,7 @@ const MAL_SCORE_CACHE = new Map();
 
 // ID semua view — digunakan oleh switchTab untuk hide/show
 const ALL_VIEWS = [
-  'home-view', 'anime-view', 'recent-view', 'favorite-view',
+  'home-view', 'anime-view', 'recent-view', 'favorite-view', 'bookmark-view',
   'developer-view', 'detail-view', 'watch-view', 'profile-view',
 ];
 

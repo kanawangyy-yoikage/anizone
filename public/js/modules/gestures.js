@@ -1,7 +1,6 @@
 // ─── MOBILE GESTURES MODULE ──────────────────────────────
 // Fitur:
 //   - Swipe left/right di watch-view → ganti episode
-//   - Pull-to-refresh di home/recent/favorite
 //   - Swipe up di bottom nav → quick search
 //   - Long press kartu anime → quick bookmark
 //   - Double tap player area → fullscreen toggle
@@ -33,7 +32,6 @@ const GESTURES = {
   // ── Init all gestures ──────────────────────────────────
   init() {
     this._initSwipeEpisode();
-    this._initPullToRefresh();
     this._initLongPressBookmark();
     this._initDoubleTapFullscreen();
     this._initSwipeNav();
@@ -83,58 +81,6 @@ const GESTURES = {
     el.classList.add('show');
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('show'), 1800);
-  },
-
-  // ── 2. Pull-to-refresh ─────────────────────────────────
-  _initPullToRefresh() {
-    const views = [
-      { id: 'home-view',     fn: () => { document.getElementById('home-view').innerHTML = ''; loadHome(); } },
-      { id: 'recent-view',   fn: () => loadRecentHistory() },
-      { id: 'favorite-view', fn: () => loadFavorites() },
-      { id: 'bookmark-view', fn: () => loadBookmarks() },
-    ];
-
-    views.forEach(({ id, fn }) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      let startY = 0, pulling = false;
-      let indicator = null;
-
-      el.addEventListener('touchstart', e => {
-        if (el.scrollTop > 0) return;
-        startY = e.touches[0].clientY;
-        pulling = true;
-      }, { passive: true });
-
-      el.addEventListener('touchmove', e => {
-        if (!pulling) return;
-        const dy = e.touches[0].clientY - startY;
-        if (dy < 30) return;
-        if (!indicator) {
-          indicator = document.createElement('div');
-          indicator.className = 'ptr-indicator';
-          indicator.innerHTML = '<div class="ptr-spinner"></div><span>Tarik untuk refresh</span>';
-          el.prepend(indicator);
-        }
-        indicator.style.opacity = Math.min(dy / 80, 1);
-        indicator.querySelector('span').textContent = dy > 70 ? 'Lepaskan!' : 'Tarik untuk refresh';
-      }, { passive: true });
-
-      el.addEventListener('touchend', e => {
-        if (!pulling || !indicator) { pulling = false; return; }
-        const dy = e.changedTouches[0].clientY - startY;
-        if (dy > 70) {
-          indicator.innerHTML = '<div class="spinner" style="width:20px;height:20px"></div>';
-          fn();
-          setTimeout(() => { indicator?.remove(); indicator = null; }, 1000);
-        } else {
-          indicator?.remove();
-          indicator = null;
-        }
-        pulling = false;
-      }, { passive: true });
-    });
   },
 
   // ── 3. Long press anime card → quick bookmark ─────────

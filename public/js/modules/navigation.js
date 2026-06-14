@@ -32,6 +32,12 @@ function switchTab(tabName) {
       loadFavorites();
       break;
 
+    case 'bookmark':
+      show('bookmark-view');
+      document.getElementById('tab-bookmark')?.classList.add('active');
+      loadBookmarks();
+      break;
+
     case 'developer':
       show('developer-view');
       fetchWAFollowers();
@@ -43,6 +49,7 @@ function switchTab(tabName) {
       // Profile sudah di-load oleh onAuthStateChanged di auth.js
       if (typeof loadWaifuFromFirestore    === 'function') loadWaifuFromFirestore();
       if (typeof loadAnimeFavFromFirestore === 'function') loadAnimeFavFromFirestore();
+      if (typeof loadAnimeStats            === 'function') loadAnimeStats();
       break;
   }
 }
