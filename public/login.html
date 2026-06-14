@@ -228,21 +228,71 @@
 </div>
 
 <!-- SCRIPTS -->
-  <script>
-        // Blokir Klik Kanan
-        document.addEventListener('contextmenu', e => e.preventDefault());
+<script>
+        // =================================================================
+        // 1. MEMBLOKIR KLIK KANAN (CONTEXT MENU)
+        // =================================================================
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            alert("Maaf, fungsi klik kanan dinonaktifkan demi keamanan konten!");
+        });
 
-        // Blokir Shortcut Keyboard
+        // =================================================================
+        // 2. MEMBLOKIR SHORTCUT KEYBOARD (F12, CTRL+SHIFT+I, J, U)
+        // =================================================================
         document.addEventListener('keydown', function(e) {
-            if (
-                e.key === "F12" ||
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
-                (e.ctrlKey && e.key === 'U')
-            ) {
+            // Blokir F12
+            if (e.key === "F12") {
                 e.preventDefault();
-                alert("Fitur ini dinonaktifkan demi keamanan.");
+                alert("Akses F12 dilarang!");
+                return false;
+            }
+
+            // Blokir Ctrl+Shift+I (Inspect) & Ctrl+Shift+J (Console)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'i' || e.key === 'j')) {
+                e.preventDefault();
+                alert("Shortcut Inspect Element dinonaktifkan!");
+                return false;
+            }
+
+            // Blokir Ctrl+U (View Source)
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+                e.preventDefault();
+                alert("Shortcut View Source dinonaktifkan!");
+                return false;
             }
         });
+
+        // =================================================================
+        // 3. TRIK DETEKSI UKURAN LAYAR (Jika DevTools dibuka via Menu Browser)
+        // =================================================================
+        function checkDevTools() {
+            const threshold = 160; // Batas piksel deteksi DevTools terbuka
+            
+            // Menghitung selisih ukuran luar dan dalam browser
+            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+            
+            if (widthThreshold || heightThreshold) {
+                // Aksi jika terdeteksi: Ganti isi halaman total
+                document.body.innerHTML = `
+                    <div style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#ef4444;">
+                        <h1>Akses Ditolak!</h1>
+                        <p>Silakan tutup Developer Tools / Inspect Element Anda dan refresh halaman untuk kembali.</p>
+                    </div>
+                `;
+            }
+        }
+        // Jalankan pengecekan ukuran setiap 1 detik
+        setInterval(checkDevTools, 1000);
+
+        // =================================================================
+        // 4. TRIK INFINITE DEBUGGER (Membuat tab "Sources" nge-freeze saat terbuka)
+        // =================================================================
+        setInterval(function() {
+            debugger;
+        }, 100);
+
     </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
