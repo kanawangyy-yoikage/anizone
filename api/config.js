@@ -1,9 +1,8 @@
 // ─── ANIZONE API CONFIG ───────────────────────────────────
 // Semua konstanta global API dikumpulkan di sini.
-// Untuk mengubah base URL atau proxy, cukup edit file ini.
+// Sumber scraping: kusonime.com
 
-const PROXY      = 'https://cors.caliph.my.id/';
-const BASE       = 'https://v2.samehadaku.how';
+const BASE       = 'https://kusonime.com';
 const MAL_API    = 'https://api.myanimelist.net/v2';
 
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
@@ -14,4 +13,4 @@ const SCRAPE_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-module.exports = { PROXY, BASE, MAL_API, MAL_CLIENT_ID, SCRAPE_HEADERS };
+module.exports = { BASE, MAL_API, MAL_CLIENT_ID, SCRAPE_HEADERS };
