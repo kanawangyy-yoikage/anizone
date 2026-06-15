@@ -1,188 +1,197 @@
 // ─── SCRAPER SERVICE ─────────────────────────────────────
-// Semua fungsi scraping dari samehadaku dikumpulkan di sini.
+// Semua fungsi scraping dari kusonime.com dikumpulkan di sini.
 // Jika URL sumber berubah, cukup update file config.js.
 
 const axios   = require('axios');
 const cheerio = require('cheerio');
-const { PROXY, BASE, SCRAPE_HEADERS: headers } = require('../config');
+const { BASE, SCRAPE_HEADERS: headers } = require('../config');
+
+// Helper: buat URL absolut jika perlu
+function absUrl(url) {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${BASE}${url}`;
+}
 
 // ── Latest anime list ─────────────────────────────────────
+// GET /api/latest?page=1
 async function getLatest(page = 1) {
-  const res = await axios.get(`${PROXY}${BASE}/anime-terbaru/page/${page}/`, { headers });
-  const $   = cheerio.load(res.data);
+  const path = page && page > 1 ? `page/${page}` : '';
+  const res  = await axios.get(`${BASE}/${path}`, { headers });
+  const $    = cheerio.load(res.data);
   const data = [];
 
-  $('.post-show ul li').each((_, el) => {
-    const a = $(el).find('.dtla h2 a');
-    data.push({
-      title  : a.text().trim(),
-      url    : a.attr('href'),
-      image  : $(el).find('.thumb img').attr('src'),
-      episode: $(el).find('.dtla span:contains("Episode")').text().replace('Episode', '').trim(),
+  // Kusonime home: .vezone > .venz > .kover
+  $('.vezone').find('.venz').find('.kover').each((_, el) => {
+    const thumbnail = $(el).find('img').attr('src') || '';
+    const title     = $(el).find('.thumb').find('a').attr('title') || $(el).find('.thumb a').text().trim();
+    const url       = $(el).find('.thumb').find('a').attr('href') || '';
+    const episode   = $(el).find('.content').find('p:nth-child(2)').text().replace(/Episode/i, '').trim();
+
+    const genres = [];
+    $(el).find('.content').find('p:nth-child(4)').find('a').each((_, g) => {
+      genres.push($(g).text().trim());
     });
+
+    if (title && url) {
+      data.push({ title, image: thumbnail, url, episode, genres });
+    }
   });
 
   return data;
 }
 
 // ── Search ────────────────────────────────────────────────
+// GET /api/search?q=...
 async function searchAnime(query) {
-  const res = await axios.get(`${PROXY}${BASE}/?s=${encodeURIComponent(query)}`, { headers });
+  const res = await axios.get(`${BASE}/page/1/?s=${encodeURIComponent(query)}&post_type=post`, { headers });
   const $   = cheerio.load(res.data);
   const data = [];
 
-  $('.animpost').each((_, el) => {
-    data.push({
-      title: $(el).find('.data .title h2').text().trim(),
-      image: $(el).find('.content-thumb img').attr('src'),
-      type : $(el).find('.type').text().trim(),
-      score: $(el).find('.score').text().trim(),
-      url  : $(el).find('a').attr('href'),
+  $('.vezone').find('.venz').find('.kover').each((_, el) => {
+    const thumbnail = $(el).find('img').attr('src') || '';
+    const title     = $(el).find('.thumb').find('a').attr('title') || $(el).find('.thumb a').text().trim();
+    const url       = $(el).find('.thumb').find('a').attr('href') || '';
+
+    const genres = [];
+    $(el).find('.content').find('p:nth-child(4)').find('a').each((_, g) => {
+      genres.push($(g).text().trim());
     });
+
+    if (title && url) {
+      data.push({ title, image: thumbnail, url, genres });
+    }
   });
 
   return data;
 }
 
 // ── Detail (info + episode list) ─────────────────────────
+// GET /api/detail?url=https://kusonime.com/...
 async function getDetail(link) {
-  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-  const res       = await axios.get(`${PROXY}${targetUrl}`, { headers });
+  const targetUrl = absUrl(link);
+  const res       = await axios.get(targetUrl, { headers });
   const $         = cheerio.load(res.data);
 
-  // Episode list
-  const episodes = [];
-  $('.lstepsiode ul li').each((_, el) => {
-    episodes.push({
-      title: $(el).find('.epsleft .lchx a').text().trim(),
-      url  : $(el).find('.epsleft .lchx a').attr('href'),
-      date : $(el).find('.epsleft .date').text().trim(),
-    });
-  });
-
-  // Metadata key-value pairs
+  // Metadata: ambil dari .info > p (format "Key: Value")
   const info = {};
-  $('.anim-senct .right-senc .spe span').each((_, el) => {
-    const text = $(el).text();
-    if (text.includes(':')) {
-      const [key, val] = text.split(':');
-      info[key.trim().toLowerCase().replace(/\s+/g, '_')] = val.trim();
-    }
+  $('.info').find('p').each((_, el) => {
+    const bText = $(el).find('b').text().toLowerCase().trim().replace(/\s+/g, '_');
+    $(el).find('b').remove();
+    const val = $(el).text().split(':').pop().trim();
+    if (bText) info[bText] = val || null;
   });
 
-  const title       = $('title').text().replace(' - Samehadaku', '').trim();
-  const description = $('.entry-content').text().trim()
-    || $('meta[name="description"]').attr('content')
-    || '';
+  // Episode list: kusonime — .episodelist > ul > li
+  const episodes = [];
+  $('.episodelist').find('ul li').each((_, el) => {
+    const a    = $(el).find('a');
+    const epTitle = a.text().trim();
+    const epUrl   = a.attr('href') || '';
+    const date    = $(el).find('.episodedate').text().trim();
+    if (epTitle && epUrl) episodes.push({ title: epTitle, url: epUrl, date });
+  });
 
-  return {
-    title,
-    image: $('meta[property="og:image"]').attr('content'),
-    description,
-    episodes,
-    info,
-  };
+  // Jika selector di atas kosong, coba selector alternatif kusonime
+  if (!episodes.length) {
+    $('.episodelistfull').find('li').each((_, el) => {
+      const a = $(el).find('a');
+      const epTitle = a.text().trim();
+      const epUrl   = a.attr('href') || '';
+      if (epTitle && epUrl) episodes.push({ title: epTitle, url: epUrl, date: '' });
+    });
+  }
+
+  const title       = $('.jdlz').text().trim() || $('title').text().replace(/\s*[-–|].*/, '').trim();
+  const image       = $('.post-thumb').find('img').attr('src')
+                   || $('meta[property="og:image"]').attr('content')
+                   || '';
+  const description = $('.lexot > p').text().trim()
+                   || $('meta[name="description"]').attr('content')
+                   || '';
+
+  return { title, image, description, episodes, info };
 }
 
 // ── Watch (stream + download links) ──────────────────────
+// GET /api/watch?url=https://kusonime.com/...
+// Kusonime episode page: download links ada di #dl > .smokeddlrh
 async function getWatch(link) {
-  const targetUrl = link.startsWith('http') ? link : `${BASE}${link}`;
-  const res       = await axios.get(`${PROXY}${targetUrl}`, { headers });
-  const cookies   = res.headers['set-cookie']?.map(v => v.split(';')[0]).join('; ') || '';
+  const targetUrl = absUrl(link);
+  const res       = await axios.get(targetUrl, { headers });
   const $         = cheerio.load(res.data);
 
-  // Collect server list — samehadaku: div#server > ul > li, div[data-post] di dalam li
+  // Stream: cari iframe embed (kusonime biasanya embed di .playxo atau iframe langsung)
   const streams = [];
-  for (const li of $('div#server > ul > li').toArray()) {
-    const div  = $(li).find('div');
-    const post = div.attr('data-post');
-    const nume = div.attr('data-nume');
-    const type = div.attr('data-type') || 'iframe';
-    const name = $(li).find('span').text().trim() || 'Server';
-    if (!post || !nume) continue;
-
-    try {
-      const body = new URLSearchParams({ action: 'player_ajax', post, nume, type }).toString();
-      const r    = await axios.post(`${PROXY}${BASE}/wp-admin/admin-ajax.php`, body, {
-        headers: {
-          ...headers,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie'      : cookies,
-          'Referer'     : targetUrl,
-        },
-      });
-      const $$     = cheerio.load(r.data);
-      const iframe = $$('iframe').attr('src');
-      if (iframe) streams.push({ server: name, url: iframe });
-    } catch (e) {
-      console.log('[getWatch] error fetching server:', name, e.message);
+  $('iframe').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || '';
+    if (src) {
+      const server = $(el).attr('title') || $(el).attr('id') || 'Server';
+      streams.push({ server, url: src });
     }
+  });
+
+  // Jika ada div server list (mirip struktur samehadaku yang ada di kusonime juga)
+  if (!streams.length) {
+    $('div#server ul li').each((_, li) => {
+      const a   = $(li).find('a');
+      const url = a.attr('href') || a.attr('data-src') || '';
+      const srv = a.text().trim() || 'Server';
+      if (url) streams.push({ server: srv, url });
+    });
   }
 
-  // Download links — grouped by format
-  // Struktur samehadaku: div.download-eps#downloaddb > p (label) + ul > li > strong (res) + span > a (host)
+  // Download links: struktur kusonime = #dl > .smokeddlrh > .smokettlrh (judul) + .smokeurlrh (link)
   const downloads = [];
+  $('#dl').find('.smokeddlrh').each((_, el) => {
+    const dlTitle = $(el).find('.smokettlrh').text().trim();
 
-  // Ambil SEMUA .download-eps (bisa ada beberapa: MKV, MP4, dll.)
-  const dlGroups = $('.download-eps, #downloaddb, .episodedl').toArray();
-
-  // Jika tidak ada, coba selector lebih luas
-  const containers = dlGroups.length ? dlGroups : $('[id*="download"], [class*="download"]').toArray();
-
-  containers.forEach(container => {
-    // Label format dari <p> pertama di dalam container
-    const fmtEl = $(container).find('> p').first();
-    const fmt   = fmtEl.text().replace(/\s+/g, ' ').trim() || 'Download';
-
-    // Setiap <li> = satu baris resolusi
-    $(container).find('ul > li').each((_, li) => {
-      const resolution = $(li).find('strong, b').first().text().trim();
+    $(el).find('.smokeurlrh').each((_, row) => {
+      const resolution = $(row).find('strong').text().trim();
       const links      = [];
 
-      // Link ada di dalam <span><a> (bukan langsung <li><a>)
-      $(li).find('span a, a').each((_, a) => {
-        const href = $(a).attr('href');
+      $(row).find('a').each((_, a) => {
         const host = $(a).text().trim();
-        if (href && host) links.push({ host, url: href });
+        const url  = $(a).attr('href') || '';
+        if (host && url) links.push({ host, url });
       });
 
-      if (links.length) downloads.push({ resolution, format: fmt, links });
+      if (links.length) downloads.push({ resolution, format: dlTitle, links });
     });
   });
 
-  // Fallback: jika masih kosong, ambil semua <li> yang ada link apapun
+  // Fallback download: selector lebih luas
   if (!downloads.length) {
-    $('li').each((_, li) => {
+    $('[class*="download"], [id*="download"]').find('li').each((_, li) => {
       const resolution = $(li).find('strong, b').first().text().trim();
       const links      = [];
       $(li).find('a').each((_, a) => {
-        const href = $(a).attr('href');
         const host = $(a).text().trim();
-        if (href && host) links.push({ host, url: href });
+        const url  = $(a).attr('href') || '';
+        if (host && url) links.push({ host, url });
       });
       if (links.length) downloads.push({ resolution, format: 'Download', links });
     });
   }
 
+  const title = $('.jdlz').text().trim()
+             || $('h1[itemprop="name"]').text().trim()
+             || $('h1').first().text().trim();
 
-  return {
-    title    : $('h1[itemprop="name"]').text().trim(),
-    streams,
-    downloads,
-  };
+  return { title, streams, downloads };
 }
 
-// ── Scraped schedule (fallback, no MAL key) ──────────────
+// ── Scraped schedule (fallback) ───────────────────────────
 async function getScrapedSchedule() {
   try {
-    const res   = await axios.get(`${PROXY}${BASE}/jadwal-rilis/`, { headers });
-    const $     = cheerio.load(res.data);
+    const res = await axios.get(`${BASE}/jadwal-tayang/`, { headers });
+    const $   = cheerio.load(res.data);
     const items = [];
 
-    $('table tr, .schedule-item, .post-show ul li').each((_, el) => {
-      const title = $(el).find('a').first().text().trim();
-      const url   = $(el).find('a').first().attr('href');
-      const image = $(el).find('img').attr('src');
+    $('table tr, .schedule-item, .vezone .kover').each((_, el) => {
+      const a     = $(el).find('a').first();
+      const title = a.attr('title') || a.text().trim();
+      const url   = a.attr('href') || '';
+      const image = $(el).find('img').attr('src') || '';
       if (title && url) items.push({ title, url, image });
     });
 
@@ -190,10 +199,8 @@ async function getScrapedSchedule() {
   } catch { return []; }
 }
 
-// ── Scraped trending (fallback, no MAL key) ──────────────
+// ── Scraped trending (fallback) ───────────────────────────
 async function getScrapedTrending() {
-  // Minimal fallback — returns empty because axios won't behave
-  // like browser fetch; primary path is MAL API.
   return [];
 }
 
