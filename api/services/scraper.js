@@ -1,180 +1,194 @@
 // ─── SCRAPER SERVICE ─────────────────────────────────────
-// Semua fungsi scraping dari kusonime.com dikumpulkan di sini.
-// Jika URL sumber berubah, cukup update file config.js.
+// Scraping dari kusonime.com
+// Selector berdasarkan kusonime-api v2 (Deo Sbrn, 2024)
 
 const axios   = require('axios');
 const cheerio = require('cheerio');
-const { BASE, SCRAPE_HEADERS: headers } = require('../config');
+const { BASE, SCRAPE_HEADERS } = require('../config');
 
-// Helper: buat URL absolut jika perlu
-function absUrl(url) {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `${BASE}${url}`;
+const KUSONIME_URL = 'https://kusonime.com/';
+
+// Axios instance persis seperti kusonime-api v2
+const client = axios.create({
+  baseURL: BASE,
+  withCredentials: true,
+  headers: {
+    'Content-Type'    : 'application/x-www-form-urlencoded',
+    'Accept'          : 'application/json, text/javascript, */*; q=0.01',
+    'X-Requested-With': 'XMLHttpRequest',
+    'User-Agent'      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Referer'         : 'https://kusonime.com/',
+    'Accept-Encoding' : 'gzip, deflate, br',
+    'Accept-Language' : 'en-US,en;q=0.9,id;q=0.8',
+    'Connection'      : 'keep-alive',
+    'Host'            : 'kusonime.com',
+    'Origin'          : 'https://kusonime.com',
+    'Sec-Fetch-Dest'  : 'document',
+    'Sec-Fetch-Mode'  : 'navigate',
+    'Sec-Fetch-User'  : '?1',
+    'Sec-Fetch-Site'  : 'none',
+  },
+});
+
+// Helper: parse daftar anime dari halaman list (.venutama)
+function formatAnimeData($) {
+  const anime = [];
+  const element = $('.venutama');
+
+  $(element).find('.venz ul .kover').each((_, el) => {
+    const title   = $(el).find('.content > h2 > a').text().trim();
+    const release = $(el).find('.content > p').text().trim().split('Genre')[0].trim().split('Admin')[1]?.trim() || '';
+    const genreRaw = $(el).find('.content > p').text().trim().split('Genre')[1];
+    const genres  = genreRaw ? genreRaw.trim().split(', ') : [];
+    const url     = $(el).find('.thumb a').attr('href') || '';
+    const image   = $(el).find('.thumb a .thumbz img').attr('src') || '';
+    const endpoint = url.replace(KUSONIME_URL, '');
+
+    if (title && url) anime.push({ title, release, genres, url, image, endpoint });
+  });
+
+  return anime;
+}
+
+// Helper: parse download links dari halaman detail/episode
+function getDownloadLinks($, wrapperClass, urlClass, titleClass) {
+  const download = [];
+  const element  = $('.venser');
+
+  $(element).find(wrapperClass).each((_, el) => {
+    const resolutions = [];
+
+    $(el).find(urlClass).each((_, row) => {
+      const links = [];
+      $(row).find('a').each((_, a) => {
+        links.push({ host: $(a).text().trim(), url: $(a).attr('href') || '' });
+      });
+      resolutions.push({ resolusi: $(row).find('strong').text().trim(), link: links });
+    });
+
+    download.push({ title: $(el).find(titleClass).text().trim(), link_download: resolutions });
+  });
+
+  return download;
 }
 
 // ── Latest anime list ─────────────────────────────────────
 // GET /api/latest?page=1
 async function getLatest(page = 1) {
-  const path = page && page > 1 ? `page/${page}` : '';
-  const res  = await axios.get(`${BASE}/${path}`, { headers });
-  const $    = cheerio.load(res.data);
-  const data = [];
-
-  // Kusonime home: .vezone > .venz > .kover
-  $('.vezone').find('.venz').find('.kover').each((_, el) => {
-    const thumbnail = $(el).find('img').attr('src') || '';
-    const title     = $(el).find('.thumb').find('a').attr('title') || $(el).find('.thumb a').text().trim();
-    const url       = $(el).find('.thumb').find('a').attr('href') || '';
-    const episode   = $(el).find('.content').find('p:nth-child(2)').text().replace(/Episode/i, '').trim();
-
-    const genres = [];
-    $(el).find('.content').find('p:nth-child(4)').find('a').each((_, g) => {
-      genres.push($(g).text().trim());
-    });
-
-    if (title && url) {
-      data.push({ title, image: thumbnail, url, episode, genres });
-    }
-  });
-
-  return data;
+  const res = await client.get(`/page/${page}`);
+  const $   = cheerio.load(res.data);
+  return formatAnimeData($);
 }
 
 // ── Search ────────────────────────────────────────────────
 // GET /api/search?q=...
 async function searchAnime(query) {
-  const res = await axios.get(`${BASE}/page/1/?s=${encodeURIComponent(query)}&post_type=post`, { headers });
+  const res = await client.get(`/?s=${encodeURIComponent(query)}&post_type=post`);
   const $   = cheerio.load(res.data);
-  const data = [];
-
-  $('.vezone').find('.venz').find('.kover').each((_, el) => {
-    const thumbnail = $(el).find('img').attr('src') || '';
-    const title     = $(el).find('.thumb').find('a').attr('title') || $(el).find('.thumb a').text().trim();
-    const url       = $(el).find('.thumb').find('a').attr('href') || '';
-
-    const genres = [];
-    $(el).find('.content').find('p:nth-child(4)').find('a').each((_, g) => {
-      genres.push($(g).text().trim());
-    });
-
-    if (title && url) {
-      data.push({ title, image: thumbnail, url, genres });
-    }
-  });
-
-  return data;
+  return formatAnimeData($);
 }
 
-// ── Detail (info + episode list) ─────────────────────────
-// GET /api/detail?url=https://kusonime.com/...
+// ── Detail anime (info + episode list) ───────────────────
+// GET /api/detail?url=https://kusonime.com/slug/
 async function getDetail(link) {
-  const targetUrl = absUrl(link);
-  const res       = await axios.get(targetUrl, { headers });
-  const $         = cheerio.load(res.data);
+  // Ambil slug dari URL
+  const slug = link.replace(KUSONIME_URL, '').replace(/\/$/, '');
+  const res  = await client.get(`/${slug}`);
+  const $    = cheerio.load(res.data);
+  const element = $('.venser');
 
-  // Metadata: ambil dari .info > p (format "Key: Value")
-  const info = {};
-  $('.info').find('p').each((_, el) => {
-    const bText = $(el).find('b').text().toLowerCase().trim().replace(/\s+/g, '_');
-    $(el).find('b').remove();
-    const val = $(el).text().split(':').pop().trim();
-    if (bText) info[bText] = val || null;
-  });
-
-  // Episode list: kusonime — .episodelist > ul > li
-  const episodes = [];
-  $('.episodelist').find('ul li').each((_, el) => {
-    const a    = $(el).find('a');
-    const epTitle = a.text().trim();
-    const epUrl   = a.attr('href') || '';
-    const date    = $(el).find('.episodedate').text().trim();
-    if (epTitle && epUrl) episodes.push({ title: epTitle, url: epUrl, date });
-  });
-
-  // Jika selector di atas kosong, coba selector alternatif kusonime
-  if (!episodes.length) {
-    $('.episodelistfull').find('li').each((_, el) => {
-      const a = $(el).find('a');
-      const epTitle = a.text().trim();
-      const epUrl   = a.attr('href') || '';
-      if (epTitle && epUrl) episodes.push({ title: epTitle, url: epUrl, date: '' });
+  // Genre
+  const genre = [];
+  $(element).find('.info > p:nth-of-type(2) > a').each((_, el) => {
+    genre.push({
+      name    : $(el).text().trim(),
+      url     : $(el).attr('href') || '',
+      endpoint: $(el).attr('href')?.replace(KUSONIME_URL, '') || '',
     });
+  });
+
+  // Download links (coba 3 variasi selector)
+  let download = getDownloadLinks($, '.smokeddlrh', '.smokeurlrh', '.smokettlrh');
+  if (!download.length || download.every(d => !d.link_download.length)) {
+    download = getDownloadLinks($, '.smokeddlrhrh', '.smokeurlrhrh', '.smokettlrhrh');
   }
+  if (!download.length || download.every(d => !d.link_download.length)) {
+    download = getDownloadLinks($, '.smokeddl', '.smokeurl', '.smokettl');
+  }
+  download = download.filter(d => d.link_download.length > 0 && d.title !== '');
 
-  const title       = $('.jdlz').text().trim() || $('title').text().replace(/\s*[-–|].*/, '').trim();
-  const image       = $('.post-thumb').find('img').attr('src')
-                   || $('meta[property="og:image"]').attr('content')
-                   || '';
-  const description = $('.lexot > p').text().trim()
-                   || $('meta[name="description"]').attr('content')
-                   || '';
+  // Episode list — kusonime: .episodelist ul li
+  const episodes = [];
+  $('.episodelist ul li').each((_, el) => {
+    const a   = $(el).find('a');
+    const url = a.attr('href') || '';
+    const title = a.text().trim();
+    const date  = $(el).find('.episodedate').text().trim();
+    if (title && url) episodes.push({ title, url, date });
+  });
 
-  return { title, image, description, episodes, info };
+  const season = {
+    name    : $(element).find('.lexot .info > p:nth-of-type(3) > a').text().trim(),
+    url     : $(element).find('.lexot .info > p:nth-of-type(3) > a').attr('href') || '',
+    endpoint: $(element).find('.lexot .info > p:nth-of-type(3) > a').attr('href')?.replace(KUSONIME_URL, '') || '',
+  };
+
+  return {
+    title        : $(element).find('.post-thumb img').attr('title') || '',
+    japanese     : $(element).find('.lexot .info > p:nth-of-type(1)').text().split(':')[1]?.trim() || '',
+    image        : $(element).find('.post-thumb img').attr('src') || $('meta[property="og:image"]').attr('content') || '',
+    producer     : $(element).find('.lexot .info > p:nth-of-type(4)').text().split(':')[1]?.trim() || '',
+    type         : $(element).find('.lexot .info > p:nth-of-type(5)').text().split(':')[1]?.trim() || '',
+    status       : $(element).find('.lexot .info > p:nth-of-type(6)').text().split(':')[1]?.trim() || '',
+    total_episode: $(element).find('.lexot .info > p:nth-of-type(7)').text().split(':')[1]?.trim() || '',
+    score        : $(element).find('.lexot .info > p:nth-of-type(8)').text().split(':')[1]?.trim() || '',
+    duration     : $(element).find('.lexot .info > p:nth-of-type(9)').text().split(':')[1]?.trim() || '',
+    release_on   : $(element).find('.lexot .info > p:nth-of-type(10)').text().split(':')[1]?.trim() || '',
+    description  : $(element).find('.lexot > p:nth-of-type(1)').text().trim(),
+    genre,
+    season,
+    episodes,
+    download,
+  };
 }
 
-// ── Watch (stream + download links) ──────────────────────
+// ── Watch (stream links dari halaman episode) ─────────────
 // GET /api/watch?url=https://kusonime.com/...
-// Kusonime episode page: download links ada di #dl > .smokeddlrh
 async function getWatch(link) {
-  const targetUrl = absUrl(link);
-  const res       = await axios.get(targetUrl, { headers });
-  const $         = cheerio.load(res.data);
+  const slug = link.replace(KUSONIME_URL, '').replace(/\/$/, '');
+  const res  = await client.get(`/${slug}`);
+  const $    = cheerio.load(res.data);
 
-  // Stream: cari iframe embed (kusonime biasanya embed di .playxo atau iframe langsung)
+  // Stream: cari semua iframe
   const streams = [];
   $('iframe').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
-    if (src) {
-      const server = $(el).attr('title') || $(el).attr('id') || 'Server';
-      streams.push({ server, url: src });
-    }
+    if (src) streams.push({ server: $(el).attr('title') || 'Server', url: src });
   });
 
-  // Jika ada div server list (mirip struktur samehadaku yang ada di kusonime juga)
-  if (!streams.length) {
-    $('div#server ul li').each((_, li) => {
-      const a   = $(li).find('a');
-      const url = a.attr('href') || a.attr('data-src') || '';
-      const srv = a.text().trim() || 'Server';
-      if (url) streams.push({ server: srv, url });
-    });
+  // Download links
+  let download = getDownloadLinks($, '.smokeddlrh', '.smokeurlrh', '.smokettlrh');
+  if (!download.length || download.every(d => !d.link_download.length)) {
+    download = getDownloadLinks($, '.smokeddlrhrh', '.smokeurlrhrh', '.smokettlrhrh');
   }
+  if (!download.length || download.every(d => !d.link_download.length)) {
+    download = getDownloadLinks($, '.smokeddl', '.smokeurl', '.smokettl');
+  }
+  download = download.filter(d => d.link_download.length > 0 && d.title !== '');
 
-  // Download links: struktur kusonime = #dl > .smokeddlrh > .smokettlrh (judul) + .smokeurlrh (link)
+  // Format downloads agar cocok dengan format lama anizone
   const downloads = [];
-  $('#dl').find('.smokeddlrh').each((_, el) => {
-    const dlTitle = $(el).find('.smokettlrh').text().trim();
-
-    $(el).find('.smokeurlrh').each((_, row) => {
-      const resolution = $(row).find('strong').text().trim();
-      const links      = [];
-
-      $(row).find('a').each((_, a) => {
-        const host = $(a).text().trim();
-        const url  = $(a).attr('href') || '';
-        if (host && url) links.push({ host, url });
+  download.forEach(group => {
+    group.link_download.forEach(res => {
+      downloads.push({
+        resolution: res.resolusi,
+        format    : group.title,
+        links     : res.link,
       });
-
-      if (links.length) downloads.push({ resolution, format: dlTitle, links });
     });
   });
 
-  // Fallback download: selector lebih luas
-  if (!downloads.length) {
-    $('[class*="download"], [id*="download"]').find('li').each((_, li) => {
-      const resolution = $(li).find('strong, b').first().text().trim();
-      const links      = [];
-      $(li).find('a').each((_, a) => {
-        const host = $(a).text().trim();
-        const url  = $(a).attr('href') || '';
-        if (host && url) links.push({ host, url });
-      });
-      if (links.length) downloads.push({ resolution, format: 'Download', links });
-    });
-  }
-
-  const title = $('.jdlz').text().trim()
-             || $('h1[itemprop="name"]').text().trim()
+  const title = $('.venser .post-thumb img').attr('title')
              || $('h1').first().text().trim();
 
   return { title, streams, downloads };
@@ -183,15 +197,14 @@ async function getWatch(link) {
 // ── Scraped schedule (fallback) ───────────────────────────
 async function getScrapedSchedule() {
   try {
-    const res = await axios.get(`${BASE}/jadwal-tayang/`, { headers });
+    const res = await client.get('/jadwal-tayang/');
     const $   = cheerio.load(res.data);
     const items = [];
 
-    $('table tr, .schedule-item, .vezone .kover').each((_, el) => {
-      const a     = $(el).find('a').first();
-      const title = a.attr('title') || a.text().trim();
-      const url   = a.attr('href') || '';
-      const image = $(el).find('img').attr('src') || '';
+    $('.venutama .venz ul .kover').each((_, el) => {
+      const title = $(el).find('.content > h2 > a').text().trim();
+      const url   = $(el).find('.thumb a').attr('href') || '';
+      const image = $(el).find('.thumb a .thumbz img').attr('src') || '';
       if (title && url) items.push({ title, url, image });
     });
 
@@ -201,7 +214,20 @@ async function getScrapedSchedule() {
 
 // ── Scraped trending (fallback) ───────────────────────────
 async function getScrapedTrending() {
-  return [];
+  try {
+    const res = await client.get('/');
+    const $   = cheerio.load(res.data);
+    const items = [];
+
+    $('.rekomf .recomx > ul > li').each((_, el) => {
+      const title = $(el).find('.zeeb > a > img').attr('title') || '';
+      const url   = $(el).find('.zeeb > a').attr('href') || '';
+      const image = $(el).find('.zeeb > a > img').attr('src') || '';
+      if (title && url) items.push({ title, url, image });
+    });
+
+    return items;
+  } catch { return []; }
 }
 
 module.exports = { getLatest, searchAnime, getDetail, getWatch, getScrapedSchedule, getScrapedTrending };
