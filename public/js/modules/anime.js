@@ -251,10 +251,14 @@ async function loadVideo(url) {
 
 
     if (data.streams?.length > 0) {
-      player.src = data.streams[0].url;
-      servers.innerHTML = data.streams.map((s, i) =>
-        `<button class="server-tag ${i === 0 ? 'active' : ''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
-      ).join('');
+      // Load stream pertama (gunakan serverId jika URL kosong)
+      await loadStreamSrc(player, data.streams[0]);
+      servers.innerHTML = data.streams.map((s, i) => {
+        const sid  = s.serverId || '';
+        const surl = s.url || '';
+        const attr = sid ? `data-serverid="${sid}"` : `data-url="${surl}"`;
+        return `<button class="server-tag ${i === 0 ? 'active' : ''}" ${attr} onclick="changeServerAuto(this)">${s.server}</button>`;
+      }).join('');
     } else {
       alert('Maaf, stream belum tersedia untuk episode ini.');
     }
@@ -286,6 +290,29 @@ async function loadVideo(url) {
   } catch {} finally { loader(false); }
 }
 
+// Ambil embed URL: jika ada data-url langsung pakai, jika data-serverid fetch ke /api/server/:id
+async function loadStreamSrc(player, stream) {
+  let src = stream.url || '';
+  if (!src && stream.serverId) {
+    try {
+      const r = await fetch(`${API_BASE}/server/${encodeURIComponent(stream.serverId)}`);
+      const d = await r.json();
+      src = d.url || '';
+    } catch {}
+  }
+  if (src) player.src = src;
+}
+
+async function changeServerAuto(btn) {
+  document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const player   = document.getElementById('video-player');
+  const url      = btn.dataset.url      || '';
+  const serverId = btn.dataset.serverid || '';
+  await loadStreamSrc(player, { url, serverId });
+}
+
+// Alias lama untuk kompatibilitas
 function changeServer(url, btn) {
   document.getElementById('video-player').src = url;
   document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
