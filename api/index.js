@@ -1,9 +1,6 @@
 // ─── ANIZONE API — ENTRY POINT ───────────────────────────
-// File ini hanya berisi setup server dan routing.
-// Logic scraping → api/services/scraper.js
-// Logic MAL      → api/services/mal.js
-// CRUD Firestore → api/routes/ (pengganti PHP di Vercel)
-// Konstanta      → api/config.js
+// Scraping sumber: sankavollerei.web.id/anime/
+// Referensi endpoint: https://sankavollerei.web.id/anime/
 
 const path    = require('path');
 const express = require('express');
@@ -12,7 +9,7 @@ const cors    = require('cors');
 const scraper = require('./services/scraper');
 const mal     = require('./services/mal');
 
-// CRUD routes (pengganti php/api/)
+// CRUD routes (Firestore)
 const handleAnime     = require('./routes/anime');
 const handleUsers     = require('./routes/users');
 const handleFavorites = require('./routes/favorites');
@@ -21,60 +18,138 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ── Helper error handler ──────────────────────────────────
+const wrap = fn => async (req, res) => {
+  try { await fn(req, res); }
+  catch (e) {
+    console.error('[API Error]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+};
+
 // ── Scraping & MAL Routes ─────────────────────────────────
 
-app.get('/api/latest', async (req, res) => {
-  try { res.json(await scraper.getLatest(req.query.page || 1)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Latest / Ongoing (beranda)
+app.get('/api/latest', wrap(async (req, res) => {
+  res.json(await scraper.getLatest(req.query.page || 1));
+}));
 
-app.get('/api/search', async (req, res) => {
-  try { res.json(await scraper.searchAnime(req.query.q)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Search
+app.get('/api/search', wrap(async (req, res) => {
+  res.json(await scraper.searchAnime(req.query.q || req.query.keyword || ''));
+}));
 
-app.get('/api/detail', async (req, res) => {
+// Detail anime (adapter, cocok dengan frontend lama)
+app.get('/api/detail', wrap(async (req, res) => {
+  const url  = req.query.url || '';
+  const data = await scraper.getDetail(url);
+  // Augment dengan data MAL jika ada
   try {
-    const data    = await scraper.getDetail(req.query.url);
     const malData = await mal.getMalAnime(data.title).catch(() => null);
-    if (malData?.synopsis) data.description = malData.synopsis;
-    if (malData?.mean && !data.info.score && !data.info.skor) data.info.score = String(malData.mean);
-    res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+    if (malData?.synopsis && !data.description) data.description = malData.synopsis;
+    if (malData?.mean && (data.info.score === 'N/A' || !data.info.score)) {
+      data.info.score = String(malData.mean);
+    }
+  } catch {}
+  res.json(data);
+}));
 
-app.get('/api/watch', async (req, res) => {
-  try { res.json(await scraper.getWatch(req.query.url)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Watch / Stream episode
+app.get('/api/watch', wrap(async (req, res) => {
+  res.json(await scraper.getWatch(req.query.url || ''));
+}));
 
-app.get('/api/mal/anime', async (req, res) => {
-  try { res.json(await mal.getMalAnime(req.query.title)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Stream server URL (ambil embed URL berdasarkan serverId)
+app.get('/api/server/:serverId', wrap(async (req, res) => {
+  const url = await scraper.getStreamUrl(req.params.serverId);
+  res.json({ url });
+}));
 
-app.get('/api/schedule', async (req, res) => {
-  try { res.json(await mal.getMalSchedule()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// MAL
+app.get('/api/mal/anime', wrap(async (req, res) => {
+  res.json(await mal.getMalAnime(req.query.title));
+}));
 
-app.get('/api/trending', async (req, res) => {
-  try { res.json(await mal.getMalTrending()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Schedule
+app.get('/api/schedule', wrap(async (req, res) => {
+  try {
+    // Coba MAL schedule dulu
+    const malSchedule = await mal.getMalSchedule();
+    if (malSchedule && Object.keys(malSchedule).length > 0) return res.json(malSchedule);
+  } catch {}
+  // Fallback ke scraper schedule
+  res.json(await scraper.getScrapedSchedule());
+}));
 
-app.get('/api/news', async (req, res) => {
-  try { res.json(await mal.getAnimeNews()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Trending
+app.get('/api/trending', wrap(async (req, res) => {
+  try {
+    const malTrending = await mal.getMalTrending();
+    if (malTrending?.length) return res.json(malTrending);
+  } catch {}
+  res.json(await scraper.getScrapedTrending());
+}));
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: '2.0.0' }));
+// News
+app.get('/api/news', wrap(async (req, res) => {
+  res.json(await mal.getAnimeNews());
+}));
 
-// ── CRUD Routes (pengganti PHP) ───────────────────────────
-// Dulu: /php/api/anime.php   → Sekarang: /api/crud/anime
-// Dulu: /php/api/users.php   → Sekarang: /api/crud/users
-// Dulu: /php/api/favorites.php → Sekarang: /api/crud/favorites
+// ── Route Baru (langsung ke API sankavollerei) ────────────
 
+// Home page data
+app.get('/api/home', wrap(async (req, res) => {
+  res.json(await scraper.api.getHome());
+}));
+
+// Ongoing anime
+app.get('/api/ongoing', wrap(async (req, res) => {
+  res.json(await scraper.api.getOngoingAnime(req.query.page || 1));
+}));
+
+// Complete/Tamat anime
+app.get('/api/complete', wrap(async (req, res) => {
+  res.json(await scraper.api.getCompleteAnime(req.query.page || 1));
+}));
+
+// Genre list
+app.get('/api/genre', wrap(async (req, res) => {
+  res.json(await scraper.api.getGenreList());
+}));
+
+// Anime by genre
+app.get('/api/genre/:slug', wrap(async (req, res) => {
+  res.json(await scraper.api.getAnimeByGenre(req.params.slug, req.query.page || 1));
+}));
+
+// Anime detail (raw)
+app.get('/api/anime/:slug', wrap(async (req, res) => {
+  res.json(await scraper.api.getAnimeDetail(req.params.slug));
+}));
+
+// Episode detail (raw)
+app.get('/api/episode/:slug', wrap(async (req, res) => {
+  res.json(await scraper.api.getEpisode(req.params.slug));
+}));
+
+// Batch download
+app.get('/api/batch/:slug', wrap(async (req, res) => {
+  res.json(await scraper.api.getBatch(req.params.slug));
+}));
+
+// All anime
+app.get('/api/unlimited', wrap(async (req, res) => {
+  res.json(await scraper.api.getAllAnime());
+}));
+
+// Health check
+app.get('/api/health', (_req, res) => res.json({
+  status  : 'ok',
+  version : '3.0.0',
+  source  : 'sankavollerei.web.id',
+}));
+
+// ── CRUD Routes (Firestore) ───────────────────────────────
 app.all('/api/crud/anime',     (req, res) => handleAnime(req, res));
 app.all('/api/crud/users',     (req, res) => handleUsers(req, res));
 app.all('/api/crud/favorites', (req, res) => handleFavorites(req, res));
@@ -91,6 +166,8 @@ app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'i
 
 // ── Start Server ──────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`AniZone API running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () =>
+  console.log(`AniZone API v3 (sankavollerei) running on port ${PORT}`)
+);
 
 module.exports = app;
