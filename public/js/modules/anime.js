@@ -244,10 +244,21 @@ async function loadDetail(url) {
         ${isEps ? `<div class="ep-range-badge">1 – ${newestNum}</div>` : ''}
       </div>`;
 
+    const animeTitle = data.title || '';
+    const animeImage = data.image || '';
+    const animeScore = score || '?';
+    const animeUrl   = url;
     document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
       const num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
         || (ep.title.match(/\d+/g) || [i + 1]).slice(-1)[0];
-      return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">${num}</div>`;
+      const epLabel = escapeStr(`${animeTitle} - Ep ${num}`);
+      return `<div class="ep-box" title="${ep.title}" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
+        <span class="ep-num" onclick="loadVideo('${ep.url}')">${num}</span>
+        <button class="ep-bm-btn" title="Bookmark episode ini"
+          onclick="event.stopPropagation();bookmarkEpisode('${ep.url}','${epLabel}','${escapeStr(animeImage)}','${animeScore}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>`;
     }).join('');
 
     // ── Episode progress overlay ──────────────────────────
