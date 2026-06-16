@@ -1,30 +1,35 @@
 // ─── ADVANCED SEARCH & FILTER MODULE ────────────────────
-// Fitur: filter genre, type, status, sort, search instant
+// Menggunakan /api/advanced-search dengan filter:
+// genres, status, type, order, season, page
 // ─────────────────────────────────────────────────────────
 
 const SEARCH_FILTERS = {
   type  : ['Semua', 'TV', 'Movie', 'OVA', 'ONA', 'Special'],
-  status: ['Semua', 'Ongoing', 'Completed', 'Upcoming'],
-  sort  : [
-    { label: 'Relevan',     key: 'relevant'  },
-    { label: 'Skor ↓',      key: 'score_desc'},
-    { label: 'A–Z',         key: 'alpha_asc' },
-    { label: 'Z–A',         key: 'alpha_desc'},
-    { label: 'Terbaru',     key: 'newest'    },
+  status: ['Semua', 'ongoing', 'completed', 'upcoming'],
+  statusLabels: { 'Semua':'Semua', 'ongoing':'Ongoing', 'completed':'Selesai', 'upcoming':'Upcoming' },
+  order : [
+    { label: 'Relevan',  key: '' },
+    { label: 'Terbaru',  key: 'latest' },
+    { label: 'Skor ↓',   key: 'rating' },
+    { label: 'A – Z',    key: 'title_az' },
   ],
 };
 
-// Current filter state
 const _filterState = {
   query  : '',
   type   : 'Semua',
   status : 'Semua',
-  sort   : 'relevant',
+  order  : '',
+  genres : [],        // genre slugs dari API /genres
+  page   : 1,
   results: [],
+  totalPages: 1,
+  _genreList: [],     // cache daftar genre
+  _timer : null,
 };
 
-// ── Open Search Overlay ───────────────────────────────────
-function openAdvancedSearch(prefillQuery = '') {
+// ── Open Overlay ──────────────────────────────────────────
+async function openAdvancedSearch(prefillQuery = '') {
   let overlay = document.getElementById('advSearchOverlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -32,7 +37,6 @@ function openAdvancedSearch(prefillQuery = '') {
     overlay.className = 'adv-search-overlay';
     overlay.innerHTML = `
       <div class="adv-search-panel">
-
         <!-- Header -->
         <div class="adv-search-header">
           <div class="adv-search-input-wrap">
@@ -51,8 +55,7 @@ function openAdvancedSearch(prefillQuery = '') {
             <div class="adv-filter-label">Tipe</div>
             <div class="adv-filter-chips" id="filterType">
               ${SEARCH_FILTERS.type.map(t => `
-                <button class="adv-chip ${t === 'Semua' ? 'active' : ''}"
-                  onclick="setFilter('type','${t}',this)">${t}</button>
+                <button class="adv-chip ${t==='Semua'?'active':''}" onclick="setAdvFilter('type','${t}',this)">${t}</button>
               `).join('')}
             </div>
           </div>
@@ -60,18 +63,24 @@ function openAdvancedSearch(prefillQuery = '') {
             <div class="adv-filter-label">Status</div>
             <div class="adv-filter-chips" id="filterStatus">
               ${SEARCH_FILTERS.status.map(s => `
-                <button class="adv-chip ${s === 'Semua' ? 'active' : ''}"
-                  onclick="setFilter('status','${s}',this)">${s}</button>
+                <button class="adv-chip ${s==='Semua'?'active':''}" onclick="setAdvFilter('status','${s}',this)">
+                  ${SEARCH_FILTERS.statusLabels[s]}
+                </button>
               `).join('')}
             </div>
           </div>
           <div class="adv-filter-group">
             <div class="adv-filter-label">Urutkan</div>
-            <div class="adv-filter-chips" id="filterSort">
-              ${SEARCH_FILTERS.sort.map((s, i) => `
-                <button class="adv-chip ${i === 0 ? 'active' : ''}"
-                  onclick="setFilter('sort','${s.key}',this)">${s.label}</button>
+            <div class="adv-filter-chips" id="filterOrder">
+              ${SEARCH_FILTERS.order.map((o, i) => `
+                <button class="adv-chip ${i===0?'active':''}" onclick="setAdvFilter('order','${o.key}',this)">${o.label}</button>
               `).join('')}
+            </div>
+          </div>
+          <div class="adv-filter-group">
+            <div class="adv-filter-label">Genre</div>
+            <div class="adv-filter-chips" id="filterGenres" style="flex-wrap:wrap;max-height:80px;overflow-y:auto">
+              <div style="color:var(--text-muted);font-size:12px;padding:4px">Memuat genre...</div>
             </div>
           </div>
         </div>
@@ -82,44 +91,37 @@ function openAdvancedSearch(prefillQuery = '') {
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <p>Ketik untuk mencari anime...</p>
+            <p>Ketik untuk mencari, atau pilih filter untuk browse.</p>
           </div>
         </div>
       </div>`;
     document.body.appendChild(overlay);
 
-    // Close on backdrop click
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) closeAdvancedSearch();
-    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeAdvancedSearch(); });
 
-    // Input listener with debounce
     const input = document.getElementById('advSearchInput');
-    let debounceTimer;
     input.addEventListener('input', () => {
       const q = input.value.trim();
       document.getElementById('advSearchClearBtn').style.display = q ? 'flex' : 'none';
-      clearTimeout(debounceTimer);
-      if (!q) {
-        _filterState.query = '';
-        _filterState.results = [];
-        renderAdvResults([]);
-        return;
-      }
-      debounceTimer = setTimeout(() => runAdvSearch(q), 350);
+      clearTimeout(_filterState._timer);
+      _filterState.query = q;
+      _filterState.page  = 1;
+      _filterState._timer = setTimeout(() => runAdvSearch(), 380);
     });
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeAdvancedSearch();
-    });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') closeAdvancedSearch(); });
+
+    // Load genre list async
+    loadAdvGenreChips();
   }
 
   overlay.classList.add('open');
   _filterState.query = prefillQuery;
+  _filterState.page  = 1;
   const input = document.getElementById('advSearchInput');
   if (input) {
     input.value = prefillQuery;
     setTimeout(() => input.focus(), 100);
-    if (prefillQuery) runAdvSearch(prefillQuery);
+    if (prefillQuery) runAdvSearch();
   }
 }
 
@@ -132,120 +134,136 @@ function clearAdvSearch() {
   if (input) { input.value = ''; input.focus(); }
   document.getElementById('advSearchClearBtn').style.display = 'none';
   _filterState.query = '';
+  _filterState.page  = 1;
   _filterState.results = [];
-  renderAdvResults([]);
+  renderAdvResults([], 1, 1);
 }
 
-function setFilter(key, value, btn) {
+async function loadAdvGenreChips() {
+  if (_filterState._genreList.length) return;
+  try {
+    const raw = await fetch(`${API_BASE}/genres`).then(r => r.json());
+    const list = Array.isArray(raw) ? raw : (raw.data || raw.genres || []);
+    _filterState._genreList = list;
+    const el = document.getElementById('filterGenres');
+    if (!el) return;
+    el.innerHTML = list.map(g => {
+      const name = g.name || g.title || g.slug || '';
+      const slug = g.slug || name.toLowerCase().replace(/\s+/g, '-');
+      return `<button class="adv-chip" onclick="toggleGenreFilter('${slug}',this)">${name}</button>`;
+    }).join('');
+  } catch {}
+}
+
+function toggleGenreFilter(slug, btn) {
+  const idx = _filterState.genres.indexOf(slug);
+  if (idx === -1) { _filterState.genres.push(slug); btn.classList.add('active'); }
+  else            { _filterState.genres.splice(idx, 1); btn.classList.remove('active'); }
+  _filterState.page = 1;
+  runAdvSearch();
+}
+
+function setAdvFilter(key, value, btn) {
   _filterState[key] = value;
-  // Update active chip
+  _filterState.page = 1;
   btn.closest('.adv-filter-chips')?.querySelectorAll('.adv-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  // Re-render with existing results
-  if (_filterState.results.length) renderAdvResults(_filterState.results);
+  runAdvSearch();
 }
 
-async function runAdvSearch(query) {
-  _filterState.query = query;
+// Backward-compat alias
+function setFilter(key, value, btn) { setAdvFilter(key, value, btn); }
+
+async function runAdvSearch(page) {
+  if (page) _filterState.page = page;
   const resultsEl = document.getElementById('advResults');
   if (!resultsEl) return;
   resultsEl.innerHTML = '<div class="adv-loading"><div class="spinner" style="width:28px;height:28px;margin:0 auto 8px"></div><p>Mencari...</p></div>';
 
   try {
-    const [scraperRes, malRes] = await Promise.allSettled([
-      fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
-      fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(query)}`).then(r => r.json()),
-    ]);
+    const params = new URLSearchParams();
+    if (_filterState.query)              params.set('q',      _filterState.query);
+    if (_filterState.type   !== 'Semua') params.set('type',   _filterState.type.toLowerCase());
+    if (_filterState.status !== 'Semua') params.set('status', _filterState.status);
+    if (_filterState.order)              params.set('order',  _filterState.order);
+    if (_filterState.genres.length)      params.set('genres', _filterState.genres.join(','));
+    if (_filterState.page > 1)           params.set('page',   _filterState.page);
 
-    let results = scraperRes.status === 'fulfilled' && Array.isArray(scraperRes.value)
-      ? scraperRes.value : [];
+    // Kalau ada query teks, gabung hasil scraper search dengan advanced-search
+    let results = [], totalPages = 1;
 
-    // Enrich first result with MAL data if available
-    if (malRes.status === 'fulfilled' && malRes.value?.mean) {
-      const malAnime = malRes.value;
-      if (results[0]) results[0].score = String(malAnime.mean);
+    if (_filterState.query && !_filterState.genres.length && _filterState.type === 'Semua' && _filterState.status === 'Semua') {
+      // Pure keyword search → lebih akurat pakai /search
+      const r = await fetch(`${API_BASE}/search?q=${encodeURIComponent(_filterState.query)}`).then(r => r.json());
+      results = Array.isArray(r) ? r : (r.data || r.animes || []);
+    } else {
+      // Pakai advanced-search API
+      const r = await fetch(`${API_BASE}/advanced-search?${params}`).then(r => r.json());
+      const raw = r.animes || r.data?.animes || r.data || (Array.isArray(r) ? r : []);
+      results   = Array.isArray(raw) ? raw : [];
+      totalPages = r.totalPages || r.total_pages || 1;
+      _filterState.totalPages = totalPages;
     }
 
     _filterState.results = results;
-    renderAdvResults(results);
+    renderAdvResults(results, _filterState.page, totalPages);
   } catch {
     resultsEl.innerHTML = '<div class="adv-empty-hint"><p>Gagal memuat hasil.</p></div>';
   }
 }
 
-function applyFilters(results) {
-  let filtered = [...results];
-
-  if (_filterState.type !== 'Semua') {
-    filtered = filtered.filter(a => (a.type || '').toLowerCase().includes(_filterState.type.toLowerCase()));
-  }
-  if (_filterState.status !== 'Semua') {
-    // Status dari scraper tidak selalu ada — filter best-effort
-    filtered = filtered.filter(a => {
-      const s = (a.status || a.info?.status || '').toLowerCase();
-      return s.includes(_filterState.status.toLowerCase()) || !s;
-    });
-  }
-
-  // Sort
-  switch (_filterState.sort) {
-    case 'score_desc':
-      filtered.sort((a, b) => parseFloat(b.score || 0) - parseFloat(a.score || 0));
-      break;
-    case 'alpha_asc':
-      filtered.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-      break;
-    case 'alpha_desc':
-      filtered.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
-      break;
-    // relevant & newest: keep original order
-  }
-  return filtered;
-}
-
-function renderAdvResults(results) {
+function renderAdvResults(results, page = 1, totalPages = 1) {
   const el = document.getElementById('advResults');
   if (!el) return;
 
-  const filtered = applyFilters(results);
-
-  if (!filtered.length && _filterState.query) {
+  if (!results.length) {
+    const hasFilters = _filterState.query || _filterState.genres.length
+      || _filterState.type !== 'Semua' || _filterState.status !== 'Semua';
     el.innerHTML = `
       <div class="adv-empty-hint">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <p>Tidak ada hasil untuk "<strong>${_filterState.query}</strong>"</p>
+        <p>${hasFilters ? 'Tidak ada hasil ditemukan.' : 'Ketik untuk mencari, atau pilih filter untuk browse.'}</p>
       </div>`;
     return;
   }
-  if (!filtered.length) {
-    el.innerHTML = `<div class="adv-empty-hint"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>Ketik untuk mencari anime...</p></div>`;
-    return;
-  }
+
+  const paginationHtml = totalPages > 1 ? `
+    <div class="adv-pagination">
+      ${page > 1 ? `<button class="page-btn" onclick="runAdvSearch(${page-1})">‹ Prev</button>` : ''}
+      <span class="page-info">Hal ${page} / ${totalPages}</span>
+      ${page < totalPages ? `<button class="page-btn" onclick="runAdvSearch(${page+1})">Next ›</button>` : ''}
+    </div>` : '';
 
   el.innerHTML = `
-    <div class="adv-result-count">${filtered.length} hasil ditemukan</div>
+    <div class="adv-result-count">${results.length} hasil ditemukan</div>
     <div class="adv-result-grid">
-      ${filtered.map(a => `
-        <div class="adv-result-card" onclick="closeAdvancedSearch();loadDetail('${a.url}')">
-          <div class="adv-result-thumb">
-            <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
-            <div class="adv-score-badge">⭐ ${a.score || '?'}</div>
-            ${a.type ? `<div class="adv-type-badge">${a.type}</div>` : ''}
-          </div>
-          <div class="adv-result-title">${a.title}</div>
-        </div>`).join('')}
-    </div>`;
+      ${results.map(a => {
+        const slug = a.slug || a.url || a.endpoint || '';
+        const onclick = slug
+          ? `closeAdvancedSearch();loadDetailBySlug('${slug}')`
+          : `closeAdvancedSearch();handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;
+        return `
+          <div class="adv-result-card" onclick="${onclick}">
+            <div class="adv-result-thumb">
+              <img src="${a.image || a.poster || ''}" alt="${a.title}" loading="lazy">
+              <div class="adv-score-badge">⭐ ${a.score || '?'}</div>
+              ${a.type ? `<div class="adv-type-badge">${a.type}</div>` : ''}
+            </div>
+            <div class="adv-result-title">${a.title}</div>
+          </div>`;
+      }).join('')}
+    </div>
+    ${paginationHtml}`;
 }
 
 // ── Hook ke search input utama ────────────────────────────
-// Replace handleSearch agar menggunakan advanced search overlay
 function initAdvancedSearchHook() {
   const inp = document.getElementById('searchInput');
   if (!inp) return;
   inp.addEventListener('focus', () => {
     openAdvancedSearch(inp.value.trim());
-    inp.blur(); // prevent double-keyboard on mobile
+    inp.blur();
   });
 }
