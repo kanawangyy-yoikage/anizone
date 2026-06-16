@@ -117,6 +117,20 @@ async function handleSearch(manualQuery = null) {
   } catch {} finally { loader(false); }
 }
 
+// ── Go to genre dari home section "Lainnya" ──────────────
+async function goToGenre(slug) {
+  const grid = document.getElementById('genre-grid');
+  // Kalau genre-grid belum dirender, render dulu
+  if (!grid.dataset.rendered) await renderCategoryPage();
+  // Cari tombol dengan data-slug yang sesuai
+  const btn = grid.querySelector(`[data-slug="${slug}"]`);
+  if (btn) {
+    const name = btn.textContent.trim();
+    loadCategory(name, slug, btn);
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+}
+
 // ── Detail by slug (dari genre page) ─────────────────────
 async function loadDetailBySlug(slug) {
   loader(true);
