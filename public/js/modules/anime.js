@@ -2,44 +2,54 @@
 // Kategori, halaman detail, halaman tonton, dan pencarian.
 
 // ── Halaman Kategori ──────────────────────────────────────
-function renderCategoryPage() {
+async function renderCategoryPage() {
   const grid = document.getElementById('genre-grid');
-  grid.innerHTML = KATEGORI_LIST
-    .map(g => `<button class="genre-btn" onclick="loadCategory('${g}',this)"><span>${g}</span></button>`)
-    .join('');
-  loadCategory(KATEGORI_LIST[0], grid.firstElementChild);
+  if (grid.dataset.rendered === 'true') return;
+  grid.dataset.rendered = 'true';
+  grid.innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
+  try {
+    const genres = await fetch(`${API_BASE}/genres`).then(r => r.json());
+    const list = Array.isArray(genres) ? genres : (genres.data || genres.genres || []);
+    grid.innerHTML = list.map(g => {
+      const name = g.name || g.genre || g.title || g.slug || '';
+      const slug = g.slug || name.toLowerCase().replace(/\s+/g, '-');
+      return `<button class="genre-btn" data-slug="${slug}" onclick="loadCategory('${name.replace(/'/g,"\'")}','${slug}',this)"><span>${name}</span></button>`;
+    }).join('');
+    if (list.length > 0) {
+      const first = list[0];
+      const name = first.name || first.genre || first.title || first.slug || '';
+      const slug = first.slug || name.toLowerCase().replace(/\s+/g, '-');
+      loadCategory(name, slug, grid.firstElementChild);
+    }
+  } catch {
+    grid.dataset.rendered = '';
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat genre.</p>';
+  }
 }
 
-async function loadCategory(genre, btn) {
+async function loadCategory(genre, slug, btn) {
   document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
   btn?.classList.add('active');
   loader(true);
   try {
-    const queries = GENRE_KEYWORDS[genre] || [genre];
-    const results = await Promise.all(
-      queries.map(q =>
-        fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
-      )
-    );
-    let combined = [];
-    results.forEach(l => { if (Array.isArray(l)) combined.push(...l); });
-    combined = removeDuplicates(combined, 'url');
+    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}`).then(r => r.json());
+    const list = Array.isArray(data) ? data : (data.data || data.anime || data.results || []);
 
     const c = document.getElementById('category-results-container');
-    if (!combined.length) {
+    if (!list.length) {
       c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px;">Tidak ada anime ditemukan.</p>';
       return;
     }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
       <div class="anime-grid">
-        ${combined.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
+        ${list.map(a => `
+          <div class="scroll-card" onclick="loadDetail('${a.url || a.link || '#'}')" style="min-width:auto;max-width:none">
             <div class="scroll-card-img">
-              <img src="${a.image}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${a.score || '?'}</div>
+              <img src="${a.image || a.thumbnail || ''}" alt="${a.title || ''}" loading="lazy">
+              <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${a.score || a.rating || '?'}</div>
             </div>
-            <div class="scroll-card-title">${a.title}</div>
+            <div class="scroll-card-title">${a.title || ''}</div>
           </div>`).join('')}
       </div>`;
     lazyLoadScores(c);
