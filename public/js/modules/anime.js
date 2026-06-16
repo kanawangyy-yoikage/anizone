@@ -33,7 +33,7 @@ async function loadCategory(genre, slug, btn) {
   loader(true);
   try {
     const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}`).then(r => r.json());
-    const list = Array.isArray(data) ? data : (data.data || data.anime || data.results || []);
+    const list = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
 
     const c = document.getElementById('category-results-container');
     if (!list.length) {
@@ -43,14 +43,22 @@ async function loadCategory(genre, slug, btn) {
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
       <div class="anime-grid">
-        ${list.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url || a.link || '#'}')" style="min-width:auto;max-width:none">
+        ${list.map(a => {
+          const img = a.image || a.poster || a.thumbnail || '';
+          const title = a.title || '';
+          const score = a.score || a.rating || '?';
+          const onclick = a.url || a.link
+            ? `loadDetail('${a.url || a.link}')`
+            : `loadDetailBySlug('${a.slug || ''}')`;
+          return `
+          <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
             <div class="scroll-card-img">
-              <img src="${a.image || a.thumbnail || ''}" alt="${a.title || ''}" loading="lazy">
-              <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${a.score || a.rating || '?'}</div>
+              <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
+              <div class="ep-badge" data-mal-title="${title.replace(/"/g, '')}">⭐ ${score}</div>
             </div>
-            <div class="scroll-card-title">${a.title || ''}</div>
-          </div>`).join('')}
+            <div class="scroll-card-title">${title}</div>
+          </div>`;
+        }).join('')}
       </div>`;
     lazyLoadScores(c);
   } catch {} finally { loader(false); }
@@ -107,6 +115,17 @@ async function handleSearch(manualQuery = null) {
           </div>`).join('')}
       </div>`;
   } catch {} finally { loader(false); }
+}
+
+// ── Detail by slug (dari genre page) ─────────────────────
+async function loadDetailBySlug(slug) {
+  loader(true);
+  try {
+    const data = await fetch(`${API_BASE}/anime/${encodeURIComponent(slug)}`).then(r => r.json());
+    // Konversi format slug-based ke format yang dimengerti loadDetail
+    const url = data.url || data.link || `https://v1.animasu.work/anime/${slug}`;
+    await loadDetail(url);
+  } catch (e) { console.error(e); loader(false); }
 }
 
 // ── Detail Anime ──────────────────────────────────────────
