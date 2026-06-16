@@ -328,12 +328,11 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   margin-bottom: 20px;
 }
 .genre-scroll-container {
-  flex: 1; min-width: 0; overflow-y: auto; max-height: 280px;
+  width: 100%; overflow-y: auto; max-height: 280px;
   scroll-behavior: smooth; scrollbar-width: thin;
-  -ms-overflow-style: auto;
 }
 .genre-grid {
-  display: flex; flex-wrap: wrap; gap: 10px;
+  display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 4px;
 }
 .genre-btn {
   padding: 8px 18px; border-radius: 99px; white-space: nowrap;
