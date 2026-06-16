@@ -6,6 +6,7 @@
 async function loadAnimeStats() {
   const container = document.getElementById('stats-section-container');
   if (!container) return;
+  if (container.dataset.loaded === 'true') return; // sudah dimuat, skip
   container.innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
 
   const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
@@ -15,11 +16,20 @@ async function loadAnimeStats() {
   }
 
   try {
-    // Load history & bookmarks paralel
-    const [historySnap, bookmarkSnap] = await Promise.all([
-      db.collection('users').doc(uid).collection('history').orderBy('timestamp', 'desc').limit(200).get(),
-      db.collection('users').doc(uid).collection('bookmarks').get(),
-    ]);
+    // Load history — fallback tanpa orderBy kalau index belum ada
+    let historySnap, bookmarkSnap;
+    try {
+      [historySnap, bookmarkSnap] = await Promise.all([
+        db.collection('users').doc(uid).collection('history').orderBy('timestamp', 'desc').limit(200).get(),
+        db.collection('users').doc(uid).collection('bookmarks').get(),
+      ]);
+    } catch {
+      // Fallback: tanpa orderBy (tidak butuh index)
+      [historySnap, bookmarkSnap] = await Promise.all([
+        db.collection('users').doc(uid).collection('history').limit(200).get(),
+        db.collection('users').doc(uid).collection('bookmarks').get(),
+      ]);
+    }
 
     const history   = historySnap.docs.map(d => d.data());
     const bookmarks = bookmarkSnap.docs.map(d => d.data());
@@ -101,6 +111,7 @@ async function loadAnimeStats() {
 
       </div>`;
 
+    container.dataset.loaded = 'true';
     // Render heatmap
     if (history.length > 0) renderHeatmap(history);
 
