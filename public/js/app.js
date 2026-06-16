@@ -639,21 +639,7 @@ function renderCategoryPage() {
   grid.innerHTML = KATEGORI_LIST.map(g => `<button class="genre-btn" onclick="loadCategory('${g}',this)"><span>${g}</span></button>`).join('');
   loadCategory(KATEGORI_LIST[0], grid.firstElementChild);
 
-  // ── Genre slider arrow buttons ──
-  const scroll = document.getElementById('genre-scroll');
-  const prev   = document.getElementById('genre-prev');
-  const next   = document.getElementById('genre-next');
-  const STEP   = 240;
 
-  function updateArrows() {
-    prev.disabled = scroll.scrollLeft <= 0;
-    next.disabled = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 2;
-  }
-
-  prev.addEventListener('click', () => { scroll.scrollLeft -= STEP; });
-  next.addEventListener('click', () => { scroll.scrollLeft += STEP; });
-  scroll.addEventListener('scroll', updateArrows);
-  updateArrows();
 }
 
 async function loadCategory(genre, btn) {
