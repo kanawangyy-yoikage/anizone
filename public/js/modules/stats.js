@@ -6,14 +6,24 @@
 async function loadAnimeStats() {
   const container = document.getElementById('stats-section-container');
   if (!container) return;
-  if (container.dataset.loaded === 'true') return; // sudah dimuat, skip
-  container.innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
 
-  const uid = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser.uid : null;
+  // Tunggu auth siap (maks 3 detik)
+  const uid = await new Promise(resolve => {
+    if (typeof auth === 'undefined') { resolve(null); return; }
+    if (auth.currentUser) { resolve(auth.currentUser.uid); return; }
+    const unsub = auth.onAuthStateChanged(user => {
+      unsub();
+      resolve(user ? user.uid : null);
+    });
+    setTimeout(() => { unsub(); resolve(null); }, 3000);
+  });
+
   if (!uid) {
     container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Login untuk melihat statistik.</p>';
     return;
   }
+
+  container.innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
 
   try {
     // Load history — fallback tanpa orderBy kalau index belum ada
@@ -111,7 +121,7 @@ async function loadAnimeStats() {
 
       </div>`;
 
-    container.dataset.loaded = 'true';
+    container.dataset.loaded = 'true'; // cache ringan — reset otomatis saat pindah tab
     // Render heatmap
     if (history.length > 0) renderHeatmap(history);
 
