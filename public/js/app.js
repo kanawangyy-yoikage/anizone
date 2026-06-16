@@ -76,9 +76,9 @@ const HOME_SECTIONS = [
   { title: "Sedang Hangat",  mode: "latest" },
   { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
   { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
-  { title: "Romance & Drama", queries: ["aishiteru","love","kanojo","romance","heroine","watashi ga koibito ni nareru wake nai jan"] },
+  { title: "Romance & Drama", queries: ["love","kanojo","romance","heroine","uso"] },
   { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
-  { title: "Magic & Adventure", queries: ["majo","magic","adventure","dragon","dungeon"] },
+  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
   { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
 ];
 
@@ -634,11 +634,10 @@ async function lazyLoadScores(container) {
 
 function renderCategoryPage() {
   const grid = document.getElementById('genre-grid');
-  if (grid.innerHTML) return;
+  if (grid.dataset.rendered === 'true') return;
+  grid.dataset.rendered = 'true';
   grid.innerHTML = KATEGORI_LIST.map(g => `<button class="genre-btn" onclick="loadCategory('${g}',this)"><span>${g}</span></button>`).join('');
   loadCategory(KATEGORI_LIST[0], grid.firstElementChild);
-
-
 }
 
 async function loadCategory(genre, btn) {
