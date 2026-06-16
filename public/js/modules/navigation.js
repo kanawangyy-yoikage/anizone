@@ -2,6 +2,16 @@
 // Mengelola perpindahan tab dan inisialisasi halaman.
 
 function switchTab(tabName) {
+  // Reset stats cache saat pindah keluar dari profile
+  const wasProfile = ALL_VIEWS.every(v => {
+    const el = document.getElementById(v);
+    return !el || el.classList.contains('hidden');
+  });
+  const statsContainer = document.getElementById('stats-section-container');
+  if (statsContainer && tabName !== 'profile') {
+    statsContainer.dataset.loaded = '';
+  }
+
   ALL_VIEWS.forEach(v => hide(v));
   show('bottomNav');
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -35,7 +45,7 @@ function switchTab(tabName) {
     case 'bookmark':
       show('bookmark-view');
       document.getElementById('tab-bookmark')?.classList.add('active');
-      loadBookmarks();
+      if (typeof loadBookmarks === 'function') loadBookmarks();
       break;
 
     case 'developer':
@@ -46,7 +56,6 @@ function switchTab(tabName) {
     case 'profile':
       show('profile-view');
       document.getElementById('tab-profile')?.classList.add('active');
-      // Profile sudah di-load oleh onAuthStateChanged di auth.js
       if (typeof loadWaifuFromFirestore    === 'function') loadWaifuFromFirestore();
       if (typeof loadAnimeFavFromFirestore === 'function') loadAnimeFavFromFirestore();
       if (typeof loadAnimeStats            === 'function') loadAnimeStats();
