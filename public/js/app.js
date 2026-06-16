@@ -91,7 +91,7 @@ const GENRE_KEYWORDS = {
   "Slice of Life":  ["slice of life","daily","chill","camp"],
   "Horror":         ["horror","scary","ghost","zombie","terror"],
   "Live Action":    ["live action","real","dorama"],
-  "Olahraga":       ["olahraga","sports","athlete","tournament"],
+  "Sport":       ["olahraga","sports","athlete","tournament"],
   "Shoujo Ai":      ["shoujo ai","yuri","girls love","lesbian"],
   "Shounen Ai":     ["shounen ai","yaoi","boys love","bromance"],
   "Donghua":        ["donghua","chinese","tiongkok","manhua"],
