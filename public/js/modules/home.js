@@ -87,7 +87,7 @@ async function loadLatestTab() {
         combined = removeDuplicates(combined, 'url');
         if (combined.length > 0) {
           if (combined.length < 6) combined = [...combined, ...combined, ...combined];
-          renderSection(sec.title, combined.slice(0, 15), container);
+          renderSection(sec.title, combined.slice(0, 15), container, sec.genreSlug);
         }
       })();
     }
@@ -330,14 +330,16 @@ function updateHeroDots(index) {
 }
 
 // ── Section horizontal scroll ─────────────────────────────
-function renderSection(title, data, container) {
-  const kw  = title.split(' ')[0];
+function renderSection(title, data, container, genreSlug) {
   const div = document.createElement('div');
   div.className = 'category-section';
+  const moreOnclick = genreSlug
+    ? `switchTab('anime');setTimeout(()=>goToGenre('${genreSlug}'),100);return false;`
+    : `handleSearch('${title.split(' ')[0]}');return false;`;
   div.innerHTML = `
     <div class="header-flex">
       <div class="section-header"><div class="bar-accent"></div><h2>${title}</h2></div>
-      <a href="#" class="more-link" onclick="handleSearch('${kw}');return false;">Lainnya →</a>
+      <a href="#" class="more-link" onclick="${moreOnclick}">Lainnya →</a>
     </div>
     <div class="horizontal-scroll">
       ${data.map((a, i) => `
