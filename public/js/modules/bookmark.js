@@ -60,9 +60,17 @@ async function deleteBookmark(url) {
 async function getAllBookmarks() {
   const uid = getUID(); if (!uid) return [];
   try {
-    const snap = await db.collection('users').doc(uid).collection('bookmarks')
-      .orderBy('updatedAt', 'desc').get();
-    return snap.docs.map(d => d.data());
+    // Coba dengan orderBy dulu; kalau index belum dibuat, fallback tanpa sorting
+    let snap;
+    try {
+      snap = await db.collection('users').doc(uid).collection('bookmarks')
+        .orderBy('updatedAt', 'desc').get();
+    } catch {
+      snap = await db.collection('users').doc(uid).collection('bookmarks').get();
+    }
+    const data = snap.docs.map(d => d.data());
+    // Sort di sisi client sebagai fallback
+    return data.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   } catch { return []; }
 }
 
