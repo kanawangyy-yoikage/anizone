@@ -234,3 +234,38 @@ function bookmarkCard(a, s) {
       <div class="scroll-card-title">${a.title}</div>
     </div>`;
 }
+
+// ── Bookmark per Episode ──────────────────────────────────
+
+async function bookmarkEpisode(epUrl, epTitle, image, score) {
+  const uid = getUID();
+  if (!uid) { showToast('Login dulu untuk bookmark episode', 'error'); return; }
+
+  const key = urlToKey(epUrl);
+  const existing = await getBookmarkDoc(epUrl);
+  if (existing) {
+    // sudah ada — tanya hapus atau tidak
+    const ok = await deleteBookmark(epUrl);
+    if (ok) {
+      showToast('🗑️ Bookmark episode dihapus');
+      // update icon
+      document.querySelectorAll(`[data-ep-url="${epUrl}"] .ep-bm-btn svg`).forEach(svg => {
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+      });
+    }
+    return;
+  }
+
+  const ok = await saveBookmark(epUrl, epTitle, image, score, 'plan_to_watch');
+  if (ok) {
+    showToast('📌 Episode dibookmark ke Watchlist!');
+    // visual feedback — fill icon
+    document.querySelectorAll(`.ep-bm-btn[onclick*="${epUrl.replace(/'/g,"\\'")}"] svg`).forEach(svg => {
+      svg.setAttribute('fill', 'var(--accent)');
+      svg.setAttribute('stroke', 'var(--accent)');
+    });
+  } else {
+    showToast('Gagal bookmark episode', 'error');
+  }
+}
