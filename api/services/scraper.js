@@ -1,326 +1,227 @@
 // ─── SCRAPER SERVICE ─────────────────────────────────────
-// Menggunakan REST API dari sankavollerei.web.id/anime/
-// Endpoint reference: https://sankavollerei.web.id/anime/
+// Sumber: sankavollerei.web.id/anime/animasu
+//
+// Endpoint lengkap:
+//   GET /home                        → halaman utama (?page=1)
+//   GET /popular?page=1              → anime populer
+//   GET /movies?page=1               → anime movie
+//   GET /ongoing?page=1              → anime sedang tayang
+//   GET /completed?page=1            → anime selesai
+//   GET /latest?page=1               → anime terbaru/baru diupdate
+//   GET /search/:keyword?page=1      → pencarian
+//   GET /animelist?letter=A&page=1   → daftar A-Z
+//   GET /advanced-search?genres=aksi&status=ongoing&page=1
+//   GET /genres                      → semua genre
+//   GET /genre/:slug?page=1          → anime per genre
+//   GET /characters                  → semua tipe karakter
+//   GET /character/:slug?page=1      → anime per karakter
+//   GET /schedule                    → jadwal rilis
+//   GET /detail/:slug                → detail anime
+//   GET /episode/:slug               → detail episode + streaming
 
 const axios = require('axios');
 const { ANIME_API } = require('../config');
 
-const SANKAV_URL = 'https://sankavollerei.web.id/';
-
-// Axios instance untuk sankavollerei API
 const client = axios.create({
   baseURL: ANIME_API,
   headers: {
-    'Accept'          : 'application/json',
-    'User-Agent'      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'Accept-Language' : 'en-US,en;q=0.9,id;q=0.8',
+    'Accept'         : 'application/json',
+    'User-Agent'     : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
   },
   timeout: 15000,
 });
 
-// ─── HELPER ───────────────────────────────────────────────
+// ─── RAW API CALLS ───────────────────────────────────────
 
-// Ekstrak slug dari URL (misal: https://sankavollerei.web.id/anime/naruto → naruto)
-function toEndpoint(url = '') {
-  return url.replace(SANKAV_URL, '').replace(/\/$/, '');
+const api = {
+  home        : (page = 1)          => client.get(`/home?page=${page}`).then(r => r.data),
+  popular     : (page = 1)          => client.get(`/popular?page=${page}`).then(r => r.data),
+  movies      : (page = 1)          => client.get(`/movies?page=${page}`).then(r => r.data),
+  ongoing     : (page = 1)          => client.get(`/ongoing?page=${page}`).then(r => r.data),
+  completed   : (page = 1)          => client.get(`/completed?page=${page}`).then(r => r.data),
+  latest      : (page = 1)          => client.get(`/latest?page=${page}`).then(r => r.data),
+  search      : (keyword, page = 1) => client.get(`/search/${encodeURIComponent(keyword)}?page=${page}`).then(r => r.data),
+  animelist   : (letter, page = 1)  => client.get(`/animelist?letter=${letter}&page=${page}`).then(r => r.data),
+  advSearch   : (params)            => client.get(`/advanced-search`, { params }).then(r => r.data),
+  genres      : ()                  => client.get('/genres').then(r => r.data),
+  genre       : (slug, page = 1)    => client.get(`/genre/${slug}?page=${page}`).then(r => r.data),
+  characters  : ()                  => client.get('/characters').then(r => r.data),
+  character   : (slug, page = 1)    => client.get(`/character/${slug}?page=${page}`).then(r => r.data),
+  schedule    : ()                  => client.get('/schedule').then(r => r.data),
+  detail      : (slug)              => client.get(`/detail/${slug}`).then(r => r.data),
+  episode     : (slug)              => client.get(`/episode/${slug}`).then(r => r.data),
+};
+
+// ─── HELPER ──────────────────────────────────────────────
+
+function cleanSlug(raw = '') {
+  return String(raw)
+    .replace(/^https?:\/\/[^/]+/, '')
+    .replace(/\/$/, '')
+    .split('/')
+    .filter(Boolean)
+    .pop() || String(raw);
 }
 
-// ── HOME ─────────────────────────────────────────────────
-// GET /anime/home
-async function getHome() {
-  const res = await client.get('/home');
-  return res.data;
-}
-
-// ── SCHEDULE ─────────────────────────────────────────────
-// GET /anime/schedule
-async function getSchedule() {
-  const res = await client.get('/schedule');
-  return res.data;
-}
-
-// ── DETAIL ANIME ─────────────────────────────────────────
-// GET /anime/anime/:slug
-async function getAnimeDetail(slug) {
-  const res = await client.get(`/anime/${slug}`);
-  return res.data;
-}
-
-// ── COMPLETE ANIME (Tamat) ────────────────────────────────
-// GET /anime/complete-anime?page=1
-async function getCompleteAnime(page = 1) {
-  const res = await client.get(`/complete-anime?page=${page}`);
-  return res.data;
-}
-
-// ── ONGOING ANIME ─────────────────────────────────────────
-// GET /anime/ongoing-anime?page=1
-async function getOngoingAnime(page = 1) {
-  const res = await client.get(`/ongoing-anime?page=${page}`);
-  return res.data;
-}
-
-// ── GENRE LIST ────────────────────────────────────────────
-// GET /anime/genre
-async function getGenreList() {
-  const res = await client.get('/genre');
-  return res.data;
-}
-
-// ── ANIME BY GENRE ────────────────────────────────────────
-// GET /anime/genre/:slug?page=1
-async function getAnimeByGenre(slug, page = 1) {
-  const res = await client.get(`/genre/${slug}?page=${page}`);
-  return res.data;
-}
-
-// ── EPISODE DETAIL ────────────────────────────────────────
-// GET /anime/episode/:slug
-async function getEpisode(slug) {
-  const res = await client.get(`/episode/${slug}`);
-  return res.data;
-}
-
-// ── SEARCH ────────────────────────────────────────────────
-// GET /anime/search/:keyword
-async function searchAnime(keyword) {
-  const res = await client.get(`/search/${encodeURIComponent(keyword)}`);
-  return res.data;
-}
-
-// ── BATCH DOWNLOAD ────────────────────────────────────────
-// GET /anime/batch/:slug
-async function getBatch(slug) {
-  const res = await client.get(`/batch/${slug}`);
-  return res.data;
-}
-
-// ── SERVER / STREAM URL ───────────────────────────────────
-// GET /anime/server/:serverId
-async function getServer(serverId) {
-  const res = await client.get(`/server/${serverId}`);
-  return res.data;
-}
-
-// ── ALL ANIME ─────────────────────────────────────────────
-// GET /anime/unlimited
-async function getAllAnime() {
-  const res = await client.get('/unlimited');
-  return res.data;
-}
-
-// ─── ADAPTER FUNCTIONS ───────────────────────────────────
-// Fungsi-fungsi berikut memetakan data API baru ke format
-// yang diharapkan oleh frontend AniZone yang sudah ada.
-
-// getLatest → dipakai untuk /api/latest (halaman beranda)
-// Gunakan home endpoint untuk data terbaru
-async function getLatest(page = 1) {
-  try {
-    // Coba pakai ongoing dulu untuk "latest/terbaru"
-    const res = await getOngoingAnime(page);
-    const items = res.animeList || res.data || res || [];
-    return normalizeAnimeList(items);
-  } catch {
-    // Fallback ke home
-    const res = await getHome();
-    const items = res.recentRelease || res.ongoingAnime || res.data || [];
-    return normalizeAnimeList(items);
-  }
-}
-
-// Normalisasi daftar anime ke format {title, url, image, endpoint, genres, release}
-function normalizeAnimeList(items = []) {
-  return items.map(item => {
-    const url = item.animeUrl || item.url || item.href || '';
-    const slug = item.slug || url.replace(SANKAV_URL, '').replace(/\/$/, '');
-    return {
-      title   : item.title || item.animeTitle || '',
-      url     : url || `${SANKAV_URL}${slug}`,
-      image   : item.poster || item.image || item.thumbnail || item.img || '',
-      endpoint: slug,
-      genres  : Array.isArray(item.genres) ? item.genres : (item.genre ? [item.genre] : []),
-      release : item.releaseDate || item.release || item.date || '',
-      score   : item.score || item.rating || '',
-    };
-  }).filter(a => a.title);
-}
-
-// getDetail → dipakai untuk /api/detail?url=...
-async function getDetail(urlOrSlug) {
-  // Ekstrak slug dari URL jika perlu
-  let slug = urlOrSlug
-    .replace(`${SANKAV_URL}anime/`, '')
-    .replace(SANKAV_URL, '')
-    .replace(/\/$/, '');
-
-  // Jika masih ada path prefix, ambil bagian terakhir
-  if (slug.includes('/')) {
-    slug = slug.split('/').pop();
-  }
-
-  const raw = await getAnimeDetail(slug);
-  const data = raw.data || raw;
-
-  // Normalize episodes
-  const episodes = (data.episodeList || data.episodes || []).map(ep => ({
-    title   : ep.title || ep.episodeTitle || ep.name || '',
-    url     : ep.episodeUrl || ep.url || ep.href || '',
-    date    : ep.date || ep.releaseDate || '',
-    endpoint: (ep.episodeUrl || ep.url || '').replace(SANKAV_URL, '').replace(/\/$/, ''),
-  })).filter(ep => ep.title || ep.url);
-
-  // Normalize genres
-  const genreRaw = data.genres || data.genre || data.info?.genres || data.info?.genre || [];
-  const genre = Array.isArray(genreRaw)
-    ? genreRaw.map(g => (typeof g === 'object' ? g.name || g.title || '' : g)).filter(Boolean)
-    : (typeof genreRaw === 'string' ? genreRaw.split(',').map(g => g.trim()) : []);
-
+// Normalisasi item list → format AniZone frontend
+// Dari juju-otaku: { title, poster, slug, type, episode, release_day }
+function normalizeItem(item) {
+  const slug = item.slug || cleanSlug(item.href || item.url || '');
   return {
-    title      : data.title || data.animeTitle || '',
-    image      : data.poster || data.image || data.thumbnail || '',
-    description: data.synopsis || data.description || data.sinopsis || '',
-    info       : {
-      japanese     : data.japanese || data.titleJapanese || data.info?.japanese || '',
-      type         : data.type || data.tipe || data.info?.type || 'TV',
-      status       : data.status || data.info?.status || 'Ongoing',
-      total_episode: data.totalEpisode || data.total_episode || data.episodes?.length || '?',
-      score        : data.score || data.rating || data.info?.score || 'N/A',
-      duration     : data.duration || data.durasi || data.info?.duration || '?',
-      season       : data.season || data.musim || data.info?.season || '',
-      released     : data.released || data.dirilis || data.info?.released || '',
-      producer     : data.producer || data.studio || data.info?.producer || '',
-      genre        : genre.join(', '),
-    },
-    genre,
-    episodes,
-    download: data.downloadList || data.batch || data.download || [],
+    title   : item.title || '',
+    url     : slug,
+    image   : item.poster || item.image || '',
+    endpoint: slug,
+    genres  : [],
+    release : item.release_day || item.releaseDay || '',
+    score   : item.score || '',
+    type    : item.type || '',
+    episode : item.episode != null ? String(item.episode) : '',
   };
 }
 
-// getWatch → dipakai untuk /api/watch?url=...
-async function getWatch(urlOrSlug) {
-  // Ekstrak slug episode dari URL
-  let slug = urlOrSlug
-    .replace(`${SANKAV_URL}episode/`, '')
-    .replace(SANKAV_URL, '')
-    .replace(/\/$/, '');
+// Ambil array anime dari berbagai bentuk response
+function extractAnimes(raw) {
+  return raw.animes
+      || raw.data?.animes
+      || raw.animeList
+      || raw.data?.animeList
+      || raw.data
+      || [];
+}
 
-  if (slug.includes('/')) slug = slug.split('/').pop();
+// ─── ADAPTER FUNCTIONS ───────────────────────────────────
 
-  const raw = await getEpisode(slug);
-  const data = raw.data || raw;
+// getLatest → /api/latest (dipakai beranda)
+async function getLatest(page = 1) {
+  try {
+    const raw = await api.latest(page);
+    return extractAnimes(raw).map(normalizeItem);
+  } catch (err) {
+    console.error('[getLatest]', err.message);
+    return [];
+  }
+}
 
-  // Normalize streaming servers
-  const streams = [];
+// searchAnime → /api/search
+async function searchAnime(keyword) {
+  if (!keyword) return [];
+  try {
+    const raw = await api.search(keyword);
+    return extractAnimes(raw).map(normalizeItem);
+  } catch (err) {
+    console.error('[searchAnime]', err.message);
+    return [];
+  }
+}
 
-  // Format server dari API: {serverId, serverName, ...}
-  const serverList = data.streamingLink || data.servers || data.streaming || [];
-  serverList.forEach(s => {
-    const sid = s.serverId || s.id || '';
-    if (sid) {
-      streams.push({
-        server   : s.serverName || s.name || s.title || 'Server',
-        serverId : sid,
-        url      : s.url || s.embedUrl || '', // mungkin kosong, perlu /server/:id
-      });
-    } else if (s.url || s.embedUrl) {
-      streams.push({
-        server: s.serverName || s.name || 'Server',
-        url   : s.url || s.embedUrl,
-      });
-    }
+// getDetail → /api/detail?url=...
+// Sesuai juju-otaku: result.detail → { title, poster, synopsis, status, duration,
+//   aired, season, studio, author, synonym, genres:[{name,slug}],
+//   episodes:[{name,slug}], batch:{slug} }
+async function getDetail(urlOrSlug) {
+  const slug = cleanSlug(urlOrSlug);
+  const raw  = await api.detail(slug);
+  const d    = raw.detail || raw.data || raw;
+
+  const genreObjs = d.genres || [];
+  const genreArr  = genreObjs.map(g => (typeof g === 'object' ? g.name || '' : g)).filter(Boolean);
+
+  // Episodes: [{name, slug}]
+  const episodes = (d.episodes || []).map(ep => {
+    const epSlug = ep.slug || cleanSlug(ep.href || ep.url || '');
+    return {
+      title   : ep.name || ep.title || '',
+      url     : epSlug,
+      endpoint: epSlug,
+      date    : ep.date || '',
+    };
   });
 
-  // Normalize download links
-  const downloadRaw = data.downloadUrl || data.downloads || data.download || [];
-  const downloads = [];
-  if (Array.isArray(downloadRaw)) {
-    downloadRaw.forEach(group => {
-      if (group.resolution && group.links) {
-        downloads.push({
-          resolution: group.resolution,
-          format    : group.format || '',
-          links     : group.links,
-        });
-      } else if (group.title && group.link_download) {
-        group.link_download.forEach(res => {
-          downloads.push({
-            resolution: res.resolusi || res.resolution || '',
-            format    : group.title,
-            links     : res.link || [],
-          });
-        });
-      }
-    });
-  }
+  const batchSlug = d.batch?.slug || cleanSlug(d.batch?.href || '');
 
   return {
-    title    : data.title || data.episodeTitle || '',
+    title      : d.title || '',
+    image      : d.poster || d.image || '',
+    description: d.synopsis || d.description || '',
+    info       : {
+      japanese     : d.synonym   || d.japanese || '',
+      type         : d.type      || 'TV',
+      status       : d.status    || 'Ongoing',
+      total_episode: d.totalEpisode || episodes.length || '?',
+      score        : d.score     || 'N/A',
+      duration     : d.duration  || '?',
+      season       : d.season    || '',
+      released     : d.aired     || d.releaseDate || '',
+      producer     : d.author    || d.producer || '',
+      studio       : d.studio    || '',
+      genre        : genreArr.join(', '),
+    },
+    genre    : genreArr,
+    episodes,
+    batchSlug,
+    download : [],
+  };
+}
+
+// getWatch → /api/watch?url=...
+// Sesuai juju-otaku: { title, streams:[{name, url}] }
+async function getWatch(urlOrSlug) {
+  const slug = cleanSlug(urlOrSlug);
+  const raw  = await api.episode(slug);
+  const d    = raw.data || raw;
+
+  const streams = (d.streams || []).map(s => ({
+    server: s.name   || s.server || 'Server',
+    url   : s.url    || s.embedUrl || '',
+  })).filter(s => s.url);
+
+  // Download links
+  const downloads = [];
+  const dlRaw = d.downloadUrl || d.downloads || [];
+  (Array.isArray(dlRaw) ? dlRaw : []).forEach(group => {
+    (group.qualities || []).forEach(q => {
+      downloads.push({
+        resolution: q.title || q.resolution || '',
+        format    : group.title || '',
+        links     : (q.urls || []).map(l => ({ host: l.title || '', url: l.url || '' })),
+      });
+    });
+  });
+
+  return {
+    title    : d.title || raw.title || '',
     streams,
     downloads,
   };
 }
 
-// getServer → ambil embed URL dari server ID (digunakan saat stream URL belum ada)
-async function getStreamUrl(serverId) {
-  const raw = await getServer(serverId);
-  const data = raw.data || raw;
-  return data.embedUrl || data.url || data.src || '';
-}
-
-// getScrapedSchedule → dipakai untuk /api/schedule fallback
+// getScrapedSchedule → fallback /api/schedule
 async function getScrapedSchedule() {
   try {
-    const raw = await getSchedule();
-    const data = raw.data || raw;
-    // Format jadwal: array of { day, animeList }
-    if (Array.isArray(data)) return data;
-    // Jika object per hari
-    return Object.entries(data).map(([day, list]) => ({
-      day,
-      items: normalizeAnimeList(Array.isArray(list) ? list : []),
-    }));
+    const raw = await api.schedule();
+    return raw.data || raw.schedule || raw || [];
   } catch { return []; }
 }
 
-// getScrapedTrending → dipakai untuk /api/trending fallback
+// getScrapedTrending → fallback /api/trending
 async function getScrapedTrending() {
   try {
-    const raw = await getHome();
-    const data = raw.data || raw;
-    const items = data.trending || data.popular || data.recentRelease || [];
-    return normalizeAnimeList(items).slice(0, 20);
+    const raw   = await api.popular();
+    return extractAnimes(raw).slice(0, 20).map(normalizeItem);
   } catch { return []; }
 }
 
 module.exports = {
-  // Adapter (dipakai index.js)
+  // Adapter (dipakai route lama / frontend)
   getLatest,
-  searchAnime: async (query) => {
-    const raw = await searchAnime(query);
-    const items = raw.data || raw || [];
-    return normalizeAnimeList(Array.isArray(items) ? items : []);
-  },
+  searchAnime,
   getDetail,
   getWatch,
-  getStreamUrl,
   getScrapedSchedule,
   getScrapedTrending,
 
-  // Raw API (opsional, untuk route baru)
-  api: {
-    getHome,
-    getSchedule,
-    getAnimeDetail,
-    getCompleteAnime,
-    getOngoingAnime,
-    getGenreList,
-    getAnimeByGenre,
-    getEpisode,
-    searchAnime,
-    getBatch,
-    getServer,
-    getAllAnime,
-  },
+  // Raw API (dipakai route baru di index.js)
+  api,
 };
