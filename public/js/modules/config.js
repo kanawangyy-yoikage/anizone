@@ -14,13 +14,13 @@ const ALL_VIEWS = [
 
 // Konfigurasi section beranda
 const HOME_SECTIONS = [
-  { title: 'Sedang Hangat',      mode: 'latest' },
-  { title: 'Isekai & Fantasy',   queries: ['isekai', 'reincarnation', 'world', 'maou'] },
-  { title: 'Action Hits',        queries: ['kimetsu', 'jujutsu', 'piece', 'bleach', 'hunter', 'shingeki'] },
-  { title: 'Romance & Drama',    queries: ['love', 'kanojo', 'romance', 'heroine', 'uso'] },
-  { title: 'School Life',        queries: ['school', 'gakuen', 'classroom', 'high school'] },
-  { title: 'Magic & Adventure',  queries: ['magic', 'adventure', 'dragon', 'dungeon'] },
-  { title: 'Comedy & Chill',     queries: ['comedy', 'slice of life', 'bocchi', 'spy'] },
+  { title: "Sedang Hangat",  mode: "latest" },
+  { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
+  { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
+  { title: "Romance & Drama", queries: ["kanojo","romance","heroine","uso"] },
+  { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
+  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
+  { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
 ];
 
 // Keyword per genre untuk halaman Kategori
