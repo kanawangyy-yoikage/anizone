@@ -329,7 +329,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   margin-bottom: 20px; position: relative;
 }
 .genre-scroll-container {
-  flex: 1; overflow-x: auto; scroll-behavior: smooth;
+  flex: 1; min-width: 0; overflow-x: auto; scroll-behavior: smooth;
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .genre-scroll-container::-webkit-scrollbar { display: none; }
