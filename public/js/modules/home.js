@@ -55,7 +55,7 @@ async function loadLatestTab() {
       // Async enrich slider dengan score & info detail
       top10.forEach(async (item) => {
         try {
-          const r = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(item.url)}`);
+          const r = await fetch(`${API_BASE}/anime/${encodeURIComponent(item.url)}`);
           const d = await r.json();
           if (d?.info) {
             const score  = d.info.skor || d.info.score || 'N/A';
@@ -189,7 +189,7 @@ async function loadSchedule() {
 function scheduleCard(a) {
   const title   = a.title?.length > 40 ? a.title.substring(0, 38) + '...' : (a.title || '');
   const onclick = a.url
-    ? `loadDetail('${a.url}')`
+    ? `loadDetailBySlug('${a.url}')`
     : `handleSearch('${(a.title || '').replace(/'/g, "\\'")}')`;
   return `
     <div class="schedule-card" onclick="${onclick}">
@@ -259,7 +259,7 @@ function renderHeroSlider(data, container) {
           <div class="hero-meta" data-url="${a.url}">
             <span>⭐ ${a.score || 'N/A'}</span> • <span>${a.type || 'Anime'}</span>
           </div>
-          <button onclick="loadDetail('${a.url}')" class="hero-btn">
+          <button onclick="loadDetailBySlug('${a.url}')" class="hero-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             Nonton Sekarang
           </button>
@@ -341,7 +341,7 @@ function renderSection(title, data, container) {
     </div>
     <div class="horizontal-scroll">
       ${data.map((a, i) => `
-        <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i * 0.04}s">
+        <div class="scroll-card" onclick="loadDetailBySlug('${a.url}')" style="animation-delay:${i * 0.04}s">
           <div class="scroll-card-outer">
             <div class="scroll-card-img">
               <img src="${a.image}" alt="${a.title}" loading="lazy">
