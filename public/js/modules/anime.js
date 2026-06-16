@@ -4,7 +4,6 @@
 // ── Halaman Kategori ──────────────────────────────────────
 function renderCategoryPage() {
   const grid = document.getElementById('genre-grid');
-  if (grid.innerHTML) return; // sudah di-render
   grid.innerHTML = KATEGORI_LIST
     .map(g => `<button class="genre-btn" onclick="loadCategory('${g}',this)"><span>${g}</span></button>`)
     .join('');
