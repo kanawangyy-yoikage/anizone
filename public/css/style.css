@@ -323,19 +323,17 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 @media (min-width: 600px) { .anime-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 
-/* ── GENRE SLIDER ── */
+/* ── GENRE GRID ── */
 .genre-slider-wrapper {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 20px; position: relative;
+  margin-bottom: 20px;
 }
 .genre-scroll-container {
-  flex: 1; min-width: 0; overflow-x: auto; scroll-behavior: smooth;
-  scrollbar-width: none; -ms-overflow-style: none;
+  flex: 1; min-width: 0; overflow-y: auto; max-height: 280px;
+  scroll-behavior: smooth; scrollbar-width: thin;
+  -ms-overflow-style: auto;
 }
-.genre-scroll-container::-webkit-scrollbar { display: none; }
 .genre-grid {
-  display: flex; flex-wrap: nowrap; gap: 10px;
-  width: max-content;
+  display: flex; flex-wrap: wrap; gap: 10px;
 }
 .genre-btn {
   padding: 8px 18px; border-radius: 99px; white-space: nowrap;
