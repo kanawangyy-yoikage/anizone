@@ -323,15 +323,36 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 @media (min-width: 600px) { .anime-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 
-/* ── GENRE GRID ── */
-.genre-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+/* ── GENRE SLIDER ── */
+.genre-slider-wrapper {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 20px; position: relative;
+}
+.genre-scroll-container {
+  flex: 1; overflow-x: auto; scroll-behavior: smooth;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.genre-scroll-container::-webkit-scrollbar { display: none; }
+.genre-grid {
+  display: flex; flex-wrap: nowrap; gap: 10px;
+  width: max-content;
+}
 .genre-btn {
-  padding: 8px 18px; border-radius: 99px;
+  padding: 8px 18px; border-radius: 99px; white-space: nowrap;
   background: var(--bg-input); border: 1px solid var(--border-color);
   color: var(--text-muted); font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all var(--transition);
+  cursor: pointer; transition: all var(--transition); flex-shrink: 0;
 }
 .genre-btn:hover, .genre-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.genre-arrow {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  color: var(--text-primary); font-size: 20px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition); user-select: none;
+}
+.genre-arrow:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.genre-arrow:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
 
 /* ── PAGE TITLE ── */
 .page-title { font-size: 20px; font-weight: 800; margin-bottom: 16px; }
