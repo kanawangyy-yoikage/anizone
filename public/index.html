@@ -575,78 +575,7 @@
 </div>
 
 <!-- SCRIPTS -->
-<script>
-        // =================================================================
-        // 1. MEMBLOKIR KLIK KANAN (CONTEXT MENU)
-        // =================================================================
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            alert("Maaf, fungsi klik kanan dinonaktifkan demi keamanan konten!");
-        });
 
-        // =================================================================
-        // 2. MEMBLOKIR SHORTCUT KEYBOARD (F12, CTRL+SHIFT+I, J, U)
-        // =================================================================
-        document.addEventListener('keydown', function(e) {
-            // Blokir F12
-            if (e.key === "F12") {
-                e.preventDefault();
-                alert("Akses F12 dilarang!");
-                return false;
-            }
-
-            // Blokir Ctrl+Shift+I (Inspect) & Ctrl+Shift+J (Console)
-            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'i' || e.key === 'j')) {
-                e.preventDefault();
-                alert("Shortcut Inspect Element dinonaktifkan!");
-                return false;
-            }
-
-            // Blokir Ctrl+U (View Source)
-            if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
-                e.preventDefault();
-                alert("Shortcut View Source dinonaktifkan!");
-                return false;
-            }
-        });
-
-        // =================================================================
-        // 3. FIX DETEKSI DEVTOOLS REAL-TIME (Buka/Tutup Langsung Otomatis)
-        // =================================================================
-        const mainContent = document.getElementById('main-content');
-        const blockedContent = document.getElementById('blocked-content');
-
-        function checkDevTools() {
-            const threshold = 160; // Batas piksel sensitivitas DevTools
-            
-            // Cek selisih ukuran window luar dengan area halaman dalam
-            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-            
-            // Jika terdeteksi salah satu dimensi menyusut tajam (DevTools Terbuka)
-            if (widthThreshold || heightThreshold) {
-                mainContent.style.display = 'none';
-                blockedContent.style.display = 'flex';
-            } else {
-                // Jika DevTools ditutup, otomatis konten kembali normal tanpa perlu refresh!
-                mainContent.style.display = 'block';
-                blockedContent.style.display = 'none';
-            }
-        }
-
-        // Menggunakan interval super cepat (200ms) agar deteksi langsung instan dan tidak telat
-        setInterval(checkDevTools, 200);
-        // Jalankan juga saat window di-resize oleh sistem browser
-        window.addEventListener('resize', checkDevTools);
-
-        // =================================================================
-        // 4. TRIK INFINITE DEBUGGER
-        // =================================================================
-        setInterval(function() {
-            debugger;
-        }, 100);
-
-    </script>
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
