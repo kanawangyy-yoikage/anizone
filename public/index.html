@@ -174,11 +174,11 @@
     <div style="padding:0 16px 16px">
       <h1 class="page-title">Kategori Anime</h1>
       <div class="genre-slider-wrapper">
-        <button class="genre-arrow genre-arrow-left" id="genre-prev" aria-label="Scroll kiri">&#8249;</button>
+        <button class="genre-arrow genre-arrow-left" onclick="document.getElementById('genre-scroll').scrollBy({left:-240,behavior:'smooth'})" aria-label="Scroll kiri">&#8249;</button>
         <div class="genre-scroll-container" id="genre-scroll">
           <div class="genre-grid" id="genre-grid"></div>
         </div>
-        <button class="genre-arrow genre-arrow-right" id="genre-next" aria-label="Scroll kanan">&#8250;</button>
+        <button class="genre-arrow genre-arrow-right" onclick="document.getElementById('genre-scroll').scrollBy({left:240,behavior:'smooth'})" aria-label="Scroll kanan">&#8250;</button>
       </div>
     </div>
     <div id="category-results-container"></div>
