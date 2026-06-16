@@ -76,9 +76,9 @@ const HOME_SECTIONS = [
   { title: "Sedang Hangat",  mode: "latest" },
   { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
   { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
-  { title: "Romance & Drama", queries: ["love","kanojo","romance","heroine","uso"] },
+  { title: "Romance & Drama", queries: ["aishiteru","love","kanojo","romance","heroine","watashi ga koibito ni nareru wake nai jan"] },
   { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
-  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
+  { title: "Magic & Adventure", queries: ["majo","magic","adventure","dragon","dungeon"] },
   { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
 ];
 
