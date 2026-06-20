@@ -21,7 +21,7 @@ const db   = firebase.firestore();
 let editState = {
   avatarFile: null,
   bannerFile: null,
-  bannerColor: 'linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)',
+  bannerColor: 'linear-gradient(135deg,#2e1065,#7C3AED,#ec4899)',
   bannerIsImage: false,
 };
 

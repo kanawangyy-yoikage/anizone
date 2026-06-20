@@ -50,7 +50,6 @@ function switchTab(tabName) {
 
     case 'developer':
       show('developer-view');
-      fetchWAFollowers();
       break;
 
     case 'profile':

@@ -91,7 +91,75 @@ async function loadLatestTab() {
         }
       })();
     }
+
+    // Widget ringkas: Jadwal Rilis Terbaru + Berita Terbaru (2 kolom)
+    renderHomeWidgetsRow(container);
   } catch { loader(false); }
+}
+
+// ── Widget ringkas Jadwal Rilis & Berita (preview, bukan full list) ──
+async function renderHomeWidgetsRow(container) {
+  const row = document.createElement('div');
+  row.className = 'home-widgets-row';
+  row.innerHTML = `
+    <div class="home-widget-card">
+      <div class="home-widget-head">
+        <div class="home-widget-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Jadwal Rilis Terbaru</div>
+        <a href="#" class="more-link" onclick="document.querySelector('.home-tab[onclick*=jadwal]')?.click();return false">Lihat Semua →</a>
+      </div>
+      <div id="homeWidgetJadwal" class="home-widget-body"><div class="spinner" style="margin:20px auto"></div></div>
+    </div>
+    <div class="home-widget-card">
+      <div class="home-widget-head">
+        <div class="home-widget-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"/><line x1="7" y1="8" x2="13" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>Berita Terbaru</div>
+        <a href="#" class="more-link" onclick="document.querySelector('.home-tab[onclick*=berita]')?.click();return false">Lihat Semua →</a>
+      </div>
+      <div id="homeWidgetBerita" class="home-widget-body"><div class="spinner" style="margin:20px auto"></div></div>
+    </div>`;
+  container.appendChild(row);
+
+  // Jadwal (ambil 4 item pertama)
+  try {
+    const data = await fetch(`${API_BASE}/schedule`).then(r => r.json());
+    const items = (Array.isArray(data) ? data : []).slice(0, 4);
+    const el = document.getElementById('homeWidgetJadwal');
+    if (!el) return;
+    el.innerHTML = items.length ? items.map(a => {
+      const onclick = a.url ? `loadDetailBySlug('${a.url}')` : `handleSearch('${(a.title || '').replace(/'/g, "\\'")}')`;
+      const time = a.broadcast?.time || '--:--';
+      return `
+        <div class="widget-list-item" onclick="${onclick}">
+          <div class="widget-item-time">${time}</div>
+          <div class="widget-item-img">${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : ''}</div>
+          <div class="widget-item-info">
+            <div class="widget-item-title">${a.title || ''}</div>
+            <div class="widget-item-sub">${a.episodes ? `Episode ${a.episodes}` : 'Segera'}</div>
+          </div>
+        </div>`;
+    }).join('') : '<p style="color:var(--text-muted);font-size:12.5px;padding:10px 0">Jadwal tidak tersedia.</p>';
+  } catch {
+    const el = document.getElementById('homeWidgetJadwal');
+    if (el) el.innerHTML = '<p style="color:var(--text-muted);font-size:12.5px;padding:10px 0">Gagal memuat jadwal.</p>';
+  }
+
+  // Berita (ambil 3 item pertama)
+  try {
+    const data = await fetch(`${API_BASE}/news`).then(r => r.json());
+    const items = (Array.isArray(data) ? data : []).slice(0, 3);
+    const el = document.getElementById('homeWidgetBerita');
+    if (!el) return;
+    el.innerHTML = items.length ? items.map(n => `
+      <div class="widget-list-item" onclick="${n.url && n.url !== '#' ? `window.open('${n.url}','_blank')` : ''}">
+        <div class="widget-item-img">${n.image ? `<img src="${n.image}" alt="${n.title}" loading="lazy">` : ''}</div>
+        <div class="widget-item-info">
+          <div class="widget-item-title">${n.title || ''}</div>
+          <div class="widget-item-sub">${n.date || ''}</div>
+        </div>
+      </div>`).join('') : '<p style="color:var(--text-muted);font-size:12.5px;padding:10px 0">Berita tidak tersedia.</p>';
+  } catch {
+    const el = document.getElementById('homeWidgetBerita');
+    if (el) el.innerHTML = '<p style="color:var(--text-muted);font-size:12.5px;padding:10px 0">Gagal memuat berita.</p>';
+  }
 }
 
 // ── Tab Trending ──────────────────────────────────────────
