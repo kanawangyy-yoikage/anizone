@@ -82,7 +82,7 @@ async function loadAnimeStats() {
         <!-- Quick stats grid -->
         <div class="stats-quick-grid">
           <div class="stats-quick-card">
-            <div class="stats-quick-icon" style="background:rgba(124,58,237,0.15);color:var(--accent)">▶️</div>
+            <div class="stats-quick-icon" style="background:rgba(66,133,244,0.15);color:var(--accent)">▶️</div>
             <div class="stats-quick-val">${totalWatched}</div>
             <div class="stats-quick-label">Episode Ditonton</div>
           </div>
@@ -180,7 +180,7 @@ function renderHeatmap(history) {
     const pct = v / maxVal;
     const bg  = v === 0
       ? 'var(--bg-input)'
-      : `rgba(124,58,237,${0.2 + pct * 0.8})`;
+      : `rgba(66,133,244,${0.2 + pct * 0.8})`;
     const d   = new Date(k);
     const label = `${d.getDate()}/${d.getMonth()+1}: ${v} ep`;
     return `<div class="heatmap-cell" style="background:${bg}" title="${label}"></div>`;
@@ -191,7 +191,7 @@ function renderHeatmap(history) {
       <span>Jarang</span>
       <div class="heatmap-legend-cells">
         ${[0, 0.25, 0.5, 0.75, 1].map(p =>
-          `<div class="heatmap-cell" style="background:${p === 0 ? 'var(--bg-input)' : `rgba(124,58,237,${0.2 + p * 0.8})`}"></div>`
+          `<div class="heatmap-cell" style="background:${p === 0 ? 'var(--bg-input)' : `rgba(66,133,244,${0.2 + p * 0.8})`}"></div>`
         ).join('')}
       </div>
       <span>Banyak</span>

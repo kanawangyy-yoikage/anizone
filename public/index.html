@@ -41,8 +41,13 @@
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
+    <div class="sidebar-user-avatar" onclick="switchTab('profile')">
+      <img id="sidebarAvatarImg" src="" alt="" style="display:none">
+      <span id="sidebarAvatarInitial">A</span>
+    </div>
     <div style="flex:1;min-width:0">
-      <div class="sidebar-title"><span class="brand-accent">Ani</span>Zone</div>
+      <div class="sidebar-title">AniZone</div>
+      <div class="sidebar-username" id="sidebarUsername">Memuat...</div>
     </div>
     <!-- Settings button -->
     <div class="sidebar-settings-wrap">
@@ -78,7 +83,7 @@
       Beranda
     </button>
     <button class="sidebar-item" id="stab-anime" onclick="switchTab('anime')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Kategori
     </button>
     <button class="sidebar-item" id="stab-recent" onclick="switchTab('recent')">
@@ -93,14 +98,6 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
       Watchlist
     </button>
-    <button class="sidebar-item" id="stab-jadwal" onclick="switchTab('home');setTimeout(()=>document.querySelector('.home-tab[onclick*=jadwal]')?.click(),50)">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Jadwal Rilis
-    </button>
-    <button class="sidebar-item" id="stab-berita" onclick="switchTab('home');setTimeout(()=>document.querySelector('.home-tab[onclick*=berita]')?.click(),50)">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"/><line x1="7" y1="8" x2="13" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
-      Berita
-    </button>
     <button class="sidebar-item" id="stab-developer" onclick="switchTab('developer')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
       Developer
@@ -110,13 +107,12 @@
     <button class="sidebar-item" onclick="toggleTheme()">
       <span id="sidebarThemeIcon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
       <span id="sidebarThemeLabel">Mode Gelap</span>
-      <span class="sidebar-toggle-pill" id="sidebarThemePill" aria-hidden="true"><span class="sidebar-toggle-knob"></span></span>
     </button>
     <button class="sidebar-item" id="stab-profile" onclick="switchTab('profile')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Profil
     </button>
-    <a id="adminPanelLink" href="/admin" class="sidebar-item sidebar-admin" style="display:none">
+    <a id="adminPanelLink" href="/admin" class="sidebar-item" style="display:none">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Admin Panel
     </a>
@@ -125,51 +121,19 @@
       Keluar
     </button>
   </div>
-
-  <!-- Premium upsell card -->
-  <div class="sidebar-premium-card" id="sidebarPremiumCard" onclick="switchTab('profile')">
-    <div class="sidebar-premium-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 6l5.5 4L12 4l3.5 6L21 6l-2 10H5zm0 2h14v2H5v-2z"/></svg>
-    </div>
-    <div class="sidebar-premium-title">Upgrade ke Premium!</div>
-    <div class="sidebar-premium-desc">Nikmati pengalaman menonton tanpa iklan dan akses lebih cepat!</div>
-    <button class="sidebar-premium-btn" onclick="event.stopPropagation();switchTab('profile')">Upgrade Sekarang</button>
-  </div>
-
-  <!-- User card -->
-  <div class="sidebar-user-card" onclick="switchTab('profile')">
-    <div class="sidebar-user-avatar">
-      <img id="sidebarAvatarImg" src="" alt="" style="display:none">
-      <span id="sidebarAvatarInitial">A</span>
-    </div>
-    <div style="flex:1;min-width:0">
-      <div class="sidebar-username" id="sidebarUsername">Memuat...</div>
-      <div class="sidebar-user-status" id="sidebarUserStatus"><span class="status-dot"></span>Online</div>
-    </div>
-  </div>
 </aside>
 
 <!-- NAVBAR -->
 <header class="navbar">
   <div class="top-search-bar">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" id="searchInput" placeholder="Cari anime favoritmu..." autocomplete="off" onfocus="openAdvancedSearch(this.value.trim());this.blur()" readonly onclick="openAdvancedSearch(this.value.trim())">
+    <input type="text" id="searchInput" placeholder="Cari anime..." autocomplete="off" onfocus="openAdvancedSearch(this.value.trim());this.blur()" readonly onclick="openAdvancedSearch(this.value.trim())">
     <button class="search-text-btn" onclick="openAdvancedSearch(document.getElementById('searchInput').value.trim())">Cari</button>
   </div>
-
-  <!-- Notification bell (desktop) -->
-  <button class="navbar-bell-btn" aria-label="Notifikasi" onclick="toggleNavbarSettings()">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-  </button>
-
-  <!-- Settings / avatar button (desktop + mobile share dropdown) -->
+  <!-- Settings button mobile (hidden on desktop, shown on mobile) -->
   <div class="navbar-settings-wrap">
-    <button class="navbar-settings-btn navbar-avatar-btn" onclick="toggleNavbarSettings()" aria-label="Pengaturan">
-      <span class="navbar-avatar-circle">
-        <img id="topAvatarImg" src="" alt="" style="display:none">
-        <span id="topAvatarInitial">A</span>
-      </span>
-      <svg class="navbar-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    <button class="navbar-settings-btn" onclick="toggleNavbarSettings()" aria-label="Pengaturan">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
     <div class="navbar-settings-dropdown" id="navbarSettingsDropdown">
       <button class="settings-dropdown-item" onclick="switchTab('profile');closeNavbarSettings()">
@@ -207,17 +171,7 @@
 
   <!-- KATEGORI -->
   <div id="anime-view" class="hidden" style="padding:0 0 80px">
-    <div class="cat-page-header">
-      <div class="breadcrumb">
-        <a href="#" onclick="switchTab('home');return false">Beranda</a>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        <span>Kategori</span>
-      </div>
-      <h1 class="cat-page-title">Kategori Anime</h1>
-      <p class="cat-page-sub">Jelajahi anime berdasarkan genre favoritmu</p>
-    </div>
     <!-- Diisi dinamis oleh renderCategoryPage() di anime.js -->
-    <div id="anime-tab-bar-wrap"></div>
   </div>
 
   <!-- RIWAYAT -->
@@ -277,197 +231,66 @@
 
   <!-- DEVELOPER -->
   <div id="developer-view" class="hidden">
-    <div class="dev-page">
-
-      <div class="breadcrumb">
-        <a href="#" onclick="switchTab('home');return false">Beranda</a>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        <span>Developer</span>
+    <div class="social-profile-container">
+      <div class="social-banner">
+        <img src="bg.webp" alt="Banner" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a237e,#4285F4)'">
       </div>
-
-      <div class="dev-hero">
-        <div class="dev-hero-text">
-          <h1>Developer</h1>
-          <p class="dev-hero-sub">Kenali tim di balik AniZone</p>
-          <p class="dev-hero-desc">Kami adalah sekelompok penggemar anime yang membangun AniZone untuk komunitas.</p>
+      <div class="social-profile-header">
+        <div class="social-avatar-wrapper">
+          <img src="pp.webp" class="social-avatar" alt="Dev">
         </div>
-        <div class="dev-hero-img">
-          <img src="bg.webp" alt="Developer working" onerror="this.parentElement.style.background='linear-gradient(135deg,#2e1065,#7C3AED)'">
-        </div>
+        <button class="social-follow-btn" id="devFollowBtn" onclick="toggleDevFollow(this)" data-following="false">
+          <svg id="devFollowCheck" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="devFollowText">Follow</span>
+        </button>
       </div>
-
-      <div class="dev-stats-row">
-        <div class="dev-stat-card">
-          <div class="dev-stat-icon">👥</div>
-          <div class="dev-stat-num">1</div>
-          <div class="dev-stat-label">Developer Anggota Tim</div>
+      <div class="social-info">
+        <div class="social-name-wrapper">
+          <div class="social-name">kanawangyy</div>
+          <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#3b82f6"/><path d="M9.5 16.5l-4-4 1.41-1.41L9.5 13.67l7.59-7.59L18.5 7.5z" fill="white"/></svg>
         </div>
-        <div class="dev-stat-card">
-          <div class="dev-stat-icon">💻</div>
-          <div class="dev-stat-num">10K+</div>
-          <div class="dev-stat-label">Baris Kode Ditulis</div>
-        </div>
-        <div class="dev-stat-card">
-          <div class="dev-stat-icon">📅</div>
-          <div class="dev-stat-num" id="devDaysCount">120+</div>
-          <div class="dev-stat-label">Hari Dikembangkan</div>
-        </div>
-        <div class="dev-stat-card">
-          <div class="dev-stat-icon">🌐</div>
-          <div class="dev-stat-num">1</div>
-          <div class="dev-stat-label">Tujuan Untuk Komunitas</div>
+        <div class="social-handle">@kanawangyy-yoikage</div>
+        <div class="social-bio">Self-taught developer · Anime enthusiast · Building AniZone with love · Open source on GitHub</div>
+        <div class="social-stats">
+          <div class="stat-item"><span class="stat-num" id="wa-follower-count">22.2K</span><span class="stat-label">Followers</span></div>
+          <div class="stat-item"><span class="stat-num">14</span><span class="stat-label">Projects</span></div>
+          <div class="stat-item"><span class="stat-num">3</span><span class="stat-label">Years</span></div>
         </div>
       </div>
-
-      <div class="dev-section-title"><span class="bar-accent"></span><h2>Anggota Tim</h2></div>
-      <div class="dev-team-card">
-        <div class="dev-team-avatar">
-          <img src="pp.webp" alt="kanawangyy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <span class="dev-team-avatar-fallback" style="display:none">K</span>
-        </div>
-        <div class="dev-team-info">
-          <h3>kanawangyy</h3>
-          <div class="dev-team-role">Full Stack Developer</div>
-          <p class="dev-team-bio">Seorang penggemar anime yang suka ngoding dan bikin project kecil-kecilan. AniZone dibuat sebagai tempat buat berbagi dan merekomendasikan anime terbaik untuk semua orang.</p>
-          <div class="dev-team-skills-label">Keahlian</div>
-          <div class="dev-team-skills">
-            <span class="skill-chip">Node.js</span>
-            <span class="skill-chip">Express</span>
-            <span class="skill-chip">JavaScript</span>
-            <span class="skill-chip">Firebase</span>
-            <span class="skill-chip">Cheerio</span>
-            <span class="skill-chip">Git</span>
-          </div>
-          <div class="dev-team-social">
-            <a href="https://github.com/kanawangyy-yoikage" target="_blank" class="dev-social-btn" aria-label="GitHub">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55v-2.17c-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.43-2.69 5.4-5.25 5.69.41.36.78 1.05.78 2.12v3.14c0 .31.2.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
-            </a>
-            <a href="https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C" target="_blank" class="dev-social-btn" aria-label="WhatsApp">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.81.48 3.58 1.4 5.14L2 22l5.1-1.5a9.9 9.9 0 0 0 4.94 1.34c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.83 14.05c-.24.68-1.4 1.3-1.93 1.34-.5.04-.98.23-3.32-.7-2.8-1.12-4.6-3.95-4.74-4.13-.14-.18-1.13-1.5-1.13-2.86s.71-2.03.97-2.31c.24-.27.53-.34.71-.34.18 0 .36 0 .51.01.18.01.4-.07.62.47.24.59.8 2.05.87 2.2.07.14.11.31.02.5-.09.18-.14.3-.27.46-.14.16-.29.36-.41.48-.14.14-.28.29-.12.57.16.27.71 1.17 1.52 1.9 1.05.94 1.93 1.23 2.21 1.37.27.14.43.11.59-.07.16-.18.68-.79.86-1.06.18-.27.36-.23.6-.14.25.09 1.59.75 1.86.89.27.14.45.2.51.32.07.13.07.7-.17 1.38z"/></svg>
-            </a>
-            <a href="mailto:kanawangyy@anizone.dev" class="dev-social-btn" aria-label="Email">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" stroke="none"/><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
-            </a>
-          </div>
+      <div class="social-tabs">
+        <div class="social-tab active" onclick="switchDevTab(this,0)">Tentang</div>
+        <div class="social-tab" onclick="switchDevTab(this,1)">API Docs</div>
+        <div class="social-tab" onclick="switchDevTab(this,2)">Kredit</div>
+      </div>
+      <div id="dev-tab-0" class="social-content">
+        <div class="doc-card"><h4>Halo, Saya kanawangyy!</h4><p>Developer di balik AniZone 2026 — platform streaming anime sub indo yang dibangun dengan semangat. Proyek ini adalah hasil kerja keras belajar web development.</p></div>
+        <div class="doc-card" style="animation-delay:.1s"><h4>Tech Stack</h4><p>Node.js + Express (backend), Firebase Auth & Firestore (database), MyAnimeList API (data anime), dan Vercel (hosting).</p></div>
+        <div class="doc-card" style="animation-delay:.2s"><h4>Komunitas</h4><p>Bergabung dengan komunitas AniZone di WhatsApp Channel untuk update terbaru dan rekomendasi anime.</p></div>
+        <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+          <a href="https://github.com/kanawangyy-yoikage" target="_blank" class="btn-action" style="text-decoration:none">GitHub</a>
+          <a href="https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C" target="_blank" class="btn-action" style="background:var(--success);text-decoration:none">WA Channel</a>
         </div>
       </div>
-
-      <div class="dev-section-title"><span class="bar-accent"></span><h2>Teknologi yang Digunakan</h2></div>
-      <div class="dev-tech-grid">
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#1a1a2e">⬢</div>
-          <div class="dev-tech-name">Node.js</div>
-          <div class="dev-tech-desc">Runtime JavaScript untuk backend.</div>
-        </div>
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#15803d">⚡</div>
-          <div class="dev-tech-name">Express</div>
-          <div class="dev-tech-desc">Web framework untuk REST API.</div>
-        </div>
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#b45309">🔥</div>
-          <div class="dev-tech-name">Firebase</div>
-          <div class="dev-tech-desc">Auth dan database real-time.</div>
-        </div>
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#1d4ed8">🍃</div>
-          <div class="dev-tech-name">Cheerio</div>
-          <div class="dev-tech-desc">Parsing data anime dari sumber.</div>
-        </div>
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#374151">▲</div>
-          <div class="dev-tech-name">Vercel</div>
-          <div class="dev-tech-desc">Platform deployment dan hosting.</div>
-        </div>
-        <div class="dev-tech-card">
-          <div class="dev-tech-icon" style="background:#7C3AED">JS</div>
-          <div class="dev-tech-name">JavaScript</div>
-          <div class="dev-tech-desc">Bahasa pemrograman utama.</div>
-        </div>
+      <div id="dev-tab-1" class="social-content" style="display:none">
+        <div class="doc-card"><h4>GET /api/latest</h4><p>Anime terbaru. Query: <code>?page=1</code>. Return: title, url, image, episode.</p></div>
+        <div class="doc-card" style="animation-delay:.1s"><h4>GET /api/search</h4><p>Pencarian anime. Query: <code>?q=naruto</code>. Return: hasil dengan score dan tipe.</p></div>
+        <div class="doc-card" style="animation-delay:.2s"><h4>GET /api/detail</h4><p>Detail anime + episode. Query: <code>?url=...</code>. Include synopsis dari MAL.</p></div>
+        <div class="doc-card" style="animation-delay:.3s"><h4>GET /api/watch</h4><p>Link streaming episode. Query: <code>?url=...</code>. Return: daftar server.</p></div>
+        <div class="doc-card" style="animation-delay:.4s"><h4>GET /api/trending</h4><p>Anime trending dari MyAnimeList. Return: ranking, score, genre.</p></div>
+        <div class="doc-card" style="animation-delay:.5s"><h4>GET /api/schedule</h4><p>Jadwal rilis musim ini dari MAL, dikelompok per hari tayang.</p></div>
+        <div class="doc-card" style="animation-delay:.6s"><h4>GET /api/news</h4><p>Berita anime terbaru. Return: title, deskripsi, tanggal, link sumber.</p></div>
       </div>
-
-      <div class="dev-section-title"><span class="bar-accent"></span><h2>Fitur yang Kami Kembangkan</h2></div>
-      <div class="dev-feature-grid">
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Pencarian Anime Cepat</div><div class="dev-feature-desc">Cari anime favoritmu dengan hasil yang akurat.</div></div>
-        </div>
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Dark Mode</div><div class="dev-feature-desc">Tampilan nyaman di mata, siang maupun malam.</div></div>
-        </div>
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Daftar Anime Personal</div><div class="dev-feature-desc">Simpan anime ke watchlist dan favoritmu.</div></div>
-        </div>
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Responsif di Semua Perangkat</div><div class="dev-feature-desc">Nikmati AniZone di desktop, tablet, dan mobile.</div></div>
-        </div>
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Jadwal Rilis</div><div class="dev-feature-desc">Dapatkan informasi anime terbaru setiap hari.</div></div>
-        </div>
-        <div class="dev-feature-item">
-          <span class="dev-feature-check">✓</span>
-          <div><div class="dev-feature-title">Update Berkala</div><div class="dev-feature-desc">Selalu menambahkan fitur dan perbaikan baru.</div></div>
-        </div>
+      <div id="dev-tab-2" class="social-content" style="display:none">
+        <div class="doc-card"><h4>Kredit & Terima Kasih</h4><p>Terima kasih kepada komunitas open source atas tools dan library yang digunakan dalam proyek ini.</p></div>
+        <div class="doc-card" style="animation-delay:.1s"><h4>Library</h4><p>Express.js, Cheerio, Axios, Firebase, MyAnimeList API, dan Vercel untuk hosting.</p></div>
+        <div class="doc-card" style="animation-delay:.2s"><h4>Disclaimer</h4><p>AniZone adalah proyek non-komersial untuk tujuan edukasi. Konten berasal dari sumber publik.</p></div>
       </div>
-
-      <div class="dev-section-title"><span class="bar-accent"></span><h2>Roadmap AniZone</h2></div>
-      <div class="dev-roadmap">
-        <div class="dev-roadmap-line"></div>
-        <div class="dev-roadmap-step active">
-          <div class="dev-roadmap-dot"></div>
-          <div class="dev-roadmap-period">Q1 2026</div>
-          <div class="dev-roadmap-desc">Pengembangan MVP &amp; Fitur Dasar</div>
-        </div>
-        <div class="dev-roadmap-step">
-          <div class="dev-roadmap-dot"></div>
-          <div class="dev-roadmap-period">Q2 2026</div>
-          <div class="dev-roadmap-desc">Sistem Komunitas &amp; Review</div>
-        </div>
-        <div class="dev-roadmap-step">
-          <div class="dev-roadmap-dot"></div>
-          <div class="dev-roadmap-period">Q3 2026</div>
-          <div class="dev-roadmap-desc">Rekomendasi AI Personal</div>
-        </div>
-        <div class="dev-roadmap-step">
-          <div class="dev-roadmap-dot"></div>
-          <div class="dev-roadmap-period">Q4 2026</div>
-          <div class="dev-roadmap-desc">Aplikasi Mobile (Android &amp; iOS)</div>
-        </div>
-        <div class="dev-roadmap-step">
-          <div class="dev-roadmap-dot"></div>
-          <div class="dev-roadmap-period">2027+</div>
-          <div class="dev-roadmap-desc">Lebih banyak fitur menarik lainnya!</div>
-        </div>
-      </div>
-
-      <div class="dev-cta-footer">
-        <div class="dev-cta-icon">♥</div>
-        <div style="flex:1">
-          <div class="dev-cta-title">Dibuat dengan ❤️ untuk para penggemar anime.</div>
-          <div class="dev-cta-sub">Terima kasih telah menggunakan AniZone!</div>
-        </div>
-        <a href="https://whatsapp.com/channel/0029VbB3bZLAO7RPl6shiI2C" target="_blank" class="dev-cta-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
-          Hubungi Kami
-        </a>
-      </div>
-
     </div>
   </div>
 
   <!-- PROFILE -->
   <div id="profile-view" class="hidden">
-    <div class="breadcrumb" style="margin-bottom:14px">
-      <a href="#" onclick="switchTab('home');return false">Beranda</a>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <span>Profil Saya</span>
-    </div>
     <div class="profile-container">
-
 
       <!-- HEADER CARD (full width) -->
       <div class="profile-header-card">
@@ -500,32 +323,6 @@
           </div>
         </div>
       </div>
-
-      <!-- PROFILE TABS -->
-      <div class="profile-tab-row">
-        <button class="profile-tab active" onclick="switchProfileTab('info',this)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Informasi
-        </button>
-        <button class="profile-tab" onclick="switchProfileTab('security',this)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Keamanan
-        </button>
-        <button class="profile-tab" onclick="switchProfileTab('notif',this)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          Notifikasi
-        </button>
-        <button class="profile-tab" onclick="switchProfileTab('sub',this)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/></svg>
-          Langganan
-        </button>
-        <button class="profile-tab" onclick="switchProfileTab('activity',this)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Aktivitas
-        </button>
-      </div>
-
-      <div id="profile-tab-info">
 
       <!-- STATS ROW (full width) -->
       <div class="profile-stats-row">
@@ -630,40 +427,6 @@
         <div id="stats-section-container"></div>
       </div>
 
-      </div><!-- end profile-tab-info -->
-
-      <div id="profile-tab-security" class="profile-tab-placeholder" style="display:none">
-        <div class="profile-placeholder-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        </div>
-        <h3>Pengaturan Keamanan</h3>
-        <p>Ubah kata sandi, autentikasi dua faktor, dan kelola sesi aktif. Fitur ini sedang dalam pengembangan.</p>
-      </div>
-
-      <div id="profile-tab-notif" class="profile-tab-placeholder" style="display:none">
-        <div class="profile-placeholder-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </div>
-        <h3>Preferensi Notifikasi</h3>
-        <p>Atur notifikasi episode baru, balasan komentar, dan pengumuman AniZone. Fitur ini sedang dalam pengembangan.</p>
-      </div>
-
-      <div id="profile-tab-sub" class="profile-tab-placeholder" style="display:none">
-        <div class="profile-placeholder-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/></svg>
-        </div>
-        <h3>Langganan</h3>
-        <p>Kelola paket Premium dan metode pembayaran kamu di sini. Fitur ini sedang dalam pengembangan.</p>
-      </div>
-
-      <div id="profile-tab-activity" class="profile-tab-placeholder" style="display:none">
-        <div class="profile-placeholder-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <h3>Riwayat Aktivitas</h3>
-        <p>Lihat seluruh aktivitas akunmu di AniZone secara kronologis. Fitur ini sedang dalam pengembangan.</p>
-      </div>
-
     </div>
   </div>
 
@@ -760,7 +523,7 @@
       <div style="margin:36px 0 16px">
         <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Warna Banner</div>
         <div class="color-presets">
-          <button class="color-preset active" style="background:linear-gradient(135deg,#2e1065,#7C3AED,#ec4899)" onclick="selectBannerColor(this,'linear-gradient(135deg,#2e1065,#7C3AED,#ec4899)')"></button>
+          <button class="color-preset active" style="background:linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)" onclick="selectBannerColor(this,'linear-gradient(135deg,#1a237e,#4285F4,#A8C7FA)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#6d1a91,#c026d3,#f0abfc)" onclick="selectBannerColor(this,'linear-gradient(135deg,#6d1a91,#c026d3,#f0abfc)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#064e3b,#059669,#6ee7b7)" onclick="selectBannerColor(this,'linear-gradient(135deg,#064e3b,#059669,#6ee7b7)')"></button>
           <button class="color-preset" style="background:linear-gradient(135deg,#7c2d12,#ea580c,#fed7aa)" onclick="selectBannerColor(this,'linear-gradient(135deg,#7c2d12,#ea580c,#fed7aa)')"></button>

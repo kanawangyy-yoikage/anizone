@@ -18,22 +18,21 @@ async function renderCategoryPage() {
   if (view.dataset.rendered === 'true') return;
   view.dataset.rendered = 'true';
 
-  const wrap = document.getElementById('anime-tab-bar-wrap');
-  wrap.innerHTML = `
+  view.innerHTML = `
     <!-- Tab bar navigasi -->
     <div class="anime-tab-bar" id="animeTabBar">
-      <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">Genre</button>
-      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">Populer</button>
-      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">Movie</button>
-      <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">Ongoing</button>
-      <button class="anime-tab" onclick="switchAnimeTab('completed',this)">Selesai</button>
-      <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">A-Z</button>
-      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">Karakter</button>
+      <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">🎭 Genre</button>
+      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">🔥 Populer</button>
+      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">🎬 Movie</button>
+      <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">📡 Ongoing</button>
+      <button class="anime-tab" onclick="switchAnimeTab('completed',this)">✅ Selesai</button>
+      <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">🔤 A-Z</button>
+      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">⚔️ Karakter</button>
     </div>
     <!-- Konten tiap tab -->
     <div id="anime-tab-content"></div>`;
 
-  switchAnimeTab('genre', wrap.querySelector('.anime-tab'));
+  switchAnimeTab('genre', view.querySelector('.anime-tab'));
 }
 
 function switchAnimeTab(mode, btn) {

@@ -47,15 +47,3 @@ function animeCard(a) {
       <div class="scroll-card-title">${a.title}</div>
     </div>`;
 }
-
-// Ganti tab di halaman Profil (Informasi / Keamanan / Notifikasi / Langganan / Aktivitas)
-function switchProfileTab(tabName, btn) {
-  document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
-  btn?.classList.add('active');
-
-  const panels = ['info', 'security', 'notif', 'sub', 'activity'];
-  panels.forEach(p => {
-    const el = document.getElementById('profile-tab-' + p);
-    if (el) el.style.display = (p === tabName) ? '' : 'none';
-  });
-}
