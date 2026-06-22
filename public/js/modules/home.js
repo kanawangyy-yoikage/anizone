@@ -120,7 +120,7 @@ async function loadTrending() {
             <div class="trending-info">
               <div class="trending-title">${a.title}</div>
               <div class="trending-meta">
-                ${a.score    ? `<span class="trending-score">⭐ ${a.score}</span>` : ''}
+                ${a.score    ? `<span class="trending-score">${a.score}</span>` : ''}
                 ${a.genres?.length ? `<span>${a.genres.join(', ')}</span>` : ''}
                 ${a.episodes  ? `<span>${a.episodes} eps</span>` : ''}
               </div>
@@ -201,7 +201,7 @@ function scheduleCard(a) {
       <div class="schedule-card-body">
         <div class="schedule-card-title">${title}</div>
         <div class="schedule-card-meta">
-          ${a.score && a.score !== 'N/A' ? `⭐ ${a.score}` : ''}
+          ${a.score && a.score !== 'N/A' ? `${a.score}` : ''}
           ${a.episodes ? ` · ${a.episodes} eps` : ''}
         </div>
       </div>
@@ -342,29 +342,47 @@ function renderSection(title, data, container, genreSlug) {
       <a href="#" class="more-link" onclick="${moreOnclick}">Lainnya →</a>
     </div>
     <div class="horizontal-scroll">
-      ${data.map((a, i) => `
-        <div class="scroll-card" onclick="loadDetailBySlug('${a.url}')" style="animation-delay:${i * 0.04}s">
-          <div class="scroll-card-outer">
-            <div class="scroll-card-img">
-              <img src="${a.image}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${a.score || '?'}</div>
+      ${data.map((a, i) => {
+        const epNum  = a.episode ? (a.episode.match(/\d+(\.\d+)?/) || [''])[0] : '';
+        const epText = epNum ? `EP ${epNum}` : '';
+        const typeText = a.type || 'TV';
+        const badgeText = [epText, typeText].filter(Boolean).join(' · ');
+        const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
+        const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : null;
+        return `
+        <div class="scroll-card-wrapper">
+          <div class="scroll-card" onclick="loadDetailBySlug('${a.url}')" style="animation-delay:${i * 0.04}s">
+            <div class="scroll-card-outer">
+              <div class="scroll-card-img">
+                <img src="${a.image}" alt="${a.title}" loading="lazy">
+                <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">${badgeText}</div>
+              </div>
+            </div>
+            <div class="scroll-card-title">${shortTitle}</div>
+            <div class="scroll-card-expand">
+              <div class="scroll-card-expand-meta">${score ? `${score} · ` : ''}${typeText}</div>
+              <div class="scroll-card-expand-action">
+                <span>Tonton sekarang</span>
+                <button class="scroll-card-play-btn">▶</button>
+              </div>
             </div>
           </div>
-          <div class="scroll-card-title">${a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title}</div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
   container.appendChild(div);
   lazyLoadScores(div);
 }
 
-// Lazy-load skor MAL untuk kartu yang masih menampilkan '?'
+// Lazy-load skor MAL untuk kartu yang masih menampilkan expand-meta kosong
 async function lazyLoadScores(container) {
   const badges = container.querySelectorAll('.ep-badge[data-mal-title]');
   for (const badge of badges) {
-    const text = badge.textContent.trim();
-    if (text !== '⭐ ?' && text !== '⭐ ' && text !== '⭐ N/A') continue;
     const title = badge.getAttribute('data-mal-title');
     if (!title) continue;
+    // Juga update expand meta score
+    const card  = badge.closest('.scroll-card');
+    const meta  = card?.querySelector('.scroll-card-expand-meta');
     try {
       let mean;
       if (MAL_SCORE_CACHE.has(title)) {
@@ -375,7 +393,13 @@ async function lazyLoadScores(container) {
         mean = mal?.mean || null;
         if (mean) MAL_SCORE_CACHE.set(title, mean);
       }
-      if (mean) badge.textContent = '⭐ ' + mean;
+      if (mean && meta) {
+        // Inject score ke expand meta (format: "8.5 · TV")
+        const current = meta.textContent;
+        if (!current.includes(mean)) {
+          meta.textContent = `${mean} · ${current.split(' · ').pop()}`;
+        }
+      }
     } catch {}
   }
 }
