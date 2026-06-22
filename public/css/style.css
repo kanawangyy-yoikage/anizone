@@ -280,18 +280,19 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 
 /* ── HORIZONTAL SCROLL ── */
 .horizontal-scroll {
-  display: flex; gap: 12px; padding: 4px 16px 80px;
-  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  display: flex;
+  gap: 12px;
+  padding: 4px 16px 20px;
+  overflow-x: auto;
   overflow-y: visible;
-  /* ruang bawah extra agar expand card tidak terpotong */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 .horizontal-scroll::-webkit-scrollbar { display: none; }
 
 /* ── SCROLL CARD ── */
 
-/* Wrapper untuk contain hover expand tanpa shift layout */
 .scroll-card-wrapper {
-  position: relative;
   min-width: 130px;
   max-width: 130px;
   flex-shrink: 0;
@@ -301,53 +302,47 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   width: 100%;
   cursor: pointer;
   animation: fadeInUp 0.4s ease both;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
   border-radius: var(--radius);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
   transition:
-    transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1),
-    border-color 0.3s;
-}
-
-/* Spacer yang menjaga tinggi container — tidak ikut hover */
-.scroll-card-wrapper::before {
-  content: '';
-  display: block;
-  /* tinggi = gambar (195px) + title (~38px) */
-  height: 233px;
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s ease,
+    border-color 0.25s ease;
 }
 
 .scroll-card-wrapper:hover .scroll-card {
-  transform: translateY(-10px) scale(1.05);
+  transform: translateY(-12px);
   z-index: 20;
   border-color: var(--accent);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 8px 16px var(--accent-glow);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 6px 16px var(--accent-glow);
 }
 
-/* .scroll-card-outer: shadow holder (tidak punya overflow:hidden) */
 .scroll-card-outer {
   border-radius: var(--radius) var(--radius) 0 0;
-  transition: box-shadow var(--transition);
+  overflow: hidden;
 }
 
-/* .scroll-card-img: overflow hidden untuk clip + zoom */
 .scroll-card-img {
   position: relative;
-  border-radius: var(--radius) var(--radius) 0 0;
-  overflow: hidden;
-  aspect-ratio: 2/3;
+  width: 100%;
   height: 195px;
   background: var(--bg-input);
   display: block;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
 }
-.scroll-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s; display: block; }
-.scroll-card-wrapper:hover .scroll-card-img img { transform: scale(1.07); }
+.scroll-card-img img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 0.4s ease;
+  display: block;
+}
+.scroll-card-wrapper:hover .scroll-card-img img { transform: scale(1.06); }
 
 /* Badge kiri atas: EP X · TV */
 .ep-badge {
@@ -358,35 +353,32 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   z-index: 2; letter-spacing: 0.3px;
 }
 
-/* Title row */
 .scroll-card-title {
   font-size: 12px; font-weight: 600;
   color: var(--text-main); line-height: 1.4;
   padding: 8px 10px 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--bg-card);
+  border-radius: 0;
 }
 
-/* Expand panel — muncul saat hover */
+/* Expand panel */
 .scroll-card-expand {
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transform: translateY(6px);
   transition:
-    max-height 0.4s ease,
-    opacity 0.35s ease,
-    transform 0.35s ease;
+    max-height 0.35s ease,
+    opacity 0.3s ease;
   padding: 0 10px;
-  font-size: 11px;
-  color: var(--text-muted);
   background: var(--bg-card);
   border-top: 1px dashed var(--border-color);
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
 .scroll-card-wrapper:hover .scroll-card-expand {
   max-height: 80px;
   opacity: 1;
-  transform: translateY(0);
 }
 
 .scroll-card-expand-meta {
@@ -414,10 +406,9 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   font-weight: 700;
   font-size: 10px;
   cursor: pointer;
-  transition: background var(--transition);
+  transition: opacity var(--transition);
 }
-.scroll-card-play-btn:hover { background: var(--accent-light); color: #1e293b; }
-
+.scroll-card-play-btn:hover { opacity: 0.85; }
 
 /* ── ANIME GRID ── */
 .anime-grid {
