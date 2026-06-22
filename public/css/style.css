@@ -321,39 +321,40 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   100% { left: 125%; }
 }
 
-/* 1. WRAPPER — jangkar tetap, tingginya harus dikunci sesuai ukuran normal kartu */
+/* 1. WRAPPER — Biarkan mengikuti flow grid biasa */
 .scroll-card-wrapper {
   position: relative;
   min-width: 130px;
   max-width: 130px;
-  height: 231px;       /* Biarkan tetap 231px agar saat di-hover tidak mendorong bawahnya */
-  overflow: visible;   /* WAJIB 'visible' agar kartu bisa MENEMBUS keluar pembungkus */
+  overflow: visible;   /* Tetap visible agar saat di-hover bisa menembus keluar */
   flex-shrink: 0;
 }
 
-/* 2. CARD — diubah menjadi absolute agar terlepas dari layout utama */
+/* 2. CARD — Kondisi normal (statis, mengikuti grid agar rapi berbaris) */
 .scroll-card {
-  position: absolute;  /* Membuat kartu terlepas dari grid dan bisa melayang bebas */
-  top: 0;
-  left: 0;
+  position: relative;  /* Ubah dari absolute ke relative saat normal */
   width: 100%;
   cursor: pointer;
   animation: fadeInUp 0.4s ease both;
   border-radius: var(--radius);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  overflow: hidden;    /* Menjaga agar sudut konten dalam tetap tumpul */
-  z-index: 10;         /* Tingkat lapisan normal */
+  overflow: hidden;
+  z-index: 10;
   transition:
     transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
     box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1),
     border-color 0.3s ease;
 }
 
-/* Saat di-hover, kartu MENEMBUS ke atas dan membesar */
+/* KONDISI HOVER — Baru dia berubah jadi absolute dan melayang menembus keluar */
 .scroll-card-wrapper:hover .scroll-card {
-  transform: translateY(-12px) scale(1.08); /* Melayang naik dan membesar sedikit lebih besar */
-  z-index: 999;        /* Angka z-index tinggi agar PASTI menembus dan berada di paling depan */
+  position: absolute;  /* MENEMBUS KELUAR! */
+  top: 0;
+  left: 0;
+  width: 100%;
+  transform: translateY(-12px) scale(1.08); /* Melayang naik & membesar */
+  z-index: 999;        /* Lapisan paling depan mengalahkan kartu lain */
   border-color: var(--accent);
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.7),
