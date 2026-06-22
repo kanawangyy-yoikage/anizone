@@ -321,18 +321,20 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   100% { left: 125%; }
 }
 
-/* 1. WRAPPER — Biarkan mengikuti flow grid biasa */
+/* 1. WRAPPER — jangkar statis, tinggi tetap */
 .scroll-card-wrapper {
   position: relative;
   min-width: 130px;
   max-width: 130px;
-  overflow: visible;   /* Tetap visible agar saat di-hover bisa menembus keluar */
+  height: 231px;
   flex-shrink: 0;
 }
 
-/* 2. CARD — Kondisi normal (statis, mengikuti grid agar rapi berbaris) */
+/* 2. CARD — absolute, hover: melayang + membesar */
 .scroll-card {
-  position: relative;  /* Ubah dari absolute ke relative saat normal */
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   cursor: pointer;
   animation: fadeInUp 0.4s ease both;
@@ -347,18 +349,13 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
     border-color 0.3s ease;
 }
 
-/* KONDISI HOVER — Baru dia berubah jadi absolute dan melayang menembus keluar */
 .scroll-card-wrapper:hover .scroll-card {
-  position: absolute;  /* MENEMBUS KELUAR! */
-  top: 0;
-  left: 0;
-  width: 100%;
-  transform: translateY(-12px) scale(1.08); /* Melayang naik & membesar */
-  z-index: 999;        /* Lapisan paling depan mengalahkan kartu lain */
+  transform: translateY(-12px) scale(1.05);
+  z-index: 20;
   border-color: var(--accent);
   box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.7),
-    0 12px 24px var(--accent-glow);
+    0 20px 40px rgba(0, 0, 0, 0.55),
+    0 8px 20px var(--accent-glow);
 }
 
 /* 3. IMAGE CONTAINER */
@@ -442,12 +439,19 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   background: var(--bg-card);
 }
 
-/* 7. EXPAND — lacinya memanjang ke bawah menembus wrapper statis */
-.scroll-card-wrapper:hover .scroll-card-expand {
-  max-height: 120px;   /* Memberikan ruang yang cukup untuk info teks dan tombol putar */
-  opacity: 1;
-  transform: translateY(0);
-  padding-bottom: 12px; /* Jarak aman di bagian bawah kartu setelah melar */
+/* 7. EXPAND — max-height trick, di dalam card (overflow:hidden) */
+.scroll-card-expand {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(8px);
+  transition:
+    max-height 0.4s ease,
+    opacity    0.4s ease,
+    transform  0.4s ease;
+  padding: 0 10px;
+  background: var(--bg-card);
+  border-top: 1px dashed var(--border-color);
 }
 
 .scroll-card-wrapper:hover .scroll-card-expand {
