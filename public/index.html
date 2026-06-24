@@ -592,7 +592,7 @@
 <script src="js/modules/recommendation.js"></script>
 <script src="js/modules/gestures.js"></script>
 
-  <!-- Global card bubble tooltip (position:fixed, selalu di atas segalanya) -->
+  <!-- Global card bubble tooltip -->
   <div id="scb-global" aria-hidden="true">
     <div id="scb-title"></div>
     <div id="scb-meta"></div>
@@ -602,55 +602,53 @@
 
   <script>
   (function () {
-    const bubble = document.getElementById('scb-global');
-    const elTitle = document.getElementById('scb-title');
-    const elMeta  = document.getElementById('scb-meta');
-    const elBtn   = document.getElementById('scb-btn');
-    let hideTimer = null;
+    const bubble   = document.getElementById('scb-global');
+    const elTitle  = document.getElementById('scb-title');
+    const elMeta   = document.getElementById('scb-meta');
+    const elBtn    = document.getElementById('scb-btn');
     let currentUrl = null;
+    let rafId      = null;
 
     function show(wrapper) {
-      clearTimeout(hideTimer);
+      // Isi konten
       currentUrl = wrapper.dataset.url;
-
       elTitle.textContent = wrapper.dataset.title || '';
       const score = wrapper.dataset.score;
       const type  = wrapper.dataset.type || 'TV';
-      elMeta.innerHTML = (score ? `<span class="scb-score">${score}</span>` : '') +
-                         `<span class="scb-type">${type}</span>`;
+      elMeta.innerHTML =
+        (score ? `<span class="scb-score">${score}</span>` : '') +
+        `<span class="scb-type">${type}</span>`;
 
-      // Posisi: fixed, jadi pakai getBoundingClientRect langsung (viewport coords)
-      const rect = wrapper.getBoundingClientRect();
-      const bw   = 160; // lebar bubble
-      let left   = rect.left + rect.width / 2 - bw / 2;
-      // Clamp agar tidak keluar viewport
-      left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-      // Atas card (setelah card naik 14px saat hover)
-      const gap  = 10;
-      const top  = rect.top - gap; // atas wrapper, bubble akan muncul di atas via transform
+      // Posisi: tengah card, tepat di atas card (setelah card hover naik 14px)
+      const rect    = wrapper.getBoundingClientRect();
+      const bw      = bubble.offsetWidth || 160;
+      let   left    = rect.left + rect.width / 2;          // center X card
+      const top     = rect.top - 14 - 10;                  // atas card hover (-14px) - gap 10px
 
-      bubble.style.left  = left + 'px';
-      bubble.style.top   = top + 'px';
-      bubble.style.width = bw + 'px';
+      // Clamp horizontal
+      left = Math.max(bw / 2 + 8, Math.min(left, window.innerWidth - bw / 2 - 8));
+
+      bubble.style.left = left + 'px';
+      bubble.style.top  = top + 'px';
       bubble.classList.add('visible');
     }
 
     function hide() {
-      hideTimer = setTimeout(() => bubble.classList.remove('visible'), 100);
+      bubble.classList.remove('visible');
     }
 
-    document.addEventListener('mouseenter', e => {
-      const w = e.target.closest('.scroll-card-wrapper');
-      if (w) show(w);
-    }, true);
-
-    document.addEventListener('mouseleave', e => {
-      const w = e.target.closest('.scroll-card-wrapper');
-      if (w) hide();
-    }, true);
-
-    bubble.addEventListener('mouseenter', () => clearTimeout(hideTimer));
-    bubble.addEventListener('mouseleave', hide);
+    // Gunakan pointer events dengan requestAnimationFrame untuk cegah flicker
+    document.addEventListener('mousemove', e => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const wrapper = e.target.closest('.scroll-card-wrapper');
+        if (wrapper) {
+          show(wrapper);
+        } else if (!bubble.contains(e.target)) {
+          hide();
+        }
+      });
+    });
 
     elBtn.addEventListener('click', () => {
       if (currentUrl) loadDetailBySlug(currentUrl);
@@ -658,4 +656,3 @@
   })();
   </script>
 </body>
-</html>
