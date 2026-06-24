@@ -592,5 +592,70 @@
 <script src="js/modules/recommendation.js"></script>
 <script src="js/modules/gestures.js"></script>
 
+  <!-- Global card bubble tooltip (position:fixed, selalu di atas segalanya) -->
+  <div id="scb-global" aria-hidden="true">
+    <div id="scb-title"></div>
+    <div id="scb-meta"></div>
+    <button id="scb-btn">▶ Tonton</button>
+    <div id="scb-arrow"></div>
+  </div>
+
+  <script>
+  (function () {
+    const bubble = document.getElementById('scb-global');
+    const elTitle = document.getElementById('scb-title');
+    const elMeta  = document.getElementById('scb-meta');
+    const elBtn   = document.getElementById('scb-btn');
+    let hideTimer = null;
+    let currentUrl = null;
+
+    function show(wrapper) {
+      clearTimeout(hideTimer);
+      currentUrl = wrapper.dataset.url;
+
+      elTitle.textContent = wrapper.dataset.title || '';
+      const score = wrapper.dataset.score;
+      const type  = wrapper.dataset.type || 'TV';
+      elMeta.innerHTML = (score ? `<span class="scb-score">${score}</span>` : '') +
+                         `<span class="scb-type">${type}</span>`;
+
+      // Posisi: fixed, jadi pakai getBoundingClientRect langsung (viewport coords)
+      const rect = wrapper.getBoundingClientRect();
+      const bw   = 160; // lebar bubble
+      let left   = rect.left + rect.width / 2 - bw / 2;
+      // Clamp agar tidak keluar viewport
+      left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+      // Atas card (setelah card naik 14px saat hover)
+      const gap  = 10;
+      const top  = rect.top - gap; // atas wrapper, bubble akan muncul di atas via transform
+
+      bubble.style.left  = left + 'px';
+      bubble.style.top   = top + 'px';
+      bubble.style.width = bw + 'px';
+      bubble.classList.add('visible');
+    }
+
+    function hide() {
+      hideTimer = setTimeout(() => bubble.classList.remove('visible'), 100);
+    }
+
+    document.addEventListener('mouseenter', e => {
+      const w = e.target.closest('.scroll-card-wrapper');
+      if (w) show(w);
+    }, true);
+
+    document.addEventListener('mouseleave', e => {
+      const w = e.target.closest('.scroll-card-wrapper');
+      if (w) hide();
+    }, true);
+
+    bubble.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+    bubble.addEventListener('mouseleave', hide);
+
+    elBtn.addEventListener('click', () => {
+      if (currentUrl) loadDetailBySlug(currentUrl);
+    });
+  })();
+  </script>
 </body>
 </html>
