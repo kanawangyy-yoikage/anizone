@@ -328,3 +328,4 @@ firebase.auth().onAuthStateChanged(async (user) => {
     console.warn('[Maintenance] Gagal cek status:', e.message);
   }
 });
+console.log('[Maintenance] module loaded');
