@@ -282,46 +282,33 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .horizontal-scroll {
   display: flex;
   gap: 12px;
-  padding: 4px 16px 20px;
+  padding: 4px 16px 16px;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: clip;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .horizontal-scroll::-webkit-scrollbar { display: none; }
 
-/* ═══════════════════════════════════════════
-   SCROLL CARD — hover melayang + expand bawah
-   ═══════════════════════════════════════════
+/* ─────────────────────────────────────────────
+   SCROLL CARD
+   Expand panel sepenuhnya dihandle oleh
+   #card-expand-tooltip (global overlay di body)
+   sehingga tidak pernah terpotong overflow.
 
-   Arsitektur (ikut tutorial):
-   ┌─────────────────────────────────────────┐
-   │ .scroll-card-wrapper                    │
-   │  position: relative; height: 231px (fix)│
-   │  ↳ tidak bergerak saat hover            │
-   │                                         │
-   │  .scroll-card  (position: absolute)     │
-   │   ↳ translateY(-12px) scale(1.05) hover │
-   │   ↳ z-index naik supaya overlap         │
-   │                                         │
-   │    .scroll-card-img  (overflow: hidden) │
-   │     ↳ gambar zoom scale(1.07)           │
-   │     ↳ ::after shine sweep kiri→kanan    │
-   │                                         │
-   │    .scroll-card-title                   │
-   │                                         │
-   │    .scroll-card-expand  (max-height: 0) │
-   │     ↳ hover: max-height → 90px          │
-   │     ↳ overflow: hidden, di dalam card   │
-   └─────────────────────────────────────────┘
-*/
+   Hover effect:
+     translateY(-14px) scale(1.05)
+     → card "naik" dan sedikit membesar
+     → terlihat mengambang di atas card lain
+     → z-index naik agar overlap tetangga
+   ───────────────────────────────────────── */
 
 @keyframes cardShine {
   0%   { left: -125%; }
   100% { left: 125%; }
 }
 
-/* 1. WRAPPER — jangkar statis, tinggi tetap */
+/* 1. WRAPPER — jangkar statis */
 .scroll-card-wrapper {
   position: relative;
   min-width: 130px;
@@ -330,11 +317,10 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   flex-shrink: 0;
 }
 
-/* 2. CARD — absolute, hover: melayang + membesar */
+/* 2. CARD */
 .scroll-card {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 100%;
   cursor: pointer;
   animation: fadeInUp 0.4s ease both;
@@ -350,11 +336,11 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 
 .scroll-card-wrapper:hover .scroll-card {
-  transform: translateY(-12px) scale(1.05);
-  z-index: 20;
+  transform: translateY(-14px) scale(1.05);
+  z-index: 30;
   border-color: var(--accent);
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.55),
+    0 22px 45px rgba(0, 0, 0, 0.6),
     0 8px 20px var(--accent-glow);
 }
 
@@ -366,7 +352,6 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 
 .scroll-card-img {
-  position: relative;
   width: 100%;
   height: 195px;
   background: var(--bg-input);
@@ -376,99 +361,91 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 
 .scroll-card-img img {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   object-fit: cover;
   transition: transform 0.4s ease;
   display: block;
 }
+.scroll-card-wrapper:hover .scroll-card-img img { transform: scale(1.07); }
 
-.scroll-card-wrapper:hover .scroll-card-img img {
-  transform: scale(1.07);
-}
-
-/* 4. SHINE — elemen semu ::after sweep kiri→kanan */
+/* 4. SHINE */
 .scroll-card-outer::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: -125%;
-  width: 55%;
-  height: 100%;
+  top: 0; left: -125%;
+  width: 55%; height: 100%;
   background: linear-gradient(
     to right,
     rgba(255,255,255,0)    0%,
-    rgba(255,255,255,0.25) 50%,
+    rgba(255,255,255,0.26) 50%,
     rgba(255,255,255,0)    100%
   );
   transform: skewX(-20deg);
   pointer-events: none;
   z-index: 3;
 }
-
 .scroll-card-wrapper:hover .scroll-card-outer::after {
   animation: cardShine 0.6s ease-in-out forwards;
 }
 
-/* 5. BADGE kiri atas */
+/* 5. BADGE */
 .ep-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(10, 15, 30, 0.70);
+  top: 8px; left: 8px;
+  background: rgba(10, 15, 30, 0.72);
   backdrop-filter: blur(6px);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 20px;
-  z-index: 4;
-  letter-spacing: 0.3px;
+  color: #fff; font-size: 9px; font-weight: 700;
+  padding: 3px 8px; border-radius: 20px;
+  z-index: 4; letter-spacing: 0.3px;
 }
 
 /* 6. TITLE */
 .scroll-card-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-main);
-  line-height: 1.4;
-  padding: 8px 10px 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-main); line-height: 1.4;
+  padding: 8px 10px 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: var(--bg-card);
 }
 
-/* 7. EXPAND — max-height trick, di dalam card (overflow:hidden) */
-.scroll-card-expand {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateY(8px);
-  transition:
-    max-height 0.4s ease,
-    opacity    0.4s ease,
-    transform  0.4s ease;
-  padding: 0 10px;
+/* ─────────────────────────────────────────────
+   GLOBAL CARD EXPAND TOOLTIP (#card-expand-tooltip)
+   Di-render di <body>, posisi via JS getBoundingClientRect
+   ───────────────────────────────────────── */
+#card-expand-tooltip {
+  position: absolute;
+  z-index: 9999;
   background: var(--bg-card);
+  border: 1px solid var(--accent);
   border-top: 1px dashed var(--border-color);
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 0 10px;
+  pointer-events: none;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity    0.3s ease,
+    max-height 0.35s ease,
+    transform  0.3s ease;
 }
 
-.scroll-card-wrapper:hover .scroll-card-expand {
-  max-height: 90px;
+#card-expand-tooltip.visible {
+  pointer-events: auto;
   opacity: 1;
+  max-height: 90px;
   transform: translateY(0);
 }
 
-.scroll-card-expand-meta {
-  padding: 7px 0 4px;
-  font-size: 10px;
-  font-weight: 600;
+.cet-meta {
+  padding: 7px 0 5px;
+  font-size: 10px; font-weight: 600;
   color: var(--text-muted);
   border-bottom: 1px dashed var(--border-color);
 }
 
-.scroll-card-expand-action {
+.cet-action {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -477,18 +454,15 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   color: var(--text-muted);
 }
 
-.scroll-card-play-btn {
+.cet-play-btn {
   background: var(--accent);
-  color: #fff;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 10px;
+  color: #fff; border: none;
+  padding: 4px 10px; border-radius: 20px;
+  font-weight: 700; font-size: 10px;
   cursor: pointer;
-  transition: opacity var(--transition);
+  transition: opacity 0.2s;
 }
-.scroll-card-play-btn:hover { opacity: 0.8; }
+.cet-play-btn:hover { opacity: 0.82; }
 
 /* ── ANIME GRID ── */
 .anime-grid {
