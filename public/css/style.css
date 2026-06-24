@@ -282,45 +282,111 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 .horizontal-scroll {
   display: flex;
   gap: 12px;
-  padding: 4px 16px 16px;
+  padding: 80px 16px 16px;  /* padding-top beri ruang bubble di atas */
   overflow-x: auto;
-  overflow-y: clip;           /* clip ≠ auto, tidak paksa overflow-x juga */
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .horizontal-scroll::-webkit-scrollbar { display: none; }
 
-/* ═══════════════════════════════════════════════
-   SCROLL CARD SYSTEM
-
-   DOM structure:
-   .scroll-card-wrapper          ← anchor statis, overflow: visible
-     .scroll-card                ← position: absolute, hover melayang+scale
-       .scroll-card-outer        ← overflow: hidden (clip image + shine)
-         .scroll-card-img
-           img
-           .ep-badge
-       .scroll-card-title
-     .scroll-card-expand         ← sibling card, position: absolute top:100%
-                                    TIDAK kena overflow:hidden card
-   ═══════════════════════════════════════════════ */
-
+/* ── SCROLL CARD ── */
 @keyframes cardShine {
   0%   { left: -125%; }
   100% { left: 125%; }
 }
+@keyframes bubblePop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.92); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+}
 
-/* 1. WRAPPER — ukuran tetap, TIDAK clip apapun */
+/* WRAPPER */
 .scroll-card-wrapper {
   position: relative;
   min-width: 130px;
   max-width: 130px;
   height: 231px;
   flex-shrink: 0;
-  overflow: visible;            /* expand boleh keluar ke bawah */
 }
 
-/* 2. CARD — absolute di wrapper, hover: melayang + membesar */
+/* BUBBLE — muncul di atas card saat hover */
+.scroll-card-bubble {
+  position: absolute;
+  bottom: calc(100% - 14px + 12px); /* tepat di atas card setelah translateY */
+  left: 50%;
+  transform: translateX(-50%) translateY(6px) scale(0.92);
+  width: 150px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 10px 12px 10px;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 2px 8px var(--accent-glow);
+}
+
+/* Arrow bawah bubble */
+.scroll-card-bubble-arrow {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px; height: 12px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.scroll-card-wrapper:hover .scroll-card-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+  animation: bubblePop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+
+.scroll-card-bubble-title {
+  font-size: 11px; font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 5px;
+}
+
+.scroll-card-bubble-meta {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px;
+}
+
+.scb-score {
+  font-size: 10px; font-weight: 700;
+  color: var(--accent);
+}
+
+.scb-type {
+  font-size: 10px; font-weight: 500;
+  color: var(--text-muted);
+  background: var(--accent-subtle);
+  padding: 1px 6px; border-radius: 99px;
+}
+
+.scroll-card-bubble-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #fff; border: none;
+  border-radius: 8px;
+  padding: 6px 0;
+  font-size: 11px; font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  letter-spacing: 0.3px;
+}
+.scroll-card-bubble-btn:hover { opacity: 0.85; }
+
+/* CARD */
 .scroll-card {
   position: absolute;
   top: 0; left: 0;
@@ -330,7 +396,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   border-radius: var(--radius);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  overflow: hidden;             /* clip image zoom & shine di dalam card */
+  overflow: hidden;
   z-index: 10;
   transition:
     transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
@@ -340,14 +406,14 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 
 .scroll-card-wrapper:hover .scroll-card {
   transform: translateY(-14px) scale(1.05);
-  z-index: 30;
+  z-index: 20;
   border-color: var(--accent);
   box-shadow:
-    0 22px 45px rgba(0, 0, 0, 0.6),
+    0 22px 45px rgba(0,0,0,0.6),
     0 8px 20px var(--accent-glow);
 }
 
-/* 3. IMAGE CONTAINER — overflow:hidden ada di sini (bukan perlu di card-outer) */
+/* IMAGE */
 .scroll-card-outer {
   position: relative;
   overflow: hidden;
@@ -355,8 +421,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 
 .scroll-card-img {
-  width: 100%;
-  height: 195px;
+  width: 100%; height: 195px;
   background: var(--bg-input);
   overflow: hidden;
   border-radius: var(--radius) var(--radius) 0 0;
@@ -370,7 +435,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 }
 .scroll-card-wrapper:hover .scroll-card-img img { transform: scale(1.07); }
 
-/* 4. SHINE — ::after pada scroll-card-outer */
+/* SHINE */
 .scroll-card-outer::after {
   content: '';
   position: absolute;
@@ -390,18 +455,18 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   animation: cardShine 0.6s ease-in-out forwards;
 }
 
-/* 5. BADGE */
+/* BADGE */
 .ep-badge {
   position: absolute;
   top: 8px; left: 8px;
-  background: rgba(10, 15, 30, 0.72);
+  background: rgba(10,15,30,0.72);
   backdrop-filter: blur(6px);
   color: #fff; font-size: 9px; font-weight: 700;
   padding: 3px 8px; border-radius: 20px;
   z-index: 4; letter-spacing: 0.3px;
 }
 
-/* 6. TITLE */
+/* TITLE */
 .scroll-card-title {
   font-size: 12px; font-weight: 600;
   color: var(--text-main); line-height: 1.4;
@@ -411,63 +476,12 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
-/* 7. EXPAND — sibling dari .scroll-card, absolute di .scroll-card-wrapper
-      top: 100% = tepat di bawah wrapper (bukan bawah card yang sudah hover)
-      Untuk ikuti card yang naik, kita pakai translateY juga saat hover */
-.scroll-card-expand {
-  position: absolute;
-  top: 100%;
-  left: -1px; right: -1px;
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateY(4px);
-  transition:
-    max-height 0.38s ease,
-    opacity    0.3s ease,
-    transform  0.38s ease;
-  background: var(--bg-card);
-  border: 1px solid transparent;
-  border-top: 1px dashed var(--border-color);
-  border-radius: 0 0 var(--radius) var(--radius);
-  z-index: 29;                  /* di bawah card hover (z:30) tapi di atas normal */
-}
-
-.scroll-card-wrapper:hover .scroll-card-expand {
-  max-height: 90px;
-  opacity: 1;
-  transform: translateY(-14px); /* ikuti card yang naik 14px */
-  border-color: var(--accent);
-}
-
-.scroll-card-expand-meta {
-  padding: 7px 10px 5px;
-  font-size: 10px; font-weight: 600;
-  color: var(--text-muted);
-  border-bottom: 1px dashed var(--border-color);
-}
-
-.scroll-card-expand-action {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 10px 9px;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.scroll-card-play-btn {
-  background: var(--accent);
-  color: #fff; border: none;
-  padding: 4px 10px; border-radius: 20px;
-  font-weight: 700; font-size: 10px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.scroll-card-play-btn:hover { opacity: 0.82; }
-
-/* Hapus sisa #card-expand-tooltip jika masih ada */
-#card-expand-tooltip { display: none !important; }
+/* Hapus sisa lama */
+.scroll-card-expand,
+.scroll-card-expand-meta,
+.scroll-card-expand-action,
+.scroll-card-play-btn,
+#card-expand-tooltip,
 .cet-meta, .cet-action, .cet-play-btn { display: none !important; }
 
 /* ── ANIME GRID ── */
