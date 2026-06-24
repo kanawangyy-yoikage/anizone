@@ -608,30 +608,33 @@
 
   <script>
   (function () {
-    const bubble   = document.getElementById('scb-global');
-    const elTitle  = document.getElementById('scb-title');
-    const elScore  = document.getElementById('scb-score-badge');
-    const elRows   = document.getElementById('scb-rows');
-    const elBtn    = document.getElementById('scb-btn');
+    const bubble  = document.getElementById('scb-global');
+    const elTitle = document.getElementById('scb-title');
+    const elScore = document.getElementById('scb-score-badge');
+    const elRows  = document.getElementById('scb-rows');
+    const elBtn   = document.getElementById('scb-btn');
     let currentUrl = null;
     let rafId      = null;
 
+    const ICON_TV      = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
+    const ICON_GENRE   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg>`;
+    const ICON_CAL     = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`;
+    const ICON_RATING  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4v4l3 3"/></svg>`;
+
     function row(icon, text) {
       if (!text) return '';
-      return `<div class="scb-row">
-        <span class="scb-row-icon">${icon}</span>
-        <span class="scb-row-text">${text}</span>
-      </div>`;
+      return `<div class="scb-row"><span class="scb-row-icon">${icon}</span><span class="scb-row-text">${text}</span></div>`;
     }
 
     function show(wrapper) {
-      currentUrl      = wrapper.dataset.url;
-      const title     = wrapper.dataset.title   || '';
-      const score     = wrapper.dataset.score   || '';
-      const type      = wrapper.dataset.type    || 'TV';
-      const status    = wrapper.dataset.status  || '';
-      const genres    = wrapper.dataset.genres  || '';
-      const season    = wrapper.dataset.season  || '';
+      currentUrl     = wrapper.dataset.url;
+      const title    = wrapper.dataset.title   || '';
+      const score    = wrapper.dataset.score   || '';
+      const type     = wrapper.dataset.type    || '';
+      const status   = wrapper.dataset.status  || '';
+      const genres   = wrapper.dataset.genres  || '';
+      const season   = wrapper.dataset.season  || '';
+      const rating   = wrapper.dataset.rating  || '';
 
       elTitle.textContent = title;
 
@@ -639,21 +642,26 @@
         ? `<span class="scb-score-num">${score}</span><span class="scb-score-max">/10</span>`
         : '';
 
-      // Status badge color
-      const isOngoing  = status === 'Ongoing';
       const statusHtml = status
-        ? `<span class="scb-status-badge ${isOngoing ? 'ongoing' : 'tamat'}">${status}</span>`
+        ? `<span class="scb-status-badge ${status === 'Ongoing' ? 'ongoing' : status === 'Segera' ? 'soon' : 'tamat'}">${status}</span>`
         : '';
 
-      elRows.innerHTML =
-        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`, type) +
-        (statusHtml ? `<div class="scb-row">${statusHtml}</div>` : '') +
-        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg>`, genres) +
-        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`, season);
+      let rowsHtml = '';
+      // Type + Status dalam satu baris
+      if (type || statusHtml) {
+        rowsHtml += `<div class="scb-row">
+          ${type ? `<span class="scb-row-icon">${ICON_TV}</span><span class="scb-row-text">${type}</span>` : ''}
+          ${statusHtml ? `<span style="margin-left:auto">${statusHtml}</span>` : ''}
+        </div>`;
+      }
+      if (rating)  rowsHtml += row(ICON_RATING, rating);
+      if (genres)  rowsHtml += row(ICON_GENRE,  genres);
+      if (season)  rowsHtml += row(ICON_CAL,    season);
 
-      // Posisi fixed
+      elRows.innerHTML = rowsHtml || '<div class="scb-row"><span class="scb-row-text" style="opacity:.5">Memuat info...</span></div>';
+
       const rect = wrapper.getBoundingClientRect();
-      const bw   = 190;
+      const bw   = 200;
       let left   = rect.left + rect.width / 2;
       left = Math.max(bw / 2 + 8, Math.min(left, window.innerWidth - bw / 2 - 8));
       const top  = rect.top - 14 - 10;
@@ -664,15 +672,13 @@
       bubble.classList.add('visible');
     }
 
-    function hide() {
-      bubble.classList.remove('visible');
-    }
+    function hide() { bubble.classList.remove('visible'); }
 
     document.addEventListener('mousemove', e => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const wrapper = e.target.closest('.scroll-card-wrapper');
-        if (wrapper) show(wrapper);
+        const w = e.target.closest('.scroll-card-wrapper');
+        if (w) show(w);
         else if (!bubble.contains(e.target)) hide();
       });
     });
