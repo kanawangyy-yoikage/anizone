@@ -10,6 +10,7 @@ if ('serviceWorker' in navigator) {
 
 const API_BASE = '/api';
 const MAL_SCORE_CACHE = new Map(); // title -> MAL mean score
+const MAL_DATA_CACHE  = new Map(); // title -> full MAL node data
 
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
