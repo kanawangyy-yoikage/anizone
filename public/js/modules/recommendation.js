@@ -78,7 +78,7 @@ async function loadRecommendations(containerEl) {
     section.innerHTML = `
       <div class="section-header" style="padding:14px 16px 10px">
         <div class="bar-accent"></div>
-        <h2>✨ Rekomendasi Untukmu</h2>
+        <h2>Rekomendasi Untukmu</h2>
         <span class="reco-genre-hint">Berdasarkan: ${topGenres.join(', ')}</span>
       </div>
       <div class="horizontal-scroll">
@@ -119,7 +119,7 @@ async function loadBecauseYouWatched(anime, watchedUrls, containerEl) {
     byw.innerHTML = `
       <div class="section-header" style="padding:14px 16px 10px">
         <div class="bar-accent"></div>
-        <h2>💡 Karena kamu nonton <em>${anime.title}</em></h2>
+        <h2>Karena kamu nonton <em>${anime.title}</em></h2>
       </div>
       <div class="horizontal-scroll">
         ${filtered.map(a => `

@@ -10,10 +10,10 @@
 // ─────────────────────────────────────────────────────────
 
 const BOOKMARK_STATUSES = {
-  plan_to_watch: { label: 'Mau Nonton',    emoji: '📌', color: '#60a5fa' },
+  plan_to_watch: { label: 'Mau Nonton',    emoji: '·', color: '#60a5fa' },
   watching:      { label: 'Sedang Nonton', emoji: '▶️', color: '#34d399' },
-  completed:     { label: 'Selesai',       emoji: '✅', color: '#a78bfa' },
-  dropped:       { label: 'Dropped',       emoji: '🚫', color: '#f87171' },
+  completed:     { label: 'Selesai',       emoji: '✓', color: '#a78bfa' },
+  dropped:       { label: 'Dropped',       emoji: '×', color: '#f87171' },
 };
 
 // ── Firestore Helpers ─────────────────────────────────────
@@ -105,7 +105,7 @@ async function renderBookmarkBtn(url, title, image, score) {
         ${current ? `
           <div class="bm-divider"></div>
           <button class="bm-option bm-remove" onclick="removeBookmark('${url}')">
-            <span>🗑️</span> <span>Hapus dari Watchlist</span>
+            <span>×</span> <span>Hapus dari Watchlist</span>
           </button>
         ` : ''}
       </div>
@@ -154,7 +154,7 @@ async function removeBookmark(url) {
   if (dd) dd.style.display = 'none';
   const ok = await deleteBookmark(url);
   if (ok) {
-    showToast('🗑️ Dihapus dari watchlist');
+    showToast('Dihapus dari watchlist');
     const container = document.getElementById('bookmarkBtnContainer');
     if (container) {
       container.innerHTML = `
@@ -198,7 +198,7 @@ async function loadBookmarks() {
   if (!all.length) {
     c.innerHTML = `
       <div class="empty-state">
-        <div style="font-size:48px;margin-bottom:12px">📌</div>
+        <div style="font-size:32px;margin-bottom:12px;opacity:0.3">○</div>
         <h2>Watchlist Kosong</h2>
         <p>Tandai anime yang ingin atau sedang kamu tonton.</p>
       </div>`;
@@ -255,7 +255,7 @@ async function bookmarkEpisode(epUrl, epTitle, image, score) {
     // sudah ada — tanya hapus atau tidak
     const ok = await deleteBookmark(epUrl);
     if (ok) {
-      showToast('🗑️ Bookmark episode dihapus');
+      showToast('Bookmark episode dihapus');
       // update icon
       document.querySelectorAll(`[data-ep-url="${epUrl}"] .ep-bm-btn svg`).forEach(svg => {
         svg.setAttribute('fill', 'none');
@@ -267,7 +267,7 @@ async function bookmarkEpisode(epUrl, epTitle, image, score) {
 
   const ok = await saveBookmark(epUrl, epTitle, image, score, 'plan_to_watch');
   if (ok) {
-    showToast('📌 Episode dibookmark ke Watchlist!');
+    showToast('Episode dibookmark ke Watchlist!');
     // visual feedback — fill icon
     document.querySelectorAll(`.ep-bm-btn[onclick*="${epUrl.replace(/'/g,"\\'")}"] svg`).forEach(svg => {
       svg.setAttribute('fill', 'var(--accent)');

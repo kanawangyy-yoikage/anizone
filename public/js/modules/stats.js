@@ -87,7 +87,7 @@ async function loadAnimeStats() {
             <div class="stats-quick-label">Episode Ditonton</div>
           </div>
           <div class="stats-quick-card">
-            <div class="stats-quick-icon" style="background:rgba(167,139,250,0.15);color:#a78bfa">📌</div>
+            <div class="stats-quick-icon" style="background:rgba(167,139,250,0.15);color:#a78bfa">·</div>
             <div class="stats-quick-val">${totalBookmark}</div>
             <div class="stats-quick-label">Di Watchlist</div>
           </div>
@@ -133,10 +133,10 @@ async function loadAnimeStats() {
 
 function renderWatchlistBars(bmByStatus, total) {
   const items = [
-    { key: 'plan_to_watch', label: 'Mau Nonton',    emoji: '📌', color: '#60a5fa' },
+    { key: 'plan_to_watch', label: 'Mau Nonton',    emoji: '·', color: '#60a5fa' },
     { key: 'watching',      label: 'Sedang Nonton', emoji: '▶️', color: '#34d399' },
-    { key: 'completed',     label: 'Selesai',        emoji: '✅', color: '#a78bfa' },
-    { key: 'dropped',       label: 'Dropped',        emoji: '🚫', color: '#f87171' },
+    { key: 'completed',     label: 'Selesai',        emoji: '✓', color: '#a78bfa' },
+    { key: 'dropped',       label: 'Dropped',        emoji: '×', color: '#f87171' },
   ];
   return items.filter(i => bmByStatus[i.key] > 0).map(i => {
     const pct = Math.round((bmByStatus[i.key] / total) * 100);

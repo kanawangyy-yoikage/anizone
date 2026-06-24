@@ -8,10 +8,10 @@ async function loadHome() {
   const homeEl = document.getElementById('home-view');
   homeEl.innerHTML = `
     <div class="home-tab-bar">
-      <button class="home-tab active" onclick="switchHomeTab('beranda', this)">🏠 Beranda</button>
-      <button class="home-tab" onclick="switchHomeTab('trending', this)">🔥 Trending</button>
-      <button class="home-tab" onclick="switchHomeTab('jadwal', this)">📅 Jadwal Rilis</button>
-      <button class="home-tab" onclick="switchHomeTab('berita', this)">📰 Berita</button>
+      <button class="home-tab active" onclick="switchHomeTab('beranda', this)">Beranda</button>
+      <button class="home-tab" onclick="switchHomeTab('trending', this)">Trending</button>
+      <button class="home-tab" onclick="switchHomeTab('jadwal', this)">Jadwal Rilis</button>
+      <button class="home-tab" onclick="switchHomeTab('berita', this)">Berita</button>
     </div>
     <div id="tab-beranda" class="home-tab-content active"></div>
     <div id="tab-trending" class="home-tab-content"></div>
@@ -106,7 +106,7 @@ async function loadTrending() {
     }
     container.innerHTML = `
       <div class="section-header mt-large" style="padding:14px 16px 10px">
-        <div class="bar-accent"></div><h2>🔥 Anime Trending</h2>
+        <div class="bar-accent"></div><h2>Anime Trending</h2>
       </div>
       <div class="trending-list">
         ${data.map((a, i) => `
@@ -115,7 +115,7 @@ async function loadTrending() {
             <div class="trending-img">
               ${a.image
                 ? `<img src="${a.image}" alt="${a.title}" loading="lazy">`
-                : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;">📺</div>'}
+                : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;">○</div>'}
             </div>
             <div class="trending-info">
               <div class="trending-title">${a.title}</div>
@@ -162,7 +162,7 @@ async function loadSchedule() {
     });
 
     let html = `<div class="section-header mt-large" style="padding:14px 16px 10px">
-      <div class="bar-accent"></div><h2>📅 Jadwal Rilis Anime</h2>
+      <div class="bar-accent"></div><h2>Jadwal Rilis Anime</h2>
     </div>`;
 
     if (Object.keys(grouped).length > 0) {
@@ -196,7 +196,7 @@ function scheduleCard(a) {
       <div class="schedule-card-img">
         ${a.image
           ? `<img src="${a.image}" alt="${a.title}" loading="lazy">`
-          : '<div style="width:100%;height:100%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:32px;">📺</div>'}
+          : '<div style="width:100%;height:100%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:32px;">○</div>'}
       </div>
       <div class="schedule-card-body">
         <div class="schedule-card-title">${title}</div>
@@ -220,7 +220,7 @@ async function loadNews() {
     }
     container.innerHTML = `
       <div class="section-header mt-large" style="padding:14px 16px 10px">
-        <div class="bar-accent"></div><h2>📰 Berita Anime Terbaru</h2>
+        <div class="bar-accent"></div><h2>Berita Anime Terbaru</h2>
       </div>
       <div class="news-list" style="padding-bottom:80px">
         ${data.map((n, i) => `
@@ -229,7 +229,7 @@ async function loadNews() {
             <div class="news-img">
               ${n.image
                 ? `<img src="${n.image}" alt="${n.title}" loading="lazy">`
-                : '<div class="news-img-placeholder">📰</div>'}
+                : '<div class="news-img-placeholder"></div>'}
             </div>
             <div class="news-info">
               <div class="news-title">${n.title}</div>

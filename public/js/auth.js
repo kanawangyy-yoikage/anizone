@@ -151,7 +151,7 @@ async function loadUserProfile(user) {
   setEl('infoName', name);
   setEl('infoEmail', user.email || '—');
   setEl('infoPhone', user.phoneNumber || '—');
-  setEl('infoRole', role === 'admin' ? '🛡️ Administrator' : '👤 User');
+  setEl('infoRole', role === 'admin' ? 'Administrator' : 'User');
 
   setBannerUI(bannerURL, bannerColor);
 
@@ -159,9 +159,9 @@ async function loadUserProfile(user) {
   const badgesEl = document.getElementById('profileBadges');
   if (badgesEl) {
     const badges = [];
-    badges.push(`<span class="profile-badge ${role==='admin'?'badge-role-admin':'badge-role-user'}">${role==='admin'?'🛡️ Admin':'👤 User'}</span>`);
-    if (user.email) badges.push('<span class="profile-badge badge-method">📧 Email</span>');
-    if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">📱 Nomor HP</span>');
+    badges.push(`<span class="profile-badge ${role==='admin'?'badge-role-admin':'badge-role-user'}">${role==='admin'?'Admin':'User'}</span>`);
+    if (user.email) badges.push('<span class="profile-badge badge-method">Email</span>');
+    if (user.phoneNumber) badges.push('<span class="profile-badge badge-method">Nomor HP</span>');
     if (user.providerData?.some(p=>p.providerId==='google.com')) badges.push('<span class="profile-badge badge-method">🟢 Google</span>');
     badgesEl.innerHTML = badges.join('');
   }
@@ -323,7 +323,7 @@ async function saveProfile() {
     await user.updateProfile({ displayName: newName });
     await db.collection('users').doc(user.uid).set(updates, { merge: true });
 
-    setEditStatus('✅ Profil berhasil disimpan!', 'success');
+    setEditStatus('Profil berhasil disimpan!', 'success');
     await loadUserProfile(auth.currentUser);
     setTimeout(() => closeEditModal(), 1200);
   } catch(e) {

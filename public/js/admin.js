@@ -121,10 +121,10 @@ async function loadDashboard() {
     const activeUsers = users.filter(u => u.role !== 'banned').length;
 
     document.getElementById('stats-grid').innerHTML = `
-      ${statCard('👥', 'blue',  'Total Pengguna',   totalUsers,  '+' + Math.round(totalUsers*0.05) + ' bulan ini', 'up')}
-      ${statCard('✅', 'green', 'Pengguna Aktif',   activeUsers, 'Tidak diblokir', '')}
-      ${statCard('🛡️', 'yellow','Administrator',    adminCount,  'Akses penuh', '')}
-      ${statCard('🚫', 'red',   'Diblokir',         bannedCount, bannedCount > 0 ? 'Perlu perhatian' : 'Aman', bannedCount > 0 ? 'down' : 'up')}`;
+      ${statCard('users', 'blue',  'Total Pengguna',   totalUsers,  '+' + Math.round(totalUsers*0.05) + ' bulan ini', 'up')}
+      ${statCard('active', 'green', 'Pengguna Aktif',   activeUsers, 'Tidak diblokir', '')}
+      ${statCard('admin', 'yellow','Administrator',    adminCount,  'Akses penuh', '')}
+      ${statCard('banned', 'red',   'Diblokir',         bannedCount, bannedCount > 0 ? 'Perlu perhatian' : 'Aman', bannedCount > 0 ? 'down' : 'up')}`;
 
     // Charts
     const roleData = [
@@ -279,7 +279,7 @@ function userTableRow(u, compact = false) {
 }
 
 function roleLabel(role) {
-  const map = { admin: '🛡️ Admin', user: '👤 User', banned: '🚫 Banned' };
+  const map = { admin: 'Admin', user: 'User', banned: 'Banned' };
   return map[role] || role;
 }
 
@@ -361,9 +361,9 @@ function openUserModal(uid) {
     </div>
     <div class="modal-section-title">Aksi Cepat</div>
     <div class="modal-actions">
-      ${role !== 'admin' ? `<button class="admin-btn admin-btn-primary" onclick="toggleAdmin('${uid}','${role}');closeModal()">🛡️ Jadikan Admin</button>` : ''}
-      ${role !== 'banned' ? `<button class="admin-btn admin-btn-danger" onclick="toggleBan('${uid}','${role}');closeModal()">🚫 Ban Pengguna</button>` : `<button class="admin-btn admin-btn-outline" onclick="toggleBan('${uid}','${role}');closeModal()">✅ Unban</button>`}
-      <button class="admin-btn admin-btn-danger" onclick="confirmDeleteUser('${uid}','${name.replace(/'/g,"\\'")}');closeModal()">🗑️ Hapus Akun</button>
+      ${role !== 'admin' ? `<button class="admin-btn admin-btn-primary" onclick="toggleAdmin('${uid}','${role}');closeModal()">Jadikan Admin</button>` : ''}
+      ${role !== 'banned' ? `<button class="admin-btn admin-btn-danger" onclick="toggleBan('${uid}','${role}');closeModal()">Ban Pengguna</button>` : `<button class="admin-btn admin-btn-outline" onclick="toggleBan('${uid}','${role}');closeModal()">Unban</button>`}
+      <button class="admin-btn admin-btn-danger" onclick="confirmDeleteUser('${uid}','${name.replace(/'/g,"\\'")}');closeModal()">× Hapus Akun</button>
     </div>`;
 
   document.getElementById('user-modal').classList.add('show');
@@ -454,8 +454,8 @@ function loadActivityLog() {
 }
 
 function activityIcon(type) {
-  const icons = { login: '🔑', register: '✨', admin: '🛡️', ban: '🚫' };
-  return icons[type] || '📋';
+  const icons = { login: '→', register: '+', admin: '◆', ban: '×' };
+  return icons[type] || '·';
 }
 
 // ── SETTINGS ──────────────────────────────────────────
@@ -483,7 +483,7 @@ async function loadSettings() {
       <div class="admin-table-container" style="margin-bottom:16px;border:${maintenanceActive ? '1px solid rgba(255,50,50,0.45)' : ''}">
         <div class="admin-table-header" style="${maintenanceActive ? 'background:rgba(255,30,30,0.06)' : ''}">
           <div class="admin-table-title" style="${maintenanceActive ? 'color:#ff6060' : ''}">
-            🚧 Mode Maintenance
+            Mode Maintenance
             ${maintenanceActive ? '<span style="margin-left:8px;font-size:11px;background:rgba(255,30,30,0.2);color:#ff6060;border:1px solid rgba(255,30,30,0.3);padding:2px 8px;border-radius:10px;font-weight:600">AKTIF</span>' : ''}
           </div>
         </div>
@@ -525,8 +525,8 @@ async function loadSettings() {
           <div class="form-group">
             <label class="form-label">Tema</label>
             <select class="form-select" onchange="toggleAdminTheme(this.value)">
-              <option value="dark" ${document.documentElement.getAttribute('data-theme')!=='light'?'selected':''}>🌙 Dark Mode</option>
-              <option value="light" ${document.documentElement.getAttribute('data-theme')==='light'?'selected':''}>☀️ Light Mode</option>
+              <option value="dark" ${document.documentElement.getAttribute('data-theme')!=='light'?'selected':''}> Dark Mode</option>
+              <option value="light" ${document.documentElement.getAttribute('data-theme')==='light'?'selected':''}> Light Mode</option>
             </select>
           </div>
         </div>
@@ -572,7 +572,7 @@ async function saveMaintenanceSettings() {
   const message = msgEl.value.trim();
   try {
     await db.collection("config").doc("maintenance").set({ active, message, updatedAt: Date.now() });
-    showToast(active ? "⚠️ Maintenance diaktifkan!" : "✅ Maintenance dinonaktifkan", active ? "error" : "success");
+    showToast(active ? "Maintenance diaktifkan!" : "Maintenance dinonaktifkan", active ? "error" : "success");
     logActivity("admin", "Maintenance " + (active ? "diaktifkan" : "dinonaktifkan"));
     setTimeout(() => loadSettings(), 800);
   } catch(e) { showToast("Gagal menyimpan: " + e.message, "error"); }
@@ -582,7 +582,7 @@ async function deactivateMaintenance() {
   if (!confirm("Nonaktifkan mode maintenance sekarang?")) return;
   try {
     await db.collection("config").doc("maintenance").set({ active: false, message: "", updatedAt: Date.now() });
-    showToast("✅ Maintenance berhasil dinonaktifkan", "success");
+    showToast("Maintenance berhasil dinonaktifkan", "success");
     loadSettings();
   } catch(e) { showToast("Gagal: " + e.message, "error"); }
 }
@@ -600,7 +600,7 @@ function toggleAdminTheme(val) {
 
 // ── TOAST ─────────────────────────────────────────────
 function showToast(msg, type = 'info') {
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const icons = { success: '✓', error: '×', info: 'i' };
   const container = document.getElementById('toast-container') || (() => {
     const el = document.createElement('div');
     el.id = 'toast-container'; el.className = 'toast-container';

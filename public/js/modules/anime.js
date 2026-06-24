@@ -21,13 +21,13 @@ async function renderCategoryPage() {
   view.innerHTML = `
     <!-- Tab bar navigasi -->
     <div class="anime-tab-bar" id="animeTabBar">
-      <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">🎭 Genre</button>
-      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">🔥 Populer</button>
-      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">🎬 Movie</button>
-      <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">📡 Ongoing</button>
-      <button class="anime-tab" onclick="switchAnimeTab('completed',this)">✅ Selesai</button>
-      <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">🔤 A-Z</button>
-      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">⚔️ Karakter</button>
+      <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">Genre</button>
+      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">Populer</button>
+      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">Movie</button>
+      <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">Ongoing</button>
+      <button class="anime-tab" onclick="switchAnimeTab('completed',this)">Selesai</button>
+      <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">A–Z</button>
+      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">Karakter</button>
     </div>
     <!-- Konten tiap tab -->
     <div id="anime-tab-content"></div>`;
@@ -46,10 +46,10 @@ function switchAnimeTab(mode, btn) {
 
   switch (mode) {
     case 'genre'     : loadGenreTab(c);      break;
-    case 'popular'   : loadListTab(c, 'popular',   '🔥 Anime Populer');   break;
-    case 'movies'    : loadListTab(c, 'movies',    '🎬 Anime Movie');      break;
-    case 'ongoing'   : loadListTab(c, 'ongoing',   '📡 Sedang Tayang');    break;
-    case 'completed' : loadListTab(c, 'completed', '✅ Anime Selesai');    break;
+    case 'popular'   : loadListTab(c, 'popular',   'Anime Populer');   break;
+    case 'movies'    : loadListTab(c, 'movies',    'Anime Movie');      break;
+    case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');    break;
+    case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');    break;
     case 'animelist' : loadAnimeListTab(c);  break;
     case 'characters': loadCharactersTab(c); break;
   }
@@ -193,7 +193,7 @@ async function loadCharactersTab(c) {
     }
     c.innerHTML = `
       <div style="padding:14px 16px 10px">
-        <div class="section-header"><div class="bar-accent"></div><h2>⚔️ Tipe Karakter</h2></div>
+        <div class="section-header"><div class="bar-accent"></div><h2>Tipe Karakter</h2></div>
       </div>
       <div class="char-grid" id="charGrid">
         ${list.map(ch => {
@@ -202,7 +202,7 @@ async function loadCharactersTab(c) {
           const count = ch.count || ch.total || '';
           return `
             <button class="char-card" onclick="loadCharacterAnime('${name.replace(/'/g,"\\'")}','${slug}')">
-              <div class="char-icon">⚔️</div>
+              
               <div class="char-name">${name}</div>
               ${count ? `<div class="char-count">${count} anime</div>` : ''}
             </button>`;
@@ -405,7 +405,7 @@ async function loadDetail(url) {
           <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
           <div class="detail-season">${seasonInfo.toUpperCase()}</div>
           <p class="detail-synopsis">${description}</p>
-          <div style="margin-bottom:10px"><span class="mal-badge">📊 MyAnimeList</span></div>
+          <div style="margin-bottom:10px"><span class="mal-badge">MyAnimeList</span></div>
           <div class="detail-actions">
             <button class="btn-action" onclick="${oldestUrl ? `loadVideo('${oldestUrl}')` : "alert('Belum ada episode')"}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nonton
@@ -556,7 +556,7 @@ function markEpisodeComplete() {
   CW.markCompleted(url);
   const bar = document.getElementById('cwProgressBar');
   if (bar) bar.style.width = '100%';
-  if (typeof showToast === 'function') showToast('✅ Episode ditandai selesai!');
+  if (typeof showToast === 'function') showToast('Episode ditandai selesai!');
 }
 
 // Kompatibilitas lama

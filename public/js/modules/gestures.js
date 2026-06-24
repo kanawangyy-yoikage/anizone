@@ -111,7 +111,7 @@ const GESTURES = {
     // Use the existing bookmark module
     if (typeof openAdvancedSearch !== 'undefined') {
       // fallback: just show toast asking to open detail
-      showToast('📌 Buka detail untuk tambah ke watchlist');
+      showToast('Buka detail untuk tambah ke watchlist');
     }
   },
 

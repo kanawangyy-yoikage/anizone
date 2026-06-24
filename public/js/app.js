@@ -237,10 +237,10 @@ async function loadHome() {
   const homeEl = document.getElementById('home-view');
   homeEl.innerHTML = `
     <div class="home-tab-bar">
-      <button class="home-tab active" onclick="switchHomeTab('beranda', this)">🏠 Beranda</button>
-      <button class="home-tab" onclick="switchHomeTab('trending', this)">🔥 Trending</button>
-      <button class="home-tab" onclick="switchHomeTab('jadwal', this)">📅 Jadwal Rilis</button>
-      <button class="home-tab" onclick="switchHomeTab('berita', this)">📰 Berita</button>
+      <button class="home-tab active" onclick="switchHomeTab('beranda', this)">Beranda</button>
+      <button class="home-tab" onclick="switchHomeTab('trending', this)">Trending</button>
+      <button class="home-tab" onclick="switchHomeTab('jadwal', this)">Jadwal Rilis</button>
+      <button class="home-tab" onclick="switchHomeTab('berita', this)">Berita</button>
     </div>
     <div id="tab-beranda" class="home-tab-content active"></div>
     <div id="tab-trending" class="home-tab-content"></div>
@@ -323,13 +323,13 @@ async function loadTrending() {
       container.innerHTML = '<div class="empty-state"><h2>Data trending tidak tersedia</h2></div>'; return;
     }
     container.innerHTML = `
-      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>🔥 Anime Trending</h2></div>
+      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>Anime Trending</h2></div>
       <div class="trending-list">
         ${data.map((a, i) => `
           <div class="trending-item" onclick="handleSearch('${(a.title||'').replace(/'/g,"\\'")}')">
             <div class="trending-rank ${i < 3 ? 'top3' : ''}">${(a.rank || i+1)}</div>
             <div class="trending-img">
-              ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;">📺</div>'}
+              ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;">○</div>'}
             </div>
             <div class="trending-info">
               <div class="trending-title">${a.title}</div>
@@ -374,7 +374,7 @@ async function loadSchedule() {
       }
     });
 
-    let html = `<div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>📅 Jadwal Rilis Anime</h2></div>`;
+    let html = `<div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>Jadwal Rilis Anime</h2></div>`;
 
     const hasDays = Object.keys(grouped).length > 0;
     if (hasDays) {
@@ -404,7 +404,7 @@ function scheduleCard(a) {
   return `
     <div class="schedule-card" onclick="${onclick}">
       <div class="schedule-card-img">
-        ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:32px;">📺</div>'}
+        ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : '<div style="width:100%;height:100%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:32px;">○</div>'}
       </div>
       <div class="schedule-card-body">
         <div class="schedule-card-title">${title}</div>
@@ -427,12 +427,12 @@ async function loadNews() {
       container.innerHTML = '<div class="empty-state"><h2>Berita tidak tersedia</h2></div>'; return;
     }
     container.innerHTML = `
-      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>📰 Berita Anime Terbaru</h2></div>
+      <div class="section-header mt-large" style="padding:14px 16px 10px"><div class="bar-accent"></div><h2>Berita Anime Terbaru</h2></div>
       <div class="news-list" style="padding-bottom:80px">
         ${data.map((n, i) => `
           <div class="news-card" style="animation-delay:${i*0.05}s" onclick="${n.url && n.url !== '#' ? `window.open('${n.url}','_blank')` : ''}">
             <div class="news-img">
-              ${n.image ? `<img src="${n.image}" alt="${n.title}" loading="lazy">` : `<div class="news-img-placeholder">📰</div>`}
+              ${n.image ? `<img src="${n.image}" alt="${n.title}" loading="lazy">` : `<div class="news-img-placeholder"></div>`}
             </div>
             <div class="news-info">
               <div class="news-title">${n.title}</div>
@@ -643,8 +643,8 @@ function animeCard(a) {
 }
 
 function emptyState(icon, title, desc) {
-  const icons = { clock: '⏱️', heart: '❤️' };
-  return `<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">${icons[icon]||'📦'}</div><h2>${title}</h2><p>${desc}</p></div>`;
+  const icons = { clock: '○', heart: '♡' };
+  return `<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">${icons[icon]||'○'}</div><h2>${title}</h2><p>${desc}</p></div>`;
 }
 
 // ─── SEARCH ───────────────────────────────────────────
@@ -662,7 +662,7 @@ async function handleSearch(manualQuery = null) {
     const homeEl = document.getElementById('home-view');
     homeEl.innerHTML = `
       <div class="home-tab-bar">
-        <button class="home-tab active">🔍 Hasil Pencarian</button>
+        <button class="home-tab active">Hasil Pencarian</button>
       </div>
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
       <div class="anime-grid" style="padding-bottom:80px">
@@ -745,7 +745,7 @@ async function loadDetail(url) {
           <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
           <div class="detail-season">${seasonInfo.toUpperCase()}</div>
           <p class="detail-synopsis">${description}</p>
-          <div style="margin-bottom:10px"><span class="mal-badge">📊 MyAnimeList</span></div>
+          <div style="margin-bottom:10px"><span class="mal-badge">MyAnimeList</span></div>
           <div class="detail-actions">
             <button class="btn-action" onclick="${oldestUrl?`loadVideo('${oldestUrl}')`:"alert('Belum ada episode')"}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nonton

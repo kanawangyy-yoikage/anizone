@@ -62,7 +62,7 @@ function showMaintenanceOverlay(customMessage) {
     <!-- Dialog konfirmasi -->
     <div id="mnt-confirm-dialog" class="mnt-confirm-dialog" style="display:none">
       <div class="mnt-confirm-box">
-        <div class="mnt-confirm-icon">⚠️</div>
+        <div class="mnt-confirm-icon">!</div>
         <div class="mnt-confirm-title">Yakin ingin melanjutkan?</div>
         <div class="mnt-confirm-text">
           Situs sedang dalam mode maintenance. Dengan melanjutkan, kamu mungkin akan mengalami:

@@ -28,9 +28,9 @@ function setSidebarActive(tabName) {
 
 // Template kosong untuk state tidak ada data
 function emptyState(icon, title, desc) {
-  const icons = { clock: '⏱️', heart: '❤️' };
+  const icons = { clock: '○', heart: '♡' };
   return `<div class="empty-state">
-    <div style="font-size:48px;margin-bottom:12px">${icons[icon] || '📦'}</div>
+    <div style="font-size:32px;margin-bottom:12px;opacity:0.3">${icons[icon] || '○'}</div>
     <h2>${title}</h2>
     <p>${desc}</p>
   </div>`;
