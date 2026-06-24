@@ -353,10 +353,7 @@ function renderSection(title, data, container, genreSlug) {
         <div class="scroll-card-wrapper">
           <div class="scroll-card"
             onclick="loadDetailBySlug('${a.url}')"
-            style="animation-delay:${i * 0.04}s"
-            data-score="${score || ''}"
-            data-type="${typeText}"
-            data-url="${a.url}">
+            style="animation-delay:${i * 0.04}s">
             <div class="scroll-card-outer">
               <div class="scroll-card-img">
                 <img src="${a.image}" alt="${a.title}" loading="lazy">
@@ -364,6 +361,13 @@ function renderSection(title, data, container, genreSlug) {
               </div>
             </div>
             <div class="scroll-card-title">${shortTitle}</div>
+          </div>
+          <div class="scroll-card-expand">
+            <div class="scroll-card-expand-meta">${score ? `${score} · ` : ''}${typeText}</div>
+            <div class="scroll-card-expand-action">
+              <span>Tonton sekarang</span>
+              <button class="scroll-card-play-btn" onclick="loadDetailBySlug('${a.url}')">▶</button>
+            </div>
           </div>
         </div>`;
       }).join('')}
