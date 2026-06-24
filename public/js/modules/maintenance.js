@@ -305,3 +305,26 @@ function injectMaintenanceStyles() {
   `;
   document.head.appendChild(style);
 }
+
+// ── AUTO INIT: jalankan setelah auth state diketahui ──
+firebase.auth().onAuthStateChanged(async (user) => {
+  try {
+    // Skip kalau admin
+    if (user) {
+      const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+      if (userDoc.exists && userDoc.data().role === 'admin') return;
+    }
+
+    const doc = await firebase.firestore().collection('config').doc('maintenance').get();
+    if (!doc.exists) return;
+
+    const data = doc.data();
+    if (!data.active) return;
+
+    if (sessionStorage.getItem(MAINTENANCE_BYPASS_KEY) === 'true') return;
+
+    showMaintenanceOverlay(data.message || null);
+  } catch (e) {
+    console.warn('[Maintenance] Gagal cek status:', e.message);
+  }
+});
