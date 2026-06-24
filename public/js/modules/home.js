@@ -349,12 +349,22 @@ function renderSection(title, data, container, genreSlug) {
         const badgeText = [epText, typeText].filter(Boolean).join(' · ');
         const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
         const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : null;
+        const status   = a.status   || '';
+        const genres   = a.genres   ? (Array.isArray(a.genres) ? a.genres.slice(0,2).join(', ') : String(a.genres).split(',').slice(0,2).map(g=>g.trim()).join(', ')) : '';
+        const season   = [a.musim || a.season || '', a.dirilis || a.released || a.year || ''].filter(Boolean).join(' ').trim();
+        const statusLabel = status.toLowerCase().includes('ongoing') || status.toLowerCase().includes('tayang')
+          ? 'Ongoing' : status.toLowerCase().includes('complete') || status.toLowerCase().includes('tamat')
+          ? 'Tamat' : status || '';
+
         return `
         <div class="scroll-card-wrapper"
-          data-title="${shortTitle}"
+          data-title="${a.title}"
           data-score="${score || ''}"
           data-type="${typeText}"
-          data-url="${a.url}">
+          data-url="${a.url}"
+          data-status="${statusLabel}"
+          data-genres="${genres}"
+          data-season="${season}">
           <div class="scroll-card"
             onclick="loadDetailBySlug('${a.url}')"
             style="animation-delay:${i * 0.04}s">
