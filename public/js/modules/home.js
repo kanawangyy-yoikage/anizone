@@ -350,13 +350,11 @@ function renderSection(title, data, container, genreSlug) {
         const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
         const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : null;
         return `
-        <div class="scroll-card-wrapper">
-          <div class="scroll-card-bubble">
-            <div class="scroll-card-bubble-title">${shortTitle}</div>
-            <div class="scroll-card-bubble-meta">${score ? `<span class="scb-score">${score}</span>` : ''}<span class="scb-type">${typeText}</span></div>
-            <button class="scroll-card-bubble-btn" onclick="loadDetailBySlug('${a.url}')">▶ Tonton</button>
-            <div class="scroll-card-bubble-arrow"></div>
-          </div>
+        <div class="scroll-card-wrapper"
+          data-title="${shortTitle}"
+          data-score="${score || ''}"
+          data-type="${typeText}"
+          data-url="${a.url}">
           <div class="scroll-card"
             onclick="loadDetailBySlug('${a.url}')"
             style="animation-delay:${i * 0.04}s">
