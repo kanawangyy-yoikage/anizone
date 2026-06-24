@@ -351,6 +351,12 @@ function renderSection(title, data, container, genreSlug) {
         const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : null;
         return `
         <div class="scroll-card-wrapper">
+          <div class="scroll-card-bubble">
+            <div class="scroll-card-bubble-title">${shortTitle}</div>
+            <div class="scroll-card-bubble-meta">${score ? `<span class="scb-score">${score}</span>` : ''}<span class="scb-type">${typeText}</span></div>
+            <button class="scroll-card-bubble-btn" onclick="loadDetailBySlug('${a.url}')">▶ Tonton</button>
+            <div class="scroll-card-bubble-arrow"></div>
+          </div>
           <div class="scroll-card"
             onclick="loadDetailBySlug('${a.url}')"
             style="animation-delay:${i * 0.04}s">
@@ -361,13 +367,6 @@ function renderSection(title, data, container, genreSlug) {
               </div>
             </div>
             <div class="scroll-card-title">${shortTitle}</div>
-          </div>
-          <div class="scroll-card-expand">
-            <div class="scroll-card-expand-meta">${score ? `${score} · ` : ''}${typeText}</div>
-            <div class="scroll-card-expand-action">
-              <span>Tonton sekarang</span>
-              <button class="scroll-card-play-btn" onclick="loadDetailBySlug('${a.url}')">▶</button>
-            </div>
           </div>
         </div>`;
       }).join('')}
