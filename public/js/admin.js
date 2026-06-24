@@ -459,13 +459,55 @@ function activityIcon(type) {
 }
 
 // ── SETTINGS ──────────────────────────────────────────
-function loadSettings() {
+async function loadSettings() {
   const view = document.getElementById('view-settings');
+
+  // Ambil status maintenance dari Firestore dulu
+  let maintenanceActive = false;
+  let maintenanceMsg = '';
+  try {
+    const doc = await db.collection('config').doc('maintenance').get();
+    if (doc.exists) {
+      maintenanceActive = doc.data().active || false;
+      maintenanceMsg = doc.data().message || '';
+    }
+  } catch {}
+
   view.innerHTML = `
     <div class="admin-topbar">
       <div><div class="admin-page-title">Pengaturan</div><div class="admin-page-subtitle">Konfigurasi AniZone</div></div>
     </div>
     <div style="max-width:520px">
+
+      <!-- ── MAINTENANCE ── -->
+      <div class="admin-table-container" style="margin-bottom:16px;border:${maintenanceActive ? '1px solid rgba(255,50,50,0.45)' : ''}">
+        <div class="admin-table-header" style="${maintenanceActive ? 'background:rgba(255,30,30,0.06)' : ''}">
+          <div class="admin-table-title" style="${maintenanceActive ? 'color:#ff6060' : ''}">
+            🚧 Mode Maintenance
+            ${maintenanceActive ? '<span style="margin-left:8px;font-size:11px;background:rgba(255,30,30,0.2);color:#ff6060;border:1px solid rgba(255,30,30,0.3);padding:2px 8px;border-radius:10px;font-weight:600">AKTIF</span>' : ''}
+          </div>
+        </div>
+        <div style="padding:20px">
+          <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+              <div class="mnt-toggle-wrap" onclick="toggleMaintenanceMode()" id="mnt-toggle-wrap">
+                <div class="mnt-toggle ${maintenanceActive ? 'active' : ''}" id="mnt-toggle"></div>
+              </div>
+              <span id="mnt-toggle-label" style="font-size:13px;color:${maintenanceActive ? '#ff6060' : 'var(--text-muted)'}">
+                ${maintenanceActive ? 'Maintenance <strong>aktif</strong> — pengguna akan melihat halaman maintenance' : 'Maintenance <strong>nonaktif</strong>'}
+              </span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pesan Maintenance</label>
+            <textarea class="form-input" id="maintenanceMsg" rows="3" placeholder="Contoh: Kami sedang melakukan pembaruan sistem. Estimasi selesai dalam 1 jam." style="resize:vertical;min-height:80px">${maintenanceMsg}</textarea>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Pesan ini akan ditampilkan kepada pengguna saat maintenance aktif.</div>
+          </div>
+          <button class="admin-btn admin-btn-primary" onclick="saveMaintenanceSettings()">Simpan Pengaturan Maintenance</button>
+          ${maintenanceActive ? `<button class="admin-btn admin-btn-outline" onclick="deactivateMaintenance()" style="margin-left:8px;border-color:rgba(255,50,50,0.4);color:#ff6060">Nonaktifkan Sekarang</button>` : ''}
+        </div>
+      </div>
+
       <div class="admin-table-container" style="margin-bottom:16px">
         <div class="admin-table-header"><div class="admin-table-title">MAL API</div></div>
         <div style="padding:20px">
@@ -506,6 +548,43 @@ function infoRow(label, value) {
     <span style="font-size:13px;color:var(--text-muted)">${label}</span>
     <span style="font-size:13px;font-weight:600">${value}</span>
   </div>`;
+}
+
+// ── MAINTENANCE MANAGEMENT ────────────────────────────
+async function toggleMaintenanceMode() {
+  const toggle = document.getElementById("mnt-toggle");
+  const label  = document.getElementById("mnt-toggle-label");
+  if (!toggle) return;
+  const isActive = toggle.classList.toggle("active");
+  if (label) {
+    label.style.color = isActive ? "#ff6060" : "var(--text-muted)";
+    label.innerHTML = isActive
+      ? "Maintenance <strong>aktif</strong> — pengguna akan melihat halaman maintenance"
+      : "Maintenance <strong>nonaktif</strong>";
+  }
+}
+
+async function saveMaintenanceSettings() {
+  const toggle = document.getElementById("mnt-toggle");
+  const msgEl  = document.getElementById("maintenanceMsg");
+  if (!toggle || !msgEl) return;
+  const active  = toggle.classList.contains("active");
+  const message = msgEl.value.trim();
+  try {
+    await db.collection("config").doc("maintenance").set({ active, message, updatedAt: Date.now() });
+    showToast(active ? "⚠️ Maintenance diaktifkan!" : "✅ Maintenance dinonaktifkan", active ? "error" : "success");
+    logActivity("admin", "Maintenance " + (active ? "diaktifkan" : "dinonaktifkan"));
+    setTimeout(() => loadSettings(), 800);
+  } catch(e) { showToast("Gagal menyimpan: " + e.message, "error"); }
+}
+
+async function deactivateMaintenance() {
+  if (!confirm("Nonaktifkan mode maintenance sekarang?")) return;
+  try {
+    await db.collection("config").doc("maintenance").set({ active: false, message: "", updatedAt: Date.now() });
+    showToast("✅ Maintenance berhasil dinonaktifkan", "success");
+    loadSettings();
+  } catch(e) { showToast("Gagal: " + e.message, "error"); }
 }
 
 function saveMalSettings() {

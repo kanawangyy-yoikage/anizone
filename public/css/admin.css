@@ -241,3 +241,10 @@ tbody td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
 @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .hidden { display: none !important; }
+
+/* ── MAINTENANCE TOGGLE ── */
+.mnt-toggle-wrap { width: 46px; height: 26px; flex-shrink: 0; cursor: pointer; }
+.mnt-toggle { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 13px; position: relative; transition: all 0.3s ease; }
+.mnt-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: all 0.3s ease; }
+.mnt-toggle.active { background: rgba(255,30,30,0.25); border-color: rgba(255,30,30,0.5); box-shadow: 0 0 10px rgba(255,30,30,0.3); }
+.mnt-toggle.active::after { transform: translateX(20px); background: #ff4040; box-shadow: 0 0 6px rgba(255,40,40,0.8); }

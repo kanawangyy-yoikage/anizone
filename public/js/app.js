@@ -891,6 +891,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const isLight = localStorage.getItem('theme') === 'light';
   updateThemeUI(isLight);
   switchTab('home');
+
+  // Cek status maintenance dari Firestore
+  if (typeof checkMaintenance === 'function') {
+    checkMaintenance();
+  }
 });
 
 document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
