@@ -367,14 +367,8 @@ async function loadDetail(url) {
       }
     }
 
-    let score       = info.score || info.skor || 'N/A';
-    let description = data.description || 'Tidak ada deskripsi tersedia.';
-    try {
-      const malRes  = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(data.title)}`);
-      const malData = await malRes.json();
-      if (malData?.mean) { score = String(malData.mean); MAL_SCORE_CACHE.set(data.title, score); }
-      if (malData?.synopsis) description = malData.synopsis;
-    } catch {}
+    let score       = info.score || info.skor || info.rating || 'N/A';
+    let description = data.description || info.synopsis || 'Tidak ada deskripsi tersedia.';
 
     saveHistory({ url, title: data.title, image: data.image, score });
     const isFav = await checkFavorite(url);
@@ -405,7 +399,6 @@ async function loadDetail(url) {
           <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
           <div class="detail-season">${seasonInfo.toUpperCase()}</div>
           <p class="detail-synopsis">${description}</p>
-          <div style="margin-bottom:10px"><span class="mal-badge">MyAnimeList</span></div>
           <div class="detail-actions">
             <button class="btn-action" onclick="${oldestUrl ? `loadVideo('${oldestUrl}')` : "alert('Belum ada episode')"}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nonton

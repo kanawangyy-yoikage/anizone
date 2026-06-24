@@ -150,7 +150,7 @@ async function getDetail(urlOrSlug) {
       type         : d.type      || 'TV',
       status       : d.status    || 'Ongoing',
       total_episode: d.totalEpisode || episodes.length || '?',
-      score        : d.score     || 'N/A',
+      score        : d.score || d.rating || 'N/A',
       duration     : d.duration  || '?',
       season       : d.season    || '',
       released     : d.aired     || d.releaseDate || '',

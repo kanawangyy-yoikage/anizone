@@ -36,11 +36,6 @@ app.get('/api/search', wrap(async (req, res) => {
 
 app.get('/api/detail', wrap(async (req, res) => {
   const data = await scraper.getDetail(req.query.url || '');
-  try {
-    const mal_ = await mal.getMalAnime(data.title).catch(() => null);
-    if (mal_?.synopsis && !data.description) data.description = mal_.synopsis;
-    if (mal_?.mean && data.info.score === 'N/A') data.info.score = String(mal_.mean);
-  } catch {}
   res.json(data);
 }));
 
