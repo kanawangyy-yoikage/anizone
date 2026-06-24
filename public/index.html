@@ -594,9 +594,15 @@
 
   <!-- Global card bubble tooltip -->
   <div id="scb-global" aria-hidden="true">
-    <div id="scb-title"></div>
-    <div id="scb-meta"></div>
-    <button id="scb-btn">▶ Tonton</button>
+    <div id="scb-header">
+      <div id="scb-title"></div>
+      <div id="scb-score-badge"></div>
+    </div>
+    <div id="scb-rows"></div>
+    <button id="scb-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Tonton Sekarang
+    </button>
     <div id="scb-arrow"></div>
   </div>
 
@@ -604,32 +610,57 @@
   (function () {
     const bubble   = document.getElementById('scb-global');
     const elTitle  = document.getElementById('scb-title');
-    const elMeta   = document.getElementById('scb-meta');
+    const elScore  = document.getElementById('scb-score-badge');
+    const elRows   = document.getElementById('scb-rows');
     const elBtn    = document.getElementById('scb-btn');
     let currentUrl = null;
     let rafId      = null;
 
+    function row(icon, text) {
+      if (!text) return '';
+      return `<div class="scb-row">
+        <span class="scb-row-icon">${icon}</span>
+        <span class="scb-row-text">${text}</span>
+      </div>`;
+    }
+
     function show(wrapper) {
-      // Isi konten
-      currentUrl = wrapper.dataset.url;
-      elTitle.textContent = wrapper.dataset.title || '';
-      const score = wrapper.dataset.score;
-      const type  = wrapper.dataset.type || 'TV';
-      elMeta.innerHTML =
-        (score ? `<span class="scb-score">${score}</span>` : '') +
-        `<span class="scb-type">${type}</span>`;
+      currentUrl      = wrapper.dataset.url;
+      const title     = wrapper.dataset.title   || '';
+      const score     = wrapper.dataset.score   || '';
+      const type      = wrapper.dataset.type    || 'TV';
+      const status    = wrapper.dataset.status  || '';
+      const genres    = wrapper.dataset.genres  || '';
+      const season    = wrapper.dataset.season  || '';
 
-      // Posisi: tengah card, tepat di atas card (setelah card hover naik 14px)
-      const rect    = wrapper.getBoundingClientRect();
-      const bw      = bubble.offsetWidth || 160;
-      let   left    = rect.left + rect.width / 2;          // center X card
-      const top     = rect.top - 14 - 10;                  // atas card hover (-14px) - gap 10px
+      elTitle.textContent = title;
 
-      // Clamp horizontal
+      elScore.innerHTML = score
+        ? `<span class="scb-score-num">${score}</span><span class="scb-score-max">/10</span>`
+        : '';
+
+      // Status badge color
+      const isOngoing  = status === 'Ongoing';
+      const statusHtml = status
+        ? `<span class="scb-status-badge ${isOngoing ? 'ongoing' : 'tamat'}">${status}</span>`
+        : '';
+
+      elRows.innerHTML =
+        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`, type) +
+        (statusHtml ? `<div class="scb-row">${statusHtml}</div>` : '') +
+        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg>`, genres) +
+        row(`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`, season);
+
+      // Posisi fixed
+      const rect = wrapper.getBoundingClientRect();
+      const bw   = 190;
+      let left   = rect.left + rect.width / 2;
       left = Math.max(bw / 2 + 8, Math.min(left, window.innerWidth - bw / 2 - 8));
+      const top  = rect.top - 14 - 10;
 
-      bubble.style.left = left + 'px';
-      bubble.style.top  = top + 'px';
+      bubble.style.left  = left + 'px';
+      bubble.style.top   = top + 'px';
+      bubble.style.width = bw + 'px';
       bubble.classList.add('visible');
     }
 
@@ -637,16 +668,12 @@
       bubble.classList.remove('visible');
     }
 
-    // Gunakan pointer events dengan requestAnimationFrame untuk cegah flicker
     document.addEventListener('mousemove', e => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const wrapper = e.target.closest('.scroll-card-wrapper');
-        if (wrapper) {
-          show(wrapper);
-        } else if (!bubble.contains(e.target)) {
-          hide();
-        }
+        if (wrapper) show(wrapper);
+        else if (!bubble.contains(e.target)) hide();
       });
     });
 
