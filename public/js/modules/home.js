@@ -383,32 +383,59 @@ function renderSection(title, data, container, genreSlug) {
   lazyLoadScores(div);
 }
 
-// Lazy-load skor MAL untuk kartu yang masih menampilkan expand-meta kosong
+// Lazy-load MAL data (score + genres + status + season) untuk semua card
 async function lazyLoadScores(container) {
   const badges = container.querySelectorAll('.ep-badge[data-mal-title]');
   for (const badge of badges) {
-    const title = badge.getAttribute('data-mal-title');
+    const title   = badge.getAttribute('data-mal-title');
     if (!title) continue;
-    // Juga update expand meta score
-    const card  = badge.closest('.scroll-card');
-    const meta  = card?.querySelector('.scroll-card-expand-meta');
+    const wrapper = badge.closest('.scroll-card-wrapper');
     try {
-      let mean;
-      if (MAL_SCORE_CACHE.has(title)) {
-        mean = MAL_SCORE_CACHE.get(title);
+      let mal;
+      if (MAL_DATA_CACHE.has(title)) {
+        mal = MAL_DATA_CACHE.get(title);
       } else {
         const res = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(title)}`);
-        const mal = await res.json();
-        mean = mal?.mean || null;
-        if (mean) MAL_SCORE_CACHE.set(title, mean);
-      }
-      if (mean && meta) {
-        // Inject score ke expand meta (format: "8.5 · TV")
-        const current = meta.textContent;
-        if (!current.includes(mean)) {
-          meta.textContent = `${mean} · ${current.split(' · ').pop()}`;
+        mal = await res.json();
+        if (mal) {
+          MAL_DATA_CACHE.set(title, mal);
+          if (mal.mean) MAL_SCORE_CACHE.set(title, mal.mean);
         }
       }
+      if (!mal || !wrapper) continue;
+
+      // Update data attributes agar bubble bisa baca
+      if (mal.mean)    wrapper.dataset.score  = mal.mean;
+
+      // status: "finished_airing" | "currently_airing" | "not_yet_aired"
+      if (mal.status) {
+        const s = mal.status;
+        wrapper.dataset.status =
+          s === 'currently_airing'  ? 'Ongoing' :
+          s === 'finished_airing'   ? 'Tamat'   :
+          s === 'not_yet_aired'     ? 'Segera'  : s;
+      }
+
+      // genres: array of {id, name}
+      if (mal.genres && Array.isArray(mal.genres)) {
+        wrapper.dataset.genres = mal.genres.slice(0, 3).map(g => g.name || g).join(', ');
+      }
+
+      // season: {year, season} e.g. {year:2024, season:"spring"}
+      if (mal.start_season) {
+        const seasonMap = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
+        const s = mal.start_season;
+        wrapper.dataset.season = `${seasonMap[s.season] || s.season} ${s.year}`.trim();
+      } else if (mal.start_date) {
+        wrapper.dataset.season = mal.start_date.slice(0, 7); // "2024-04"
+      }
+
+      // rating: pg_13 | r | g | pg | r+ | rx
+      if (mal.rating) {
+        const rMap = { g:'G', pg:'PG', pg_13:'PG-13', r:'R-17+', 'r+':'R+', rx:'Rx' };
+        wrapper.dataset.rating = rMap[mal.rating] || mal.rating.toUpperCase();
+      }
+
     } catch {}
   }
 }
