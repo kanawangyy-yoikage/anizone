@@ -403,23 +403,22 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   z-index: 99999;
   pointer-events: none;
   opacity: 0;
-  transform: translateX(-50%) translateY(-100%) scale(0.94);
-  transition:
-    opacity 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* top/left di-set via JS. translateX(-50%) center-kan bubble ke pointer X */
+  transform: translateX(-50%) translateY(-100%);
+  transition: opacity 0.15s ease;
 
   background: var(--bg-card);
   border: 1px solid var(--accent);
   border-radius: 12px;
   padding: 10px 12px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 2px 10px var(--accent-glow);
-  min-width: 140px;
+  width: 160px;
 }
 
 #scb-global.visible {
   pointer-events: auto;
   opacity: 1;
-  transform: translateX(-50%) translateY(calc(-100% - 10px)) scale(1);
+  transform: translateX(-50%) translateY(-100%);
 }
 
 /* Arrow mengarah ke bawah */
