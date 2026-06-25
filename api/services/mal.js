@@ -18,7 +18,7 @@ async function getMalAnime(title) {
       params : {
         q     : title,
         limit : 1,
-        fields: 'synopsis,mean,genres,status,num_episodes,start_season,main_picture,rank,popularity',
+        fields: 'synopsis,mean,genres,status,num_episodes,start_season,main_picture,rank,popularity,rating,duration,studios,source,title_english,title_japanese,related_anime,alternative_titles',
       },
     });
     return res.data?.data?.[0]?.node || null;
