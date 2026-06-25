@@ -287,8 +287,13 @@ async function handleSearch(manualQuery = null) {
 // ── Detail by slug ────────────────────────────────────────
 async function loadDetailBySlug(slug) {
   if (!slug) return;
-  // Slug dari Otakudesu = animeId, langsung pass ke /api/detail?url=
-  await loadDetail(slug);
+  try {
+    await loadDetail(slug);
+  } catch (e) {
+    loader(false);
+    console.error('[loadDetailBySlug]', e.message);
+    showToast('Gagal memuat detail anime. Coba lagi.', 'error');
+  }
 }
 
 // ── Detail Anime ──────────────────────────────────────────
@@ -449,7 +454,10 @@ async function loadDetail(url) {
     }
 
     await renderBookmarkBtn(url, data.title, data.image, score);
-  } catch (e) { console.error(e); } finally { loader(false); }
+  } catch (e) {
+    console.error('[loadDetail]', e.message);
+    showToast('Gagal memuat detail anime.', 'error');
+  } finally { loader(false); }
 }
 
 // ── Tonton Episode ────────────────────────────────────────
