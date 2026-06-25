@@ -382,9 +382,8 @@ async function loadDetail(url) {
     const rank       = malData?.rank ? `#${malData.rank}` : '';
     const popularity = malData?.popularity ? `#${malData.popularity}` : '';
 
-    const genres = malData?.genres?.map(g => g.name)
-      || (info.genre || info.genres || '').split(',').map(g => g.trim()).filter(Boolean)
-      || ['Anime'];
+    const genreText = info.genre || info.genres || '';
+    const genres = genreText ? genreText.split(',').map(g => g.trim()).filter(Boolean) : (malData?.genres?.map(g => g.name) || ['Anime']);
 
     let seasonInfo = '';
     if (malData?.start_season) {
