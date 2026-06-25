@@ -136,18 +136,16 @@ async function loadListTab(c, endpoint, title, page = 1) {
 let _azCache = null; // cache supaya tidak fetch ulang tiap ganti huruf
 
 async function loadAnimeListTab(c) {
-  const letters = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const letters = ['Semua', '#', 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
   c.innerHTML = `
     <div class="az-bar" id="azBar">
-      ${letters.map(l => `<button class="az-btn ${l==='A'?'active':''}" onclick="loadAZResult('${l}',this)">${l}</button>`).join('')}
+      ${letters.map(l => `<button class="az-btn ${l==='Semua'?'active':''}" onclick="loadAZResult('${l}',this)">${l}</button>`).join('')}
     </div>
-    <div id="az-result" style="padding:0 16px 80px"><div class="spinner" style="margin:40px auto"></div></div>`;
+    <div id="az-result" style="padding:0 0 80px"><div class="spinner" style="margin:40px auto"></div></div>`;
 
-  // Fetch unlimited sekali, lalu filter per huruf
   if (!_azCache) {
     try {
       const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
-      // Response: { data: { list: [{ startWith, animeList:[{title,animeId,href}] }] } }
       _azCache = raw.data?.list || [];
     } catch {
       document.getElementById('az-result').innerHTML =
@@ -155,7 +153,7 @@ async function loadAnimeListTab(c) {
       return;
     }
   }
-  loadAZResult('A', c.querySelector('.az-btn.active'));
+  loadAZResult('Semua', c.querySelector('.az-btn.active'));
 }
 
 function loadAZResult(letter, btn) {
@@ -165,20 +163,26 @@ function loadAZResult(letter, btn) {
 
   const c = document.getElementById('az-result');
   if (!c) return;
-
   if (!_azCache) { c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>'; return; }
 
-  // Cari group yang cocok (startWith '#' atau huruf)
-  const group = _azCache.find(g => g.startWith?.toUpperCase() === letter.toUpperCase());
-  const list  = group?.animeList || [];
+  let list;
+  if (letter === 'Semua') {
+    // Gabung semua group, urutkan A-Z by title
+    list = _azCache.flatMap(g => g.animeList || [])
+      .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  } else {
+    const group = _azCache.find(g => g.startWith?.toUpperCase() === letter.toUpperCase());
+    list = group?.animeList || [];
+  }
 
   if (!list.length) {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
     return;
   }
 
+  const label = letter === 'Semua' ? 'Semua Anime' : `Anime — ${letter}`;
   c.innerHTML = `
-    <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2></div>
+    <div class="section-header mt-large" style="padding:0 16px"><div class="bar-accent"></div><h2>${label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2></div>
     <div class="az-list">
       ${list.map((a, i) => {
         const slug = a.animeId || a.slug || a.url || '';
