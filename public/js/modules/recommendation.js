@@ -82,7 +82,11 @@ async function loadRecommendations(containerEl) {
         <span class="reco-genre-hint">Berdasarkan: ${topGenres.join(', ')}</span>
       </div>
       <div class="horizontal-scroll">
-        ${recommendations.map(a => {
+        ${recommendations.map((a, i) => {
+          const epNum = a.episode ? (a.episode.match(/\d+(\.\d+)?/) || [''])[0] : '';
+          const epText = epNum ? `EP ${epNum}` : '';
+          const typeText = a.type || 'TV';
+          const badgeText = [epText, typeText].filter(Boolean).join(' · ');
           const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
           const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : '';
           const genres = a.genres ? (Array.isArray(a.genres) ? a.genres.slice(0,2).join(', ') : String(a.genres).split(',').slice(0,2).map(g=>g.trim()).join(', ')) : '';
@@ -93,15 +97,15 @@ async function loadRecommendations(containerEl) {
           <div class="scroll-card-wrapper"
             data-title="${a.title}"
             data-score="${score}"
-            data-type="Serial TV"
+            data-type="${typeText}"
             data-url="${a.url}"
             data-status="${statusLabel}"
             data-genres="${genres}">
-            <div class="scroll-card" onclick="loadDetail('${a.url}')">
+            <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i * 0.04}s">
               <div class="scroll-card-outer">
                 <div class="scroll-card-img">
                   <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
-                  <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${score || '?'}</div>
+                  <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">${badgeText}</div>
                 </div>
               </div>
               <div class="scroll-card-title">${shortTitle}</div>
@@ -141,7 +145,11 @@ async function loadBecauseYouWatched(anime, watchedUrls, containerEl) {
         <h2>Karena kamu nonton <em>${anime.title}</em></h2>
       </div>
       <div class="horizontal-scroll">
-        ${filtered.map(a => {
+        ${filtered.map((a, i) => {
+          const epNum = a.episode ? (a.episode.match(/\d+(\.\d+)?/) || [''])[0] : '';
+          const epText = epNum ? `EP ${epNum}` : '';
+          const typeText = a.type || 'TV';
+          const badgeText = [epText, typeText].filter(Boolean).join(' · ');
           const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
           const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : '';
           const genres = a.genres ? (Array.isArray(a.genres) ? a.genres.slice(0,2).join(', ') : String(a.genres).split(',').slice(0,2).map(g=>g.trim()).join(', ')) : '';
@@ -152,15 +160,15 @@ async function loadBecauseYouWatched(anime, watchedUrls, containerEl) {
           <div class="scroll-card-wrapper"
             data-title="${a.title}"
             data-score="${score}"
-            data-type="Serial TV"
+            data-type="${typeText}"
             data-url="${a.url}"
             data-status="${statusLabel}"
             data-genres="${genres}">
-            <div class="scroll-card" onclick="loadDetail('${a.url}')">
+            <div class="scroll-card" onclick="loadDetail('${a.url}')" style="animation-delay:${i * 0.04}s">
               <div class="scroll-card-outer">
                 <div class="scroll-card-img">
                   <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
-                  <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">⭐ ${score || '?'}</div>
+                  <div class="ep-badge" data-mal-title="${(a.title || '').replace(/"/g, '')}">${badgeText}</div>
                 </div>
               </div>
               <div class="scroll-card-title">${shortTitle}</div>
