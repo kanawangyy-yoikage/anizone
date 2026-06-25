@@ -35,7 +35,29 @@ app.get('/api/search', wrap(async (req, res) => {
 }));
 
 app.get('/api/detail', wrap(async (req, res) => {
-  const data = await scraper.getDetail(req.query.url || '');
+  const slug = req.query.url || '';
+  let data;
+  try {
+    data = await scraper.getDetail(slug);
+  } catch (err) {
+    // Fallback: coba search dengan judul dari slug
+    console.warn('[detail] gagal dengan slug:', slug, '- coba fallback search');
+    try {
+      const keyword = slug.replace(/-sub-indo$/i, '').replace(/-s\d+$/i, '').replace(/-/g, ' ').trim();
+      const searchRaw = await scraper.api.search(keyword);
+      const list = searchRaw.data?.animeList || [];
+      if (list.length > 0) {
+        const bestSlug = list[0].animeId || slug;
+        console.log('[detail] fallback ke slug:', bestSlug);
+        data = await scraper.getDetail(bestSlug);
+      } else {
+        return res.status(404).json({ error: 'Anime tidak ditemukan', slug });
+      }
+    } catch (err2) {
+      console.error('[detail] fallback juga gagal:', err2.message);
+      return res.status(404).json({ error: 'Anime tidak ditemukan', slug });
+    }
+  }
   res.json(data);
 }));
 
