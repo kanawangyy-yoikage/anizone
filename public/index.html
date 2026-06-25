@@ -614,8 +614,10 @@
     const elScore = document.getElementById('scb-score-badge');
     const elRows  = document.getElementById('scb-rows');
     const elBtn   = document.getElementById('scb-btn');
-    let currentUrl = null;
-    let rafId      = null;
+    let currentUrl     = null;
+    let currentWrapper = null;
+    let rafId          = null;
+    const MAL_CACHE    = new Map();
 
     const ICON_TV      = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
     const ICON_GENRE   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg>`;
@@ -624,62 +626,117 @@
     const ICON_STUDIO  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`;
     const ICON_EPS     = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
 
+    const rMap       = { g:'G', pg:'PG', pg_13:'PG-13', r:'R-17+', 'r+':'R+', rx:'Rx' };
+    const statusMap  = { currently_airing:'Ongoing', finished_airing:'Tamat', not_yet_aired:'Segera' };
+    const seasonMap  = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
+
     function row(icon, text) {
       if (!text) return '';
       return `<div class="scb-row"><span class="scb-row-icon">${icon}</span><span class="scb-row-text">${text}</span></div>`;
     }
 
-    function show(wrapper) {
-      currentUrl     = wrapper.dataset.url;
-      const title    = wrapper.dataset.title    || '';
-      const score    = wrapper.dataset.score    || '';
-      const type     = wrapper.dataset.type     || '';
-      const status   = wrapper.dataset.status   || '';
-      const genres   = wrapper.dataset.genres   || '';
-      const season   = wrapper.dataset.season   || '';
-      const rating   = wrapper.dataset.rating   || '';
-      const studios  = wrapper.dataset.studios  || '';
-      const episodes = wrapper.dataset.episodes || '';
-
-      elTitle.textContent = title;
-
-      elScore.innerHTML = score
-        ? `<span class="scb-score-num">${score}</span><span class="scb-score-max">/10</span>`
+    function renderRows(d) {
+      const statusHtml = d.status
+        ? `<span class="scb-status-badge ${d.status === 'Ongoing' ? 'ongoing' : d.status === 'Segera' ? 'soon' : 'tamat'}">${d.status}</span>`
         : '';
-
-      const statusHtml = status
-        ? `<span class="scb-status-badge ${status === 'Ongoing' ? 'ongoing' : status === 'Segera' ? 'soon' : 'tamat'}">${status}</span>`
-        : '';
-
-      let rowsHtml = '';
-      // Type + Status + Episodes dalam satu baris
-      if (type || statusHtml || episodes) {
-        rowsHtml += `<div class="scb-row">
-          ${type ? `<span class="scb-row-icon">${ICON_TV}</span><span class="scb-row-text">${type}</span>` : ''}
-          ${episodes ? `<span class="scb-row-icon" style="margin-left:6px">${ICON_EPS}</span><span class="scb-row-text">${episodes} eps</span>` : ''}
+      let html = '';
+      if (d.type || d.episodes || statusHtml) {
+        html += `<div class="scb-row">
+          ${d.type     ? `<span class="scb-row-icon">${ICON_TV}</span><span class="scb-row-text">${d.type}</span>` : ''}
+          ${d.episodes ? `<span class="scb-row-icon" style="margin-left:6px">${ICON_EPS}</span><span class="scb-row-text">${d.episodes} eps</span>` : ''}
           ${statusHtml ? `<span style="margin-left:auto">${statusHtml}</span>` : ''}
         </div>`;
       }
-      if (studios) rowsHtml += row(ICON_STUDIO, studios);
-      if (rating)  rowsHtml += row(ICON_RATING, rating);
-      if (genres)  rowsHtml += row(ICON_GENRE,  genres);
-      if (season)  rowsHtml += row(ICON_CAL,    season);
-
-      elRows.innerHTML = rowsHtml || '<div class="scb-row"><span class="scb-row-text" style="opacity:.5">Memuat info...</span></div>';
-
-      const rect = wrapper.getBoundingClientRect();
-      const bw   = 200;
-      let left   = rect.left + rect.width / 2;
-      left = Math.max(bw / 2 + 8, Math.min(left, window.innerWidth - bw / 2 - 8));
-      const top  = rect.top - 14 - 10;
-
-      bubble.style.left  = left + 'px';
-      bubble.style.top   = top + 'px';
-      bubble.style.width = bw + 'px';
-      bubble.classList.add('visible');
+      if (d.studios) html += row(ICON_STUDIO, d.studios);
+      if (d.rating)  html += row(ICON_RATING, d.rating);
+      if (d.genres)  html += row(ICON_GENRE,  d.genres);
+      if (d.season)  html += row(ICON_CAL,    d.season);
+      return html || '<div class="scb-row"><span class="scb-row-text" style="opacity:.5">Memuat info...</span></div>';
     }
 
-    function hide() { bubble.classList.remove('visible'); }
+    function getDataFromWrapper(wrapper) {
+      return {
+        type:     wrapper.dataset.type     || '',
+        status:   wrapper.dataset.status   || '',
+        genres:   wrapper.dataset.genres   || '',
+        season:   wrapper.dataset.season   || '',
+        rating:   wrapper.dataset.rating   || '',
+        studios:  wrapper.dataset.studios  || '',
+        episodes: wrapper.dataset.episodes || '',
+      };
+    }
+
+    function positionBubble(wrapper) {
+      const rect = wrapper.getBoundingClientRect();
+      const bw   = 210;
+      let left   = rect.left + rect.width / 2;
+      left = Math.max(bw / 2 + 8, Math.min(left, window.innerWidth - bw / 2 - 8));
+      bubble.style.left  = left + 'px';
+      bubble.style.top   = (rect.top - 14 - 10) + 'px';
+      bubble.style.width = bw + 'px';
+    }
+
+    async function show(wrapper) {
+      currentWrapper = wrapper;
+      currentUrl     = wrapper.dataset.url;
+      const title    = wrapper.dataset.title || '';
+      const malTitle = wrapper.querySelector('.ep-badge[data-mal-title]')?.dataset.malTitle || title;
+
+      elTitle.textContent = title;
+      elScore.innerHTML   = '';
+
+      // Render data yang sudah ada dulu (instant)
+      const existing = getDataFromWrapper(wrapper);
+      elRows.innerHTML = renderRows(existing);
+      positionBubble(wrapper);
+      bubble.classList.add('visible');
+
+      // Kalau belum ada data lengkap, fetch MAL
+      const hasFullData = existing.studios || existing.genres || existing.rating;
+      if (!hasFullData && malTitle) {
+        try {
+          let mal;
+          if (MAL_CACHE.has(malTitle)) {
+            mal = MAL_CACHE.get(malTitle);
+          } else {
+            const apiBase = typeof API_BASE !== 'undefined' ? API_BASE : '/api';
+            mal = await fetch(`${apiBase}/mal/anime?title=${encodeURIComponent(malTitle)}`).then(r => r.json());
+            MAL_CACHE.set(malTitle, mal);
+          }
+          if (!mal) return;
+
+          // Simpan ke dataset wrapper untuk hover berikutnya
+          if (mal.mean)         wrapper.dataset.score   = mal.mean;
+          if (mal.num_episodes) wrapper.dataset.episodes = mal.num_episodes;
+          if (mal.status)       wrapper.dataset.status  = statusMap[mal.status] || mal.status;
+          if (mal.rating)       wrapper.dataset.rating  = rMap[mal.rating] || mal.rating.toUpperCase();
+          if (mal.genres?.length) wrapper.dataset.genres = mal.genres.slice(0,3).map(g=>g.name||g).join(', ');
+          if (mal.studios?.length) wrapper.dataset.studios = mal.studios.slice(0,2).map(s=>s.name||s).join(', ');
+          if (mal.start_season) {
+            const s = mal.start_season;
+            wrapper.dataset.season = `${seasonMap[s.season]||s.season} ${s.year}`.trim();
+          }
+
+          // Update bubble kalau wrapper ini masih di-hover
+          if (currentWrapper === wrapper) {
+            elScore.innerHTML = mal.mean
+              ? `<span class="scb-score-num">${mal.mean}</span><span class="scb-score-max">/10</span>`
+              : '';
+            elRows.innerHTML = renderRows(getDataFromWrapper(wrapper));
+          }
+        } catch {}
+      } else if (existing.studios || existing.score) {
+        const score = wrapper.dataset.score || '';
+        elScore.innerHTML = score
+          ? `<span class="scb-score-num">${score}</span><span class="scb-score-max">/10</span>`
+          : '';
+      }
+    }
+
+    function hide() {
+      bubble.classList.remove('visible');
+      currentWrapper = null;
+    }
 
     document.addEventListener('mousemove', e => {
       cancelAnimationFrame(rafId);
