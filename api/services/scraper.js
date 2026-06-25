@@ -105,8 +105,17 @@ async function searchAnime(keyword) {
 //   duration, aired, studios, batch, synopsis, genreList, episodeList }
 async function getDetail(urlOrSlug) {
   const slug = cleanSlug(urlOrSlug);
-  const raw  = await api.detail(slug);
-  const d    = raw.data || {};
+  let raw;
+  try {
+    raw = await api.detail(slug);
+  } catch (err) {
+    console.error('[getDetail] fetch error:', err.message);
+    throw err;
+  }
+  if (!raw || raw.ok === false || !raw.data) {
+    throw new Error(`Anime tidak ditemukan: ${slug}`);
+  }
+  const d = raw.data || {};
 
   const genreObjs = d.genreList || [];
   const genreArr  = genreObjs.map(g => g.title || '').filter(Boolean);
@@ -122,12 +131,17 @@ async function getDetail(urlOrSlug) {
     };
   });
 
-  const batchSlug = d.batch ? cleanSlug(d.batch) : '';
+  const batchSlug = d.batch && d.batch !== 'null' ? cleanSlug(String(d.batch)) : '';
+
+  const synopsis = d.synopsis;
+  const description = Array.isArray(synopsis?.paragraphs) && synopsis.paragraphs.length
+    ? synopsis.paragraphs.join(' ')
+    : (typeof synopsis === 'string' ? synopsis : '');
 
   return {
     title      : d.title || '',
     image      : d.poster || '',
-    description: d.synopsis?.paragraphs?.join(' ') || d.synopsis || '',
+    description,
     info       : {
       japanese     : d.japanese || '',
       type         : d.type || 'TV',
