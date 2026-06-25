@@ -83,12 +83,16 @@ async function loadRecommendations(containerEl) {
       </div>
       <div class="horizontal-scroll">
         ${recommendations.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')">
-            <div class="scroll-card-img">
-              <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge">⭐ ${a.score || '?'}</div>
+          <div class="scroll-card-wrapper">
+            <div class="scroll-card" onclick="loadDetail('${a.url}')">
+              <div class="scroll-card-outer">
+                <div class="scroll-card-img">
+                  <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
+                  <div class="ep-badge">⭐ ${a.score || '?'}</div>
+                </div>
+              </div>
+              <div class="scroll-card-title">${a.title}</div>
             </div>
-            <div class="scroll-card-title">${a.title}</div>
           </div>`).join('')}
       </div>`;
     containerEl.appendChild(section);
@@ -123,12 +127,16 @@ async function loadBecauseYouWatched(anime, watchedUrls, containerEl) {
       </div>
       <div class="horizontal-scroll">
         ${filtered.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')">
-            <div class="scroll-card-img">
-              <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
-              <div class="ep-badge">⭐ ${a.score || '?'}</div>
+          <div class="scroll-card-wrapper">
+            <div class="scroll-card" onclick="loadDetail('${a.url}')">
+              <div class="scroll-card-outer">
+                <div class="scroll-card-img">
+                  <img src="${a.image || ''}" alt="${a.title}" loading="lazy">
+                  <div class="ep-badge">⭐ ${a.score || '?'}</div>
+                </div>
+              </div>
+              <div class="scroll-card-title">${a.title}</div>
             </div>
-            <div class="scroll-card-title">${a.title}</div>
           </div>`).join('')}
       </div>`;
     containerEl.appendChild(byw);
