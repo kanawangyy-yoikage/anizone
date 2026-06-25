@@ -178,9 +178,17 @@ function loadAZResult(letter, btn) {
   }
 
   c.innerHTML = `
-    <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter}</h2></div>
-    <div class="anime-grid">${list.map(animeCardCat).join('')}</div>`;
-  lazyLoadScores(c);
+    <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2></div>
+    <div class="az-list">
+      ${list.map((a, i) => {
+        const slug = a.animeId || a.slug || a.url || '';
+        const title = a.title || '';
+        return `<button class="az-list-item" onclick="loadDetailBySlug('${slug}')">
+          <span class="az-list-num">${i + 1}</span>
+          <span class="az-list-title">${title}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
 }
 
 // ── Tab Karakter dihapus (tidak didukung Otakudesu API) ──
