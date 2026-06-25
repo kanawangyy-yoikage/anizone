@@ -253,14 +253,20 @@ function animeCardCat(a) {
   const score = a.score || a.rating || '?';
   const ep    = a.episode || a.episodes || '';
   const slug  = a.animeId || a.slug || a.url || a.endpoint || '';
-  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${title.replace(/'/g,"\\'")}')`;
+  const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '');
+  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${safeTitle}')`;
+  const badgeText = ep ? `Ep ${ep}` : `⭐ ${score}`;
   return `
-    <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
-      <div class="scroll-card-img">
-        <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
-        <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
+    <div class="scroll-card-wrapper">
+      <div class="scroll-card" onclick="${onclick}">
+        <div class="scroll-card-outer">
+          <div class="scroll-card-img">
+            <img src="${img}" alt="${safeTitle}" loading="lazy">
+            <div class="ep-badge" data-mal-title="${safeTitle}">${badgeText}</div>
+          </div>
+        </div>
+        <div class="scroll-card-title">${title}</div>
       </div>
-      <div class="scroll-card-title">${title}</div>
     </div>`;
 }
 
