@@ -287,14 +287,8 @@ async function handleSearch(manualQuery = null) {
 // ── Detail by slug ────────────────────────────────────────
 async function loadDetailBySlug(slug) {
   if (!slug) return;
-  loader(true);
-  try {
-    // Coba lewat /api/anime/:slug dulu (langsung ke animasu API)
-    const data = await fetch(`${API_BASE}/anime/${encodeURIComponent(slug)}`).then(r => r.json());
-    const d    = data.detail || data.data || data;
-    const url  = d.url || d.href || slug;
-    await loadDetail(url);
-  } catch { loader(false); }
+  // Slug dari Otakudesu = animeId, langsung pass ke /api/detail?url=
+  await loadDetail(slug);
 }
 
 // ── Detail Anime ──────────────────────────────────────────
@@ -302,6 +296,7 @@ async function loadDetail(url) {
   loader(true);
   try {
     const data = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`).then(r => r.json());
+    if (!data || !data.title) throw new Error('Detail tidak ditemukan untuk: ' + url);
     ALL_VIEWS.forEach(v => hide(v));
     if (window.innerWidth < 900) hide('bottomNav');
     show('detail-view');
