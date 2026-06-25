@@ -436,6 +436,16 @@ async function lazyLoadScores(container) {
         wrapper.dataset.rating = rMap[mal.rating] || mal.rating.toUpperCase();
       }
 
+      // studios
+      if (mal.studios && Array.isArray(mal.studios) && mal.studios.length) {
+        wrapper.dataset.studios = mal.studios.slice(0, 2).map(s => s.name || s).join(', ');
+      }
+
+      // num_episodes
+      if (mal.num_episodes) {
+        wrapper.dataset.episodes = mal.num_episodes;
+      }
+
     } catch {}
   }
 }
