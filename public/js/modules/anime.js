@@ -59,14 +59,14 @@ function switchAnimeTab(mode, btn) {
 async function loadGenreTab(c) {
   try {
     const genres = await fetch(`${API_BASE}/genres`).then(r => r.json());
-    const list = Array.isArray(genres) ? genres : (genres.data || genres.genres || []);
+    const list = Array.isArray(genres) ? genres : (genres.data?.genreList || genres.data || genres.genres || genres.genreList || []);
     if (!list.length) { c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>'; return; }
 
     c.innerHTML = `
       <div class="genre-pill-bar" id="genrePillBar">
         ${list.map((g, i) => {
           const name = g.name || g.genre || g.title || g.slug || '';
-          const slug = g.slug || name.toLowerCase().replace(/\s+/g, '-');
+          const slug = g.genreId || g.slug || name.toLowerCase().replace(/\s+/g, '-');
           return `<button class="genre-pill ${i===0?'active':''}" data-slug="${slug}"
             onclick="loadGenreResult('${name.replace(/'/g,"\\'")}','${slug}',this)">${name}</button>`;
         }).join('')}
@@ -76,7 +76,7 @@ async function loadGenreTab(c) {
     // Auto-load genre pertama
     const first = list[0];
     const name = first.name || first.genre || first.title || first.slug || '';
-    const slug = first.slug || name.toLowerCase().replace(/\s+/g, '-');
+    const slug = first.genreId || first.slug || name.toLowerCase().replace(/\s+/g, '-');
     loadGenreResult(name, slug, c.querySelector('.genre-pill'));
   } catch {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Gagal memuat genre.</p>';
@@ -95,8 +95,8 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
 
   try {
     const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
-    const list = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
-    const totalPages = data.totalPages || data.total_pages || 1;
+    const list = Array.isArray(data) ? data : (data.data?.animeList || data.animes || data.data || data.anime || data.results || []);
+    const totalPages = data.data?.totalPages || data.totalPages || data.total_pages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -252,7 +252,7 @@ function animeCardCat(a) {
   const title = a.title || '';
   const score = a.score || a.rating || '?';
   const ep    = a.episode || a.episodes || '';
-  const slug  = a.slug || a.url || a.endpoint || '';
+  const slug  = a.animeId || a.slug || a.url || a.endpoint || '';
   const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${title.replace(/'/g,"\\'")}')`;
   return `
     <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
