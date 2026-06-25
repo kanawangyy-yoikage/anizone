@@ -1,10 +1,9 @@
 // ─── ANIME MODULE ────────────────────────────────────────
-// Kategori, detail, tonton, pencarian, popular, movies,
-// ongoing, completed, animelist A-Z, characters.
+// Kategori, detail, tonton, pencarian, ongoing, completed, A-Z unlimited.
 
 // ── State paginasi ────────────────────────────────────────
 const _catState = {
-  mode      : 'genre',   // 'genre'|'popular'|'movies'|'ongoing'|'completed'|'animelist'|'character'
+  mode      : 'genre',   // 'genre'|'ongoing'|'completed'|'animelist'
   slug      : '',
   letter    : 'A',
   page      : 1,
@@ -22,12 +21,9 @@ async function renderCategoryPage() {
     <!-- Tab bar navigasi -->
     <div class="anime-tab-bar" id="animeTabBar">
       <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">Genre</button>
-      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">Populer</button>
-      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">Movie</button>
       <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">Ongoing</button>
       <button class="anime-tab" onclick="switchAnimeTab('completed',this)">Selesai</button>
       <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">A–Z</button>
-      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">Karakter</button>
     </div>
     <!-- Konten tiap tab -->
     <div id="anime-tab-content"></div>`;
@@ -46,12 +42,9 @@ function switchAnimeTab(mode, btn) {
 
   switch (mode) {
     case 'genre'     : loadGenreTab(c);      break;
-    case 'popular'   : loadListTab(c, 'popular',   'Anime Populer');   break;
-    case 'movies'    : loadListTab(c, 'movies',    'Anime Movie');      break;
     case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');    break;
     case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');    break;
     case 'animelist' : loadAnimeListTab(c);  break;
-    case 'characters': loadCharactersTab(c); break;
   }
 }
 
@@ -120,7 +113,7 @@ async function loadListTab(c, endpoint, title, page = 1) {
   try {
     const raw  = await fetch(`${API_BASE}/${endpoint}?page=${page}`).then(r => r.json());
     const list = extractList(raw);
-    const totalPages = raw.totalPages || raw.total_pages || 1;
+    const totalPages = raw.data?.totalPages || raw.totalPages || raw.total_pages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -139,111 +132,63 @@ async function loadListTab(c, endpoint, title, page = 1) {
   }
 }
 
-// ── Tab A-Z ───────────────────────────────────────────────
+// ── Tab A-Z (unlimited) ──────────────────────────────────
+let _azCache = null; // cache supaya tidak fetch ulang tiap ganti huruf
+
 async function loadAnimeListTab(c) {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
+  const letters = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   c.innerHTML = `
     <div class="az-bar" id="azBar">
-      ${letters.map(l => `<button class="az-btn ${l==='A'?'active':''}" onclick="loadAZResult('${l}',1,this)">${l}</button>`).join('')}
+      ${letters.map(l => `<button class="az-btn ${l==='A'?'active':''}" onclick="loadAZResult('${l}',this)">${l}</button>`).join('')}
     </div>
-    <div id="az-result" style="padding:0 16px 80px"></div>`;
-  loadAZResult('A', 1, c.querySelector('.az-btn'));
+    <div id="az-result" style="padding:0 16px 80px"><div class="spinner" style="margin:40px auto"></div></div>`;
+
+  // Fetch unlimited sekali, lalu filter per huruf
+  if (!_azCache) {
+    try {
+      const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
+      // Response: { data: { list: [{ startWith, animeList:[{title,animeId,href}] }] } }
+      _azCache = raw.data?.list || [];
+    } catch {
+      document.getElementById('az-result').innerHTML =
+        '<p style="text-align:center;color:var(--text-muted)">Gagal memuat data.</p>';
+      return;
+    }
+  }
+  loadAZResult('A', c.querySelector('.az-btn.active'));
 }
 
-async function loadAZResult(letter, page, btn) {
+function loadAZResult(letter, btn) {
   document.querySelectorAll('.az-btn').forEach(b => b.classList.remove('active'));
   btn?.classList.add('active');
   _catState.letter = letter;
-  _catState.page   = page;
 
   const c = document.getElementById('az-result');
   if (!c) return;
-  c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
-  try {
-    const raw  = await fetch(`${API_BASE}/animelist?letter=${letter}&page=${page}`).then(r => r.json());
-    const list = extractList(raw);
-    const totalPages = raw.totalPages || raw.total_pages || 1;
-    _catState.totalPages = totalPages;
+  if (!_azCache) { c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>'; return; }
 
-    if (!list.length) {
-      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
-      return;
-    }
-    c.innerHTML = `
-      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter}</h2></div>
-      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
-      ${paginationHtml(page, totalPages, `loadAZResult('${letter}',`,`document.querySelector('.az-btn.active')`)}`;
-    lazyLoadScores(c);
-  } catch {
-    c.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat.</p>';
+  // Cari group yang cocok (startWith '#' atau huruf)
+  const group = _azCache.find(g => g.startWith?.toUpperCase() === letter.toUpperCase());
+  const list  = group?.animeList || [];
+
+  if (!list.length) {
+    c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
+    return;
   }
+
+  c.innerHTML = `
+    <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter}</h2></div>
+    <div class="anime-grid">${list.map(animeCardCat).join('')}</div>`;
+  lazyLoadScores(c);
 }
 
-// ── Tab Karakter ──────────────────────────────────────────
-async function loadCharactersTab(c) {
-  c.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
-  try {
-    const raw  = await fetch(`${API_BASE}/characters`).then(r => r.json());
-    const list = Array.isArray(raw) ? raw : (raw.data || raw.characters || []);
-
-    if (!list.length) {
-      c.innerHTML = `<div class="empty-state"><h2>Data karakter tidak tersedia</h2></div>`;
-      return;
-    }
-    c.innerHTML = `
-      <div style="padding:14px 16px 10px">
-        <div class="section-header"><div class="bar-accent"></div><h2>Tipe Karakter</h2></div>
-      </div>
-      <div class="char-grid" id="charGrid">
-        ${list.map(ch => {
-          const name = ch.name || ch.title || ch.character || '';
-          const slug = ch.slug || name.toLowerCase().replace(/\s+/g, '-');
-          const count = ch.count || ch.total || '';
-          return `
-            <button class="char-card" onclick="loadCharacterAnime('${name.replace(/'/g,"\\'")}','${slug}')">
-              
-              <div class="char-name">${name}</div>
-              ${count ? `<div class="char-count">${count} anime</div>` : ''}
-            </button>`;
-        }).join('')}
-      </div>
-      <div id="char-anime-result" style="padding:0 16px 80px"></div>`;
-  } catch {
-    c.innerHTML = `<div class="empty-state"><h2>Gagal memuat karakter</h2></div>`;
-  }
-}
-
-async function loadCharacterAnime(name, slug, page = 1) {
-  const c = document.getElementById('char-anime-result');
-  if (!c) return;
-  c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
-  // Scroll ke hasil
-  c.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  try {
-    const raw  = await fetch(`${API_BASE}/character/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
-    const list = extractList(raw);
-    const totalPages = raw.totalPages || raw.total_pages || 1;
-
-    if (!list.length) {
-      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
-      return;
-    }
-    c.innerHTML = `
-      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Karakter: ${name}</h2></div>
-      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
-      ${paginationHtml(page, totalPages, `loadCharacterAnime('${name.replace(/'/g,"\\'")}','${slug}'`)}`;
-    lazyLoadScores(c);
-  } catch {
-    c.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat.</p>';
-  }
-}
+// ── Tab Karakter dihapus (tidak didukung Otakudesu API) ──
 
 // ── Helpers ───────────────────────────────────────────────
 function extractList(raw) {
-  const arr = raw.animes || raw.animeList || raw.data?.animes || raw.data?.animeList
-    || raw.data || (Array.isArray(raw) ? raw : []);
+  const arr = raw.data?.animeList || raw.animes || raw.animeList
+    || raw.data?.animes || raw.data || (Array.isArray(raw) ? raw : []);
   return Array.isArray(arr) ? arr : [];
 }
 
