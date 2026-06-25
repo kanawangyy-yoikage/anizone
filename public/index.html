@@ -621,6 +621,8 @@
     const ICON_GENRE   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg>`;
     const ICON_CAL     = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`;
     const ICON_RATING  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4v4l3 3"/></svg>`;
+    const ICON_STUDIO  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`;
+    const ICON_EPS     = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
 
     function row(icon, text) {
       if (!text) return '';
@@ -629,13 +631,15 @@
 
     function show(wrapper) {
       currentUrl     = wrapper.dataset.url;
-      const title    = wrapper.dataset.title   || '';
-      const score    = wrapper.dataset.score   || '';
-      const type     = wrapper.dataset.type    || '';
-      const status   = wrapper.dataset.status  || '';
-      const genres   = wrapper.dataset.genres  || '';
-      const season   = wrapper.dataset.season  || '';
-      const rating   = wrapper.dataset.rating  || '';
+      const title    = wrapper.dataset.title    || '';
+      const score    = wrapper.dataset.score    || '';
+      const type     = wrapper.dataset.type     || '';
+      const status   = wrapper.dataset.status   || '';
+      const genres   = wrapper.dataset.genres   || '';
+      const season   = wrapper.dataset.season   || '';
+      const rating   = wrapper.dataset.rating   || '';
+      const studios  = wrapper.dataset.studios  || '';
+      const episodes = wrapper.dataset.episodes || '';
 
       elTitle.textContent = title;
 
@@ -648,13 +652,15 @@
         : '';
 
       let rowsHtml = '';
-      // Type + Status dalam satu baris
-      if (type || statusHtml) {
+      // Type + Status + Episodes dalam satu baris
+      if (type || statusHtml || episodes) {
         rowsHtml += `<div class="scb-row">
           ${type ? `<span class="scb-row-icon">${ICON_TV}</span><span class="scb-row-text">${type}</span>` : ''}
+          ${episodes ? `<span class="scb-row-icon" style="margin-left:6px">${ICON_EPS}</span><span class="scb-row-text">${episodes} eps</span>` : ''}
           ${statusHtml ? `<span style="margin-left:auto">${statusHtml}</span>` : ''}
         </div>`;
       }
+      if (studios) rowsHtml += row(ICON_STUDIO, studios);
       if (rating)  rowsHtml += row(ICON_RATING, rating);
       if (genres)  rowsHtml += row(ICON_GENRE,  genres);
       if (season)  rowsHtml += row(ICON_CAL,    season);
