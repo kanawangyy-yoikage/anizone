@@ -1,23 +1,19 @@
 // ─── SCRAPER SERVICE ─────────────────────────────────────
-// Sumber: sankavollerei.web.id/anime/animasu
+// Sumber: sankavollerei.web.id/anime (Otakudesu)
 //
 // Endpoint lengkap:
-//   GET /home                        → halaman utama (?page=1)
-//   GET /popular?page=1              → anime populer
-//   GET /movies?page=1               → anime movie
-//   GET /ongoing?page=1              → anime sedang tayang
-//   GET /completed?page=1            → anime selesai
-//   GET /latest?page=1               → anime terbaru/baru diupdate
-//   GET /search/:keyword?page=1      → pencarian
-//   GET /animelist?letter=A&page=1   → daftar A-Z
-//   GET /advanced-search?genres=aksi&status=ongoing&page=1
-//   GET /genres                      → semua genre
-//   GET /genre/:slug?page=1          → anime per genre
-//   GET /characters                  → semua tipe karakter
-//   GET /character/:slug?page=1      → anime per karakter
-//   GET /schedule                    → jadwal rilis
-//   GET /detail/:slug                → detail anime
-//   GET /episode/:slug               → detail episode + streaming
+//   GET /anime/home                        → halaman utama
+//   GET /anime/schedule                    → jadwal rilis
+//   GET /anime/anime/:slug                 → detail anime
+//   GET /anime/complete-anime?page=1       → anime tamat
+//   GET /anime/ongoing-anime?page=1        → anime sedang tayang
+//   GET /anime/genre                       → semua genre
+//   GET /anime/genre/:slug?page=1          → anime per genre
+//   GET /anime/episode/:slug               → detail episode + streaming
+//   GET /anime/search/:keyword             → pencarian
+//   GET /anime/batch/:slug                 → download batch
+//   GET /anime/server/:serverId            → URL embed stream server
+//   GET /anime/unlimited                   → semua anime (A-Z)
 
 const axios = require('axios');
 const { ANIME_API } = require('../config');
@@ -35,22 +31,18 @@ const client = axios.create({
 // ─── RAW API CALLS ───────────────────────────────────────
 
 const api = {
-  home        : (page = 1)          => client.get(`/home?page=${page}`).then(r => r.data),
-  popular     : (page = 1)          => client.get(`/popular?page=${page}`).then(r => r.data),
-  movies      : (page = 1)          => client.get(`/movies?page=${page}`).then(r => r.data),
-  ongoing     : (page = 1)          => client.get(`/ongoing?page=${page}`).then(r => r.data),
-  completed   : (page = 1)          => client.get(`/completed?page=${page}`).then(r => r.data),
-  latest      : (page = 1)          => client.get(`/latest?page=${page}`).then(r => r.data),
-  search      : (keyword, page = 1) => client.get(`/search/${encodeURIComponent(keyword)}?page=${page}`).then(r => r.data),
-  animelist   : (letter, page = 1)  => client.get(`/animelist?letter=${letter}&page=${page}`).then(r => r.data),
-  advSearch   : (params)            => client.get(`/advanced-search`, { params }).then(r => r.data),
-  genres      : ()                  => client.get('/genres').then(r => r.data),
-  genre       : (slug, page = 1)    => client.get(`/genre/${slug}?page=${page}`).then(r => r.data),
-  characters  : ()                  => client.get('/characters').then(r => r.data),
-  character   : (slug, page = 1)    => client.get(`/character/${slug}?page=${page}`).then(r => r.data),
-  schedule    : ()                  => client.get('/schedule').then(r => r.data),
-  detail      : (slug)              => client.get(`/detail/${slug}`).then(r => r.data),
-  episode     : (slug)              => client.get(`/episode/${slug}`).then(r => r.data),
+  home      : ()                  => client.get('/home').then(r => r.data),
+  schedule  : ()                  => client.get('/schedule').then(r => r.data),
+  detail    : (slug)              => client.get(`/anime/${slug}`).then(r => r.data),
+  completed : (page = 1)          => client.get(`/complete-anime?page=${page}`).then(r => r.data),
+  ongoing   : (page = 1)          => client.get(`/ongoing-anime?page=${page}`).then(r => r.data),
+  genres    : ()                  => client.get('/genre').then(r => r.data),
+  genre     : (slug, page = 1)    => client.get(`/genre/${slug}?page=${page}`).then(r => r.data),
+  episode   : (slug)              => client.get(`/episode/${slug}`).then(r => r.data),
+  search    : (keyword)           => client.get(`/search/${encodeURIComponent(keyword)}`).then(r => r.data),
+  batch     : (slug)              => client.get(`/batch/${slug}`).then(r => r.data),
+  server    : (serverId)          => client.get(`/server/${serverId}`).then(r => r.data),
+  unlimited : ()                  => client.get('/unlimited').then(r => r.data),
 };
 
 // ─── HELPER ──────────────────────────────────────────────
@@ -65,39 +57,30 @@ function cleanSlug(raw = '') {
 }
 
 // Normalisasi item list → format AniZone frontend
-// Dari juju-otaku: { title, poster, slug, type, episode, release_day }
+// Response Otakudesu: { title, poster, episodes, releaseDay, latestReleaseDate, animeId, href }
 function normalizeItem(item) {
-  const slug = item.slug || cleanSlug(item.href || item.url || '');
+  const slug = item.animeId || cleanSlug(item.href || item.url || '');
   return {
     title   : item.title || '',
     url     : slug,
     image   : item.poster || item.image || '',
     endpoint: slug,
     genres  : [],
-    release : item.release_day || item.releaseDay || '',
+    release : item.releaseDay || item.latestReleaseDate || '',
     score   : item.score || '',
-    type    : item.type || '',
-    episode : item.episode != null ? String(item.episode) : '',
+    type    : item.type || 'TV',
+    episode : item.episodes != null ? String(item.episodes) : '',
   };
-}
-
-// Ambil array anime dari berbagai bentuk response
-function extractAnimes(raw) {
-  return raw.animes
-      || raw.data?.animes
-      || raw.animeList
-      || raw.data?.animeList
-      || raw.data
-      || [];
 }
 
 // ─── ADAPTER FUNCTIONS ───────────────────────────────────
 
-// getLatest → /api/latest (dipakai beranda)
+// getLatest → /api/latest (dipakai beranda, ambil dari ongoing)
 async function getLatest(page = 1) {
   try {
-    const raw = await api.latest(page);
-    return extractAnimes(raw).map(normalizeItem);
+    const raw = await api.ongoing(page);
+    const list = raw.data?.animeList || [];
+    return list.map(normalizeItem);
   } catch (err) {
     console.error('[getLatest]', err.message);
     return [];
@@ -109,7 +92,8 @@ async function searchAnime(keyword) {
   if (!keyword) return [];
   try {
     const raw = await api.search(keyword);
-    return extractAnimes(raw).map(normalizeItem);
+    const list = raw.data?.animeList || [];
+    return list.map(normalizeItem);
   } catch (err) {
     console.error('[searchAnime]', err.message);
     return [];
@@ -117,45 +101,44 @@ async function searchAnime(keyword) {
 }
 
 // getDetail → /api/detail?url=...
-// Sesuai juju-otaku: result.detail → { title, poster, synopsis, status, duration,
-//   aired, season, studio, author, synonym, genres:[{name,slug}],
-//   episodes:[{name,slug}], batch:{slug} }
+// Response Otakudesu: { title, poster, japanese, score, type, status, episodes,
+//   duration, aired, studios, batch, synopsis, genreList, episodeList }
 async function getDetail(urlOrSlug) {
   const slug = cleanSlug(urlOrSlug);
   const raw  = await api.detail(slug);
-  const d    = raw.detail || raw.data || raw;
+  const d    = raw.data || {};
 
-  const genreObjs = d.genres || [];
-  const genreArr  = genreObjs.map(g => (typeof g === 'object' ? g.name || '' : g)).filter(Boolean);
+  const genreObjs = d.genreList || [];
+  const genreArr  = genreObjs.map(g => g.title || '').filter(Boolean);
 
   // Episodes: [{name, slug}]
-  const episodes = (d.episodes || []).map(ep => {
-    const epSlug = ep.slug || cleanSlug(ep.href || ep.url || '');
+  const episodes = (d.episodeList || []).map(ep => {
+    const epSlug = ep.episodeId || cleanSlug(ep.href || ep.url || '');
     return {
-      title   : ep.name || ep.title || '',
+      title   : ep.title || ep.name || '',
       url     : epSlug,
       endpoint: epSlug,
-      date    : ep.date || '',
+      date    : ep.date || ep.latestReleaseDate || '',
     };
   });
 
-  const batchSlug = d.batch?.slug || cleanSlug(d.batch?.href || '');
+  const batchSlug = d.batch ? cleanSlug(d.batch) : '';
 
   return {
     title      : d.title || '',
-    image      : d.poster || d.image || '',
-    description: d.synopsis || d.description || '',
+    image      : d.poster || '',
+    description: d.synopsis?.paragraphs?.join(' ') || d.synopsis || '',
     info       : {
-      japanese     : d.synonym   || d.japanese || '',
-      type         : d.type      || 'TV',
-      status       : d.status    || 'Ongoing',
-      total_episode: d.totalEpisode || episodes.length || '?',
-      score        : d.score || d.rating || 'N/A',
-      duration     : d.duration  || '?',
-      season       : d.season    || '',
-      released     : d.aired     || d.releaseDate || '',
-      producer     : d.author    || d.producer || '',
-      studio       : d.studio    || '',
+      japanese     : d.japanese || '',
+      type         : d.type || 'TV',
+      status       : d.status || 'Ongoing',
+      total_episode: d.episodes || episodes.length || '?',
+      score        : d.score || 'N/A',
+      duration     : d.duration || '?',
+      season       : d.season || '',
+      released     : d.aired || '',
+      producer     : d.producers || '',
+      studio       : d.studios || '',
       genre        : genreArr.join(', '),
     },
     genre    : genreArr,
@@ -166,50 +149,81 @@ async function getDetail(urlOrSlug) {
 }
 
 // getWatch → /api/watch?url=...
-// Sesuai juju-otaku: { title, streams:[{name, url}] }
+// Response Otakudesu episode: { title, animeId, defaultStreamingUrl, server: { qualities:[{title, serverList:[{title,serverId,href}]}] } }
 async function getWatch(urlOrSlug) {
   const slug = cleanSlug(urlOrSlug);
   const raw  = await api.episode(slug);
-  const d    = raw.data || raw;
+  const d    = raw.data || {};
 
-  const streams = (d.streams || []).map(s => ({
-    server: s.name   || s.server || 'Server',
-    url   : s.url    || s.embedUrl || '',
-  })).filter(s => s.url);
-
-  // Download links
-  const downloads = [];
-  const dlRaw = d.downloadUrl || d.downloads || [];
-  (Array.isArray(dlRaw) ? dlRaw : []).forEach(group => {
-    (group.qualities || []).forEach(q => {
-      downloads.push({
-        resolution: q.title || q.resolution || '',
-        format    : group.title || '',
-        links     : (q.urls || []).map(l => ({ host: l.title || '', url: l.url || '' })),
+  // Bangun streams dari server.qualities
+  const streams = [];
+  const qualities = d.server?.qualities || [];
+  for (const quality of qualities) {
+    for (const srv of (quality.serverList || [])) {
+      const serverId = srv.serverId || '';
+      streams.push({
+        server  : `${srv.title || 'Server'} (${quality.title || ''})`,
+        serverId: serverId,
+        url     : srv.href ? `https://www.sankavollerei.web.id${srv.href}` : '',
+        // URL embed bisa di-resolve via /api/server/:serverId
       });
+    }
+  }
+
+  // Jika ada defaultStreamingUrl, tambahkan sebagai stream pertama
+  if (d.defaultStreamingUrl) {
+    streams.unshift({
+      server: 'Default',
+      url   : d.defaultStreamingUrl,
     });
-  });
+  }
+
+  // Navigasi episode
+  const prevEp = d.prevEpisode ? {
+    title   : d.prevEpisode.title || 'Prev',
+    endpoint: d.prevEpisode.episodeId || cleanSlug(d.prevEpisode.href || ''),
+  } : null;
+
+  const nextEp = d.nextEpisode ? {
+    title   : d.nextEpisode.title || 'Next',
+    endpoint: d.nextEpisode.episodeId || cleanSlug(d.nextEpisode.href || ''),
+  } : null;
 
   return {
     title    : d.title || raw.title || '',
+    animeId  : d.animeId || '',
     streams,
-    downloads,
+    downloads: [],
+    prevEp,
+    nextEp,
   };
 }
 
 // getScrapedSchedule → fallback /api/schedule
+// Response: [{ day, anime_list:[{ title, slug, url, poster }] }]
 async function getScrapedSchedule() {
   try {
     const raw = await api.schedule();
-    return raw.data || raw.schedule || raw || [];
+    // Otakudesu schedule: data = [{ day, anime_list:[...] }]
+    const days = raw.data || [];
+    return days.map(d => ({
+      day      : d.day || '',
+      animeList: (d.anime_list || []).map(a => ({
+        title   : a.title || '',
+        url     : a.slug || cleanSlug(a.url || ''),
+        image   : a.poster || '',
+        endpoint: a.slug || cleanSlug(a.url || ''),
+      })),
+    }));
   } catch { return []; }
 }
 
-// getScrapedTrending → fallback /api/trending
+// getScrapedTrending → ambil dari home (ongoing list)
 async function getScrapedTrending() {
   try {
-    const raw   = await api.popular();
-    return extractAnimes(raw).slice(0, 20).map(normalizeItem);
+    const raw  = await api.home();
+    const list = raw.data?.ongoing?.animeList || [];
+    return list.slice(0, 20).map(normalizeItem);
   } catch { return []; }
 }
 

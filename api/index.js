@@ -1,5 +1,5 @@
 // ─── ANIZONE API — ENTRY POINT ───────────────────────────
-// Sumber: sankavollerei.web.id/anime/animasu
+// Sumber: sankavollerei.web.id/anime (Otakudesu)
 
 const path    = require('path');
 const express = require('express');
@@ -67,24 +67,36 @@ app.get('/api/mal/anime', wrap(async (req, res) => {
   res.json(await mal.getMalAnime(req.query.title));
 }));
 
-// ── Route Baru (langsung ke animasu) ─────────────────────
+// ── Route Baru (langsung ke Otakudesu) ───────────────────
 
-app.get('/api/home',     wrap(async (req, res) => res.json(await scraper.api.home(req.query.page))));
-app.get('/api/popular',  wrap(async (req, res) => res.json(await scraper.api.popular(req.query.page))));
-app.get('/api/movies',   wrap(async (req, res) => res.json(await scraper.api.movies(req.query.page))));
-app.get('/api/ongoing',  wrap(async (req, res) => res.json(await scraper.api.ongoing(req.query.page))));
-app.get('/api/completed',wrap(async (req, res) => res.json(await scraper.api.completed(req.query.page))));
+// Halaman home (ongoing + complete snapshot)
+app.get('/api/home',      wrap(async (req, res) => res.json(await scraper.api.home())));
 
-app.get('/api/animelist',        wrap(async (req, res) => res.json(await scraper.api.animelist(req.query.letter || 'A', req.query.page))));
-app.get('/api/advanced-search',  wrap(async (req, res) => res.json(await scraper.api.advSearch(req.query))));
-app.get('/api/genres',           wrap(async (req, res) => res.json(await scraper.api.genres())));
-app.get('/api/genre/:slug',      wrap(async (req, res) => res.json(await scraper.api.genre(req.params.slug, req.query.page))));
-app.get('/api/characters',       wrap(async (req, res) => res.json(await scraper.api.characters())));
-app.get('/api/character/:slug',  wrap(async (req, res) => res.json(await scraper.api.character(req.params.slug, req.query.page))));
-app.get('/api/anime/:slug',      wrap(async (req, res) => res.json(await scraper.api.detail(req.params.slug))));
-app.get('/api/episode/:slug',    wrap(async (req, res) => res.json(await scraper.api.episode(req.params.slug))));
+// Ongoing & completed
+app.get('/api/ongoing',   wrap(async (req, res) => res.json(await scraper.api.ongoing(req.query.page))));
+app.get('/api/completed', wrap(async (req, res) => res.json(await scraper.api.completed(req.query.page))));
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: '3.0.0', source: 'animasu' }));
+// Genre
+app.get('/api/genres',         wrap(async (req, res) => res.json(await scraper.api.genres())));
+app.get('/api/genre/:slug',    wrap(async (req, res) => res.json(await scraper.api.genre(req.params.slug, req.query.page))));
+
+// Detail & episode
+app.get('/api/anime/:slug',    wrap(async (req, res) => res.json(await scraper.api.detail(req.params.slug))));
+app.get('/api/episode/:slug',  wrap(async (req, res) => res.json(await scraper.api.episode(req.params.slug))));
+
+// Server embed URL
+app.get('/api/server/:id',     wrap(async (req, res) => res.json(await scraper.api.server(req.params.id))));
+
+// Batch download
+app.get('/api/batch/:slug',    wrap(async (req, res) => res.json(await scraper.api.batch(req.params.slug))));
+
+// Search
+app.get('/api/search/:keyword', wrap(async (req, res) => res.json(await scraper.api.search(req.params.keyword))));
+
+// All anime (A-Z unlimited)
+app.get('/api/unlimited',      wrap(async (req, res) => res.json(await scraper.api.unlimited())));
+
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', version: '3.1.0', source: 'otakudesu' }));
 
 // ── CRUD Firestore ────────────────────────────────────────
 app.all('/api/crud/anime',     (req, res) => handleAnime(req, res));
@@ -101,7 +113,7 @@ app.get('*',      (_req, res) => res.sendFile(path.join(__dirname, '..', 'public
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () =>
-  console.log(`AniZone v3 (animasu) running on port ${PORT}`)
+  console.log(`AniZone v3 (otakudesu) running on port ${PORT}`)
 );
 
 module.exports = app;
