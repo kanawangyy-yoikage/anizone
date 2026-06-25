@@ -300,8 +300,9 @@ async function loadDetailBySlug(slug) {
 async function loadDetail(url) {
   loader(true);
   try {
-    const data = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`).then(r => r.json());
-    if (!data || !data.title) throw new Error('Detail tidak ditemukan untuk: ' + url);
+    const res  = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+    if (!res.ok || !data || !data.title) throw new Error('Detail tidak ditemukan: ' + url);
     ALL_VIEWS.forEach(v => hide(v));
     if (window.innerWidth < 900) hide('bottomNav');
     show('detail-view');
