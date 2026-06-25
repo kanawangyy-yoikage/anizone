@@ -344,15 +344,6 @@ async function loadDetail(url) {
     show('detail-view');
 
     const info      = data.info || {};
-    const status    = info.status || 'Ongoing';
-    const type      = info.tipe   || info.type     || 'TV';
-    const totalEps  = info.total_episode || info.episode || '?';
-    const duration  = info.durasi  || info.duration || '?';
-    const musim     = info.musim   || info.season   || '';
-    const rilis     = info.dirilis || info.released || '';
-    const seasonInfo = `${musim} ${rilis}`.trim() || 'Unknown Date';
-    const genreText  = info.genre  || info.genres   || '';
-    const genres     = genreText ? genreText.split(',').map(g => g.trim()) : ['Anime'];
     const isEps      = data.episodes?.length > 0;
     const newestUrl  = isEps ? data.episodes[0].url : '';
     const oldestUrl  = isEps ? data.episodes[data.episodes.length - 1].url : '';
@@ -367,8 +358,43 @@ async function loadDetail(url) {
       }
     }
 
-    let score       = info.score || info.skor || info.rating || 'N/A';
-    let description = data.description || info.synopsis || 'Tidak ada deskripsi tersedia.';
+    // Fetch MAL data paralel dengan detail scraper
+    const malData = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(data.title)}`)
+      .then(r => r.json()).catch(() => null);
+
+    // Mapping helpers
+    const ratingMap = { g:'G - Semua Umur', pg:'PG - Anak-anak', pg_13:'PG-13 - Remaja', r:'R - 17+', 'r+':'R+ - Dewasa', rx:'Rx - Hentai' };
+    const statusMap = { currently_airing:'Ongoing', finished_airing:'Selesai', not_yet_aired:'Belum Tayang' };
+    const seasonLabelMap = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
+
+    // Merge — MAL prioritas, scraper sebagai fallback
+    const status     = (malData?.status ? statusMap[malData.status] || malData.status : null) || info.status || 'Ongoing';
+    const type       = info.tipe || info.type || 'TV';
+    const totalEps   = malData?.num_episodes || info.total_episode || info.episode || '?';
+    const duration   = malData?.duration || info.durasi || info.duration || 'Unknown';
+    const score      = malData?.mean || info.score || info.skor || info.rating || 'N/A';
+    const description = malData?.synopsis || data.description || info.synopsis || 'Tidak ada deskripsi tersedia.';
+    const titleJP    = malData?.alternative_titles?.ja || info.japanese || '';
+    const titleEN    = malData?.title_english || malData?.alternative_titles?.en || '';
+    const rating     = malData?.rating ? (ratingMap[malData.rating] || malData.rating.toUpperCase()) : '';
+    const studios    = malData?.studios?.map(s => s.name).join(', ') || '';
+    const source     = malData?.source ? malData.source.replace(/_/g, ' ') : '';
+    const rank       = malData?.rank ? `#${malData.rank}` : '';
+    const popularity = malData?.popularity ? `#${malData.popularity}` : '';
+
+    const genres = malData?.genres?.map(g => g.name)
+      || (info.genre || info.genres || '').split(',').map(g => g.trim()).filter(Boolean)
+      || ['Anime'];
+
+    let seasonInfo = '';
+    if (malData?.start_season) {
+      const s = malData.start_season;
+      seasonInfo = `${seasonLabelMap[s.season] || s.season} ${s.year}`.trim();
+    } else {
+      const musim = info.musim || info.season || '';
+      const rilis = info.dirilis || info.released || '';
+      seasonInfo = `${musim} ${rilis}`.trim() || 'Unknown Date';
+    }
 
     saveHistory({ url, title: data.title, image: data.image, score });
     const isFav = await checkFavorite(url);
@@ -376,18 +402,32 @@ async function loadDetail(url) {
     window._currentAnime = { url, title: data.title, image: data.image, score, episodes: data.episodes || [] };
     if (typeof GESTURES !== 'undefined') GESTURES.setEpisodeList(data.episodes || [], null);
 
+    // Build metadata grid
+    const metaRows = [
+      { label: 'STATUS',       html: `<span class="meta-pill">${status.toUpperCase()}</span>` },
+      { label: 'TOTAL EPS',    html: `<span class="meta-value">${totalEps}</span>` },
+      { label: 'DURASI',       html: `<span class="meta-value">${duration}</span>` },
+      { label: 'TIPE',         html: `<span class="meta-value">${type}</span>` },
+      studios    ? { label: 'STUDIO',      html: `<span class="meta-value">${studios}</span>` }    : null,
+      source     ? { label: 'SOURCE',      html: `<span class="meta-value">${source}</span>` }     : null,
+      rating     ? { label: 'RATING',      html: `<span class="meta-value">${rating}</span>` }     : null,
+      rank       ? { label: 'RANK MAL',    html: `<span class="meta-value">${rank}</span>` }       : null,
+      popularity ? { label: 'POPULARITAS', html: `<span class="meta-value">${popularity}</span>` } : null,
+      titleEN    ? { label: 'JUDUL ENG',   html: `<span class="meta-value">${titleEN}</span>`, span: true } : null,
+    ].filter(Boolean);
+
     document.getElementById('anime-info').innerHTML = `
       <div class="detail-breadcrumb">Beranda / ${data.title}</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <h1 class="detail-title">${data.title}</h1>
         <button id="favBtn" class="btn-fav-detail ${isFav ? 'active' : ''}"
-          onclick="toggleFavorite('${url}','${data.title.replace(/'/g,"\\'")}',' ${data.image}','${score}')">
+          onclick="toggleFavorite('${url}','${data.title.replace(/'/g,"\\'")}','${data.image}','${score}')">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="${isFav ? 'var(--danger)' : 'none'}" stroke="currentColor" stroke-width="2">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
       </div>
-      <div class="detail-subtitle">${info.japanese || data.title}</div>
+      ${titleJP ? `<div class="detail-subtitle">${titleJP}</div>` : ''}
       <div class="detail-main-layout">
         <div class="detail-poster"><img src="${data.image}" alt="${data.title}"></div>
         <div class="detail-info-col">
@@ -411,9 +451,11 @@ async function loadDetail(url) {
         </div>
       </div>
       <div class="metadata-grid">
-        <div class="meta-item"><span class="meta-label">STATUS</span><span class="meta-pill">${status.toUpperCase()}</span></div>
-        <div class="meta-item"><span class="meta-label">TOTAL EPS</span><span class="meta-value">${totalEps}</span></div>
-        <div class="meta-item" style="grid-column:span 2"><span class="meta-label">DURASI</span><span class="meta-value">${duration}</span></div>
+        ${metaRows.map(r => `
+        <div class="meta-item"${r.span ? ' style="grid-column:span 2"' : ''}>
+          <span class="meta-label">${r.label}</span>
+          ${r.html}
+        </div>`).join('')}
       </div>`;
 
     document.getElementById('episode-header-container').innerHTML = `
