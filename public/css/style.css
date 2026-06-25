@@ -1343,6 +1343,29 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
   background: var(--accent); color: #fff; border-color: var(--accent);
 }
 
+/* ── A-Z List ────────────────────────────────────────── */
+.az-list {
+  display: flex; flex-direction: column;
+  padding: 0 16px 80px; gap: 2px;
+}
+.az-list-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 10px;
+  background: transparent; border: none;
+  color: var(--text-main); text-align: left;
+  cursor: pointer; transition: background .15s;
+  width: 100%;
+}
+.az-list-item:hover { background: var(--accent-subtle); }
+.az-list-num {
+  font-size: 11px; color: var(--text-muted);
+  min-width: 28px; font-weight: 600;
+}
+.az-list-title {
+  font-size: 14px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ── Characters grid ─────────────────────────────────── */
 .char-grid {
   display: grid;
