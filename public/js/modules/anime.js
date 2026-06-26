@@ -100,9 +100,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
     let list = [];
     pages.forEach(data => {
       const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
-      animes
-        .filter(a => ['TV','Movie','Special'].includes(a.type))
-        .forEach(a => list.push(a));
+      if (Array.isArray(animes)) animes.forEach(a => list.push(a));
     });
     list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
 
