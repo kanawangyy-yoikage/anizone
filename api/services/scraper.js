@@ -285,7 +285,7 @@ async function getWatch(episodeEndpoint) {
   const streams = epStreams.map(s => ({
     server  : `${s.name || 'Server'} (${s.resolution || ''})`.replace(/\(\s*\)$/, '').trim(),
     url     : s.url || '',
-    serverId: s.resolution || '',
+    serverId: '',  // Nimegami tidak pakai server ID — biarkan kosong agar frontend pakai data-url
   })).filter(s => s.url);
 
   // ── Downloads dari download_groups ───────────────────
