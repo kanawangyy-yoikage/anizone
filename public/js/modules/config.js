@@ -14,13 +14,14 @@ const ALL_VIEWS = [
 
 // Konfigurasi section beranda
 const HOME_SECTIONS = [
-  { title: 'Sedang Hangat',      mode: 'latest',   genreSlug: null },
-  { title: 'Isekai & Fantasy',   queries: ['isekai', 'reincarnation', 'world', 'maou'],              genreSlug: 'isekai' },
-  { title: 'Action Hits',        queries: ['kimetsu', 'jujutsu', 'piece', 'bleach', 'hunter', 'shingeki'], genreSlug: 'aksi' },
-  { title: 'Romance & Drama',    queries: ['watashi ga koibito', 'kanojo', 'romance', 'heroine', 'uso'],            genreSlug: 'romansa' },
-  { title: 'School Life',        queries: ['school', 'gakuen', 'classroom', 'high school'],           genreSlug: 'sekolahan' },
-  { title: 'Magic & Adventure',  queries: ['magic', 'adventure', 'dragon', 'dungeon'],                genreSlug: 'sihir' },
-  { title: 'Comedy & Chill',     queries: ['comedy', 'slice of life', 'bocchi', 'spy'],               genreSlug: 'komedi' },
+  { title: 'Sedang Hangat',      mode: 'latest',  genreSlug: null },
+  { title: 'Action Hits',        genreSlug: 'aksi' },
+  { title: 'Isekai & Fantasy',   genreSlug: 'isekai' },
+  { title: 'Romance & Drama',    genreSlug: 'romansa' },
+  { title: 'Petualangan',        genreSlug: 'petualangan' },
+  { title: 'Comedy & Chill',     genreSlug: 'komedi' },
+  { title: 'Magic & Adventure',  genreSlug: 'sihir' },
+  { title: 'School Life',        genreSlug: 'sekolahan' },
 ];
 
 // Keyword per genre untuk halaman Kategori
