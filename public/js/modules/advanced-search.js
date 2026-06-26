@@ -240,7 +240,7 @@ function renderAdvResults(results, page = 1, totalPages = 1) {
     <div class="adv-result-count">${results.length} hasil ditemukan</div>
     <div class="adv-result-grid">
       ${results.map(a => {
-        const slug = (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.url || a.endpoint || '');
+        const slug = a.slug || a.url || a.endpoint || a.animeSlug || '';
         const onclick = slug
           ? `closeAdvancedSearch();loadDetailBySlug('${slug}')`
           : `closeAdvancedSearch();handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;

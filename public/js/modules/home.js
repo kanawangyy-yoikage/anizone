@@ -1,6 +1,6 @@
 // ─── HOME MODULE ─────────────────────────────────────────
 // Mengelola tab Beranda (slider + section), Trending, Jadwal, Berita.
-// Kuramanime edition
+// Nimegami edition
 
 let sliderInterval = null;
 
@@ -39,7 +39,7 @@ async function loadLatestTab() {
   loader(true);
   const container = document.getElementById('tab-beranda');
   try {
-    // Ambil data dari ongoing Kuramanime
+    // Ambil data dari Nimegami
     let sliderData = [];
     try {
       const r = await fetch(`${API_BASE}/latest`);
@@ -90,9 +90,9 @@ async function loadLatestTab() {
           if (Array.isArray(list) && list.length > 0) {
             const normalized = list.slice(0, 15).map(item => ({
               title   : item.title || '',
-              url     : (item.animeId && item.slug) ? `${item.animeId}/${item.slug}` : (item.slug || item.url || ''),
+              url     : item.slug || item.url || item.animeSlug || '',
               image   : item.poster || item.image || '',
-              endpoint: (item.animeId && item.slug) ? `${item.animeId}/${item.slug}` : (item.slug || ''),
+              endpoint: item.slug || item.url || item.animeSlug || '',
               score   : item.score || '',
               type    : item.type || 'TV',
               episode : item.episode || item.episodes || '',
@@ -153,14 +153,14 @@ async function loadSchedule() {
     const data = await fetch(`${API_BASE}/schedule`).then(r => r.json());
 
     // Support format MAL (array dengan broadcast.day_of_the_week)
-    // DAN format Kuramanime (array {day/scheduledDay, animeList})
+    // Format schedule
     let scheduleGroups = {};
     const dayOrder = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
     const dayMapEn  = { monday:'Senin', tuesday:'Selasa', wednesday:'Rabu', thursday:'Kamis', friday:'Jumat', saturday:'Sabtu', sunday:'Minggu' };
     const dayMapId  = { senin:'Senin', selasa:'Selasa', rabu:'Rabu', kamis:'Kamis', jumat:'Jumat', sabtu:'Sabtu', minggu:'Minggu' };
 
     if (Array.isArray(data) && data.length > 0) {
-      // Format Kuramanime: [{day/scheduledDay, animeList:[...]}]
+      // Format: [{day/scheduledDay, animeList:[...]}]
       if (data[0]?.animeList || data[0]?.scheduledDay || data[0]?.day) {
         data.forEach(d => {
           const rawDay = d.scheduledDay || d.day || '';
@@ -170,7 +170,7 @@ async function loadSchedule() {
             (d.animeList || []).forEach(a => {
               scheduleGroups[day].push({
                 title  : a.title || '',
-                url    : (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.url || ''),
+                url    : a.slug || a.url || a.animeSlug || '',
                 image  : a.poster || a.image || '',
                 score  : a.score || '',
               });

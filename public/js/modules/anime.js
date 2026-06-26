@@ -1,6 +1,6 @@
 // ─── ANIME MODULE ────────────────────────────────────────
 // Kategori, detail, tonton, pencarian, ongoing, completed, A-Z unlimited.
-// Kuramanime edition — endpoint: id/slug
+// Nimegami edition — endpoint: slug (bukan id/slug)
 
 // ── State paginasi ────────────────────────────────────────
 const _catState = {
@@ -53,7 +53,10 @@ function switchAnimeTab(mode, btn) {
 async function loadGenreTab(c) {
   try {
     const raw  = await fetch(`${API_BASE}/genres`).then(r => r.json());
-    const list = raw.data?.genreList || raw.data || (Array.isArray(raw) ? raw : []);
+    // Nimegami genre list: data.genreList atau data (array)
+    const data = raw?.data || raw;
+    const list = data?.genreList || data?.genres || data?.list
+      || (Array.isArray(data) ? data : []);
     if (!list.length) {
       c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>';
       return;
@@ -61,8 +64,8 @@ async function loadGenreTab(c) {
     c.innerHTML = `
       <div class="genre-pill-bar" id="genrePillBar">
         ${list.map((g, i) => {
-          const name = g.name || g.title || g.genre || g.slug || '';
-          const slug = g.slug || g.genreId || name.toLowerCase().replace(/\s+/g, '-');
+          const name = g.name || g.title || g.genre || (typeof g === 'string' ? g : '') || g.slug || '';
+          const slug = g.slug || g.genreId || g.id || name.toLowerCase().replace(/\s+/g, '-');
           return `<button class="genre-pill ${i===0?'active':''}" data-slug="${slug}"
             onclick="loadGenreResult('${name.replace(/'/g,"\\'")}','${slug}',this)">${name}</button>`;
         }).join('')}
@@ -70,8 +73,8 @@ async function loadGenreTab(c) {
       <div id="genre-result-container" style="padding:0 16px 80px"></div>`;
 
     const first = list[0];
-    const name  = first.name || first.title || first.genre || first.slug || '';
-    const slug  = first.slug || first.genreId || name.toLowerCase().replace(/\s+/g, '-');
+    const name  = first?.name || first?.title || first?.genre || (typeof first === 'string' ? first : '') || first?.slug || '';
+    const slug  = first?.slug || first?.genreId || first?.id || name.toLowerCase().replace(/\s+/g, '-');
     loadGenreResult(name, slug, c.querySelector('.genre-pill'));
   } catch {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Gagal memuat genre.</p>';
@@ -89,9 +92,9 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
   try {
-    const raw  = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}`).then(r => r.json());
-    const list = raw.data?.animeList || raw.data?.animes || raw.data || (Array.isArray(raw) ? raw : []);
-    const totalPages = raw.data?.totalPages || raw.totalPages || 1;
+    const raw  = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
+    const list = extractListNime(raw);
+    const totalPages = extractTotalPages(raw);
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -100,7 +103,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
     }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
-      <div class="anime-grid">${list.map(animeCardKura).join('')}</div>
+      <div class="anime-grid">${list.map(animeCardNime).join('')}</div>
       ${paginationHtml(page, totalPages, `loadGenreResult('${genre.replace(/'/g,"\\'")}','${slug}',document.querySelector('.genre-pill.active')`)}`;
     lazyLoadScores(c);
   } catch {
@@ -108,14 +111,14 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   }
 }
 
-// ── Tab List (ongoing/completed/movie/etc) ────────────────
+// ── Tab List (ongoing/completed/movie) ────────────────────
 async function loadListTab(c, endpoint, title, page = 1) {
   _catState.page = page;
   c.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
   try {
     const raw  = await fetch(`${API_BASE}/${endpoint}?page=${page}`).then(r => r.json());
-    const list = extractListKura(raw);
-    const totalPages = raw.data?.totalPages || raw.totalPages || 1;
+    const list = extractListNime(raw);
+    const totalPages = extractTotalPages(raw);
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -126,7 +129,7 @@ async function loadListTab(c, endpoint, title, page = 1) {
       <div style="padding:14px 16px 10px">
         <div class="section-header"><div class="bar-accent"></div><h2>${title}</h2></div>
       </div>
-      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardKura).join('')}</div>
+      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardNime).join('')}</div>
       ${paginationHtml(page, totalPages, `loadListTab(document.getElementById('anime-tab-content'),'${endpoint}','${title}'`)}`;
     lazyLoadScores(c);
   } catch {
@@ -148,8 +151,10 @@ async function loadAnimeListTab(c) {
   if (!_azCache) {
     try {
       const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
-      // Kuramanime anime-list: data = [{ startWith, animeList:[...] }]
-      _azCache = raw.data?.list || raw.data || [];
+      // Nimegami anime-list: data = [{ startWith, animeList:[...] }] atau flat array
+      const data = raw?.data || raw;
+      _azCache = data?.list || data?.animeList || data?.anime_list
+        || (Array.isArray(data) ? data : []);
     } catch {
       document.getElementById('az-result').innerHTML =
         '<p style="text-align:center;color:var(--text-muted)">Gagal memuat data.</p>';
@@ -169,19 +174,24 @@ function loadAZResult(letter, btn) {
   if (!_azCache) { c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>'; return; }
 
   let list;
+  const isGrouped = Array.isArray(_azCache) && _azCache[0]?.animeList;
+
   if (letter === 'Semua') {
-    // Jika array of group
-    if (Array.isArray(_azCache) && _azCache[0]?.animeList) {
+    if (isGrouped) {
       list = _azCache.flatMap(g => g.animeList || []).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     } else {
       list = Array.isArray(_azCache) ? _azCache : [];
     }
   } else {
-    if (Array.isArray(_azCache) && _azCache[0]?.animeList) {
+    if (isGrouped) {
       const group = _azCache.find(g => (g.startWith || '').toUpperCase() === letter.toUpperCase());
       list = group?.animeList || [];
     } else {
-      list = (_azCache || []).filter(a => (a.title || '').toUpperCase().startsWith(letter === '#' ? /\d/ : letter));
+      if (letter === '#') {
+        list = (_azCache || []).filter(a => /^\d/.test(a.title || ''));
+      } else {
+        list = (_azCache || []).filter(a => (a.title || '').toUpperCase().startsWith(letter.toUpperCase()));
+      }
     }
   }
 
@@ -198,9 +208,9 @@ function loadAZResult(letter, btn) {
     </div>
     <div class="az-list">
       ${list.map((a, i) => {
-        // Kuramanime A-Z item: { title, animeId, slug }
-        const endpoint = (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.animeId || a.url || '');
-        return `<button class="az-list-item" onclick="loadDetailBySlug('${endpoint}')">
+        // Nimegami A-Z item: { title, slug, poster/image }
+        const slug = a.slug || a.url || a.animeSlug || a.endpoint || '';
+        return `<button class="az-list-item" onclick="loadDetailBySlug('${slug}')">
           <span class="az-list-num">${i + 1}</span>
           <span class="az-list-title">${a.title || ''}</span>
         </button>`;
@@ -209,24 +219,29 @@ function loadAZResult(letter, btn) {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function extractListKura(raw) {
-  const arr = raw.data?.animeList || raw.data?.animes || raw.data?.list
-    || raw.data || (Array.isArray(raw) ? raw : []);
+function extractListNime(raw) {
+  const data = raw?.data || raw;
+  const arr = data?.animeList || data?.anime_list || data?.animes
+    || data?.list || data?.results
+    || (Array.isArray(data) ? data : []);
   return Array.isArray(arr) ? arr : [];
 }
 
-// Card untuk list Kuramanime (id/slug endpoint)
-function animeCardKura(a) {
-  const img   = a.poster || a.image || a.thumbnail || '';
+function extractTotalPages(raw) {
+  const data = raw?.data || raw;
+  return data?.totalPages || data?.total_pages || data?.lastPage || raw?.totalPages || 1;
+}
+
+// Card untuk list Nimegami — endpoint adalah slug langsung
+function animeCardNime(a) {
+  const img   = a.poster || a.image || a.thumbnail || a.cover || '';
   const title = a.title || '';
   const score = a.score || a.rating || '?';
   const ep    = a.episode || a.episodes || '';
-  // Kuramanime: animeId + slug untuk endpoint
-  const endpoint = (a.animeId && a.slug)
-    ? `${a.animeId}/${a.slug}`
-    : (a.slug || a.url || a.animeId || a.endpoint || '');
+  // Nimegami: slug sebagai endpoint (bukan animeId/slug)
+  const slug  = a.slug || a.url || a.animeSlug || a.endpoint || '';
   const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '');
-  const onclick = endpoint ? `loadDetailBySlug('${endpoint}')` : `handleSearch('${safeTitle}')`;
+  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${safeTitle}')`;
   const badgeText = ep ? `Ep ${ep}` : `⭐ ${score}`;
   return `
     <div class="scroll-card-wrapper">
@@ -243,12 +258,14 @@ function animeCardKura(a) {
 }
 
 // Alias untuk kompatibilitas
-function animeCardCat(a) { return animeCardKura(a); }
+function animeCardKura(a)  { return animeCardNime(a); }
+function animeCardCat(a)   { return animeCardNime(a); }
+function extractListKura(r){ return extractListNime(r); }
 
 function paginationHtml(page, totalPages, fnPrefix, extraArg = '') {
   if (totalPages <= 1) return '';
-  const prev = page > 1 ? `<button class="page-btn" onclick="${fnPrefix},${page-1}${extraArg?','+extraArg:''})">‹ Prev</button>` : '';
-  const next = page < totalPages ? `<button class="page-btn" onclick="${fnPrefix},${page+1}${extraArg?','+extraArg:''})">Next ›</button>` : '';
+  const prev = page > 1 ? `<button class="page-btn" onclick="${fnPrefix},${page-1}${extraArg?','+extraArg:''})">&lsaquo; Prev</button>` : '';
+  const next = page < totalPages ? `<button class="page-btn" onclick="${fnPrefix},${page+1}${extraArg?','+extraArg:''}">Next &rsaquo;</button>` : '';
   return `<div class="pagination-bar">${prev}<span class="page-info">Hal ${page} / ${totalPages}</span>${next}</div>`;
 }
 
@@ -409,7 +426,7 @@ async function loadDetail(url) {
             <span class="badge score">⭐ ${score}</span>
             <span class="badge type">${type}</span>
           </div>
-          <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
+          <div class="detail-genres">${genres.map(g => `<span class="genre-tag" onclick="goToGenre('${g.toLowerCase().replace(/\s+/g,'-')}')">${g}</span>`).join('')}</div>
           <div class="detail-season">${seasonInfo.toUpperCase()}</div>
           <p class="detail-synopsis">${description}</p>
           <div class="detail-actions">
@@ -472,7 +489,7 @@ async function loadDetail(url) {
 }
 
 // ── Tonton Episode ────────────────────────────────────────
-// url = "animeId/slug/episodeNumber"
+// url = episode slug Nimegami (misal: naruto-sub-indo-episode-1)
 async function loadVideo(url) {
   loader(true);
   try {

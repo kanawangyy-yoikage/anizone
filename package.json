@@ -1,7 +1,7 @@
 {
   "name": "anizone",
-  "version": "4.0.0",
-  "description": "AniZone - Kuramanime Edition",
+  "version": "5.0.0",
+  "description": "AniZone - Nimegami edition",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",

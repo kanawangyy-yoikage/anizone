@@ -1,7 +1,7 @@
 // ─── ANIZONE API CONFIG ───────────────────────────────────
-// Sumber: sankavollerei.web.id/anime/kura (Kuramanime)
-const BASE      = 'https://www.sankavollerei.web.id';
-const ANIME_API = 'https://www.sankavollerei.web.id/anime/kura';
+// Sumber: sankavollerei.web.id/anime/nimegami (Nimegami)
+const BASE      = 'https://sankavollerei.web.id';
+const ANIME_API = 'https://sankavollerei.web.id/anime/nimegami';
 const MAL_API   = 'https://api.myanimelist.net/v2';
 
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
