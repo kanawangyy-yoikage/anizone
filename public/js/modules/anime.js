@@ -2,17 +2,14 @@
 const _animeGenreCache = new Map();
 const _animeDelay = ms => new Promise(r => setTimeout(r, ms));
 
-async function fetchGenrePagesAnime(slug, pages = 3) {
+async function fetchGenrePagesAnime(slug) {
   if (_animeGenreCache.has(slug)) return _animeGenreCache.get(slug);
   let list = [];
-  for (let p = 1; p <= pages; p++) {
-    try {
-      const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json());
-      const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
-      if (Array.isArray(animes)) animes.forEach(a => list.push(a));
-      if (p < pages) await _animeDelay(300);
-    } catch {}
-  }
+  try {
+    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=1`).then(r => r.json());
+    const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
+    if (Array.isArray(animes)) animes.forEach(a => list.push(a));
+  } catch {}
   list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
   _animeGenreCache.set(slug, list);
   return list;
