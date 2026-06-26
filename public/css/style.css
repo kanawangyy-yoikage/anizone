@@ -299,6 +299,7 @@ button { font-family: inherit; border: none; cursor: pointer; background: none; 
 /* WRAPPER — anchor statis */
 .scroll-card-wrapper {
   position: relative;
+  width: 130px;
   min-width: 130px;
   max-width: 130px;
   height: 231px;
