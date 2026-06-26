@@ -1,21 +1,23 @@
 // ─── SCRAPER SERVICE ─────────────────────────────────────
 // Sumber: sankavollerei.web.id/anime/nimegami (Nimegami)
 //
-// Endpoint Nimegami:
-//   GET /home                              → halaman utama / latest
-//   GET /search/:query?page=              → pencarian
-//   GET /detail/:slug                      → detail anime
-//   GET /anime-list?page=                 → daftar anime A-Z
-//   GET /genre/list                        → semua genre
-//   GET /genre/:slug?page=               → anime per genre
-//   GET /seasons/list                      → semua season
-//   GET /seasons/:slug?page=             → anime per season
-//   GET /type/list                         → semua tipe (TV, Movie, OVA, dll)
-//   GET /type/:slug?page=                → konten per tipe
-//   GET /j-drama                           → konten J-Drama
-//   GET /live-action                       → daftar Live Action & J-Drama
-//   GET /live-action/:slug                 → detail Live Action
-//   GET /drama/:slug                       → detail J-Drama / Drama Movie
+// Nimegami REAL response structure (confirmed via debug 2026-06):
+//
+// GET /detail/:animeSlug →
+// {
+//   status, creator, source,
+//   detail: {
+//     poster, title, synopsis,
+//     info: { judul, judul_alternatif, durasi_per_episode, rating,
+//             studio, kategori, musim_rilis, type, series, subtitle },
+//     genres: [{ name, slug, url }]
+//   },
+//   streams_by_episode: { "Episode 1": [{name, resolution, url},...], "Episode 2": [...] },
+//   download_groups:    { "Judul Anime": [{name, resolution, url},...] }
+// }
+//
+// TIDAK ADA endpoint per-episode — stream diambil dari streams_by_episode[epLabel]
+// TIDAK ADA /episode/:slug endpoint (404)
 
 const axios = require('axios');
 const { ANIME_API } = require('../config');
@@ -60,8 +62,6 @@ const api = {
 
 // ─── HELPER ──────────────────────────────────────────────
 
-// Normalisasi item list → format AniZone frontend
-// Nimegami item: { title, slug, poster/image/thumbnail, type, status, score, episode/episodes, genres }
 function normalizeItem(item) {
   const slug = item.slug || item.url || item.animeSlug || '';
   return {
@@ -69,7 +69,7 @@ function normalizeItem(item) {
     url     : slug,
     image   : item.poster || item.image || item.thumbnail || item.cover || '',
     endpoint: slug,
-    animeId : slug,   // Nimegami pakai slug sebagai identifier, bukan numeric id
+    animeId : slug,
     slug    : slug,
     genres  : item.genres || item.genreList || [],
     release : item.releaseDay || item.latestReleaseDate || item.aired || item.date || '',
@@ -81,9 +81,7 @@ function normalizeItem(item) {
   };
 }
 
-// Ekstrak list dari berbagai format response Nimegami
 function extractList(raw) {
-  // Nimegami pakai snake_case: anime_list
   const data = raw?.data || raw;
   const arr = data?.anime_list || data?.animeList || data?.list
     || data?.animes || data?.results
@@ -91,7 +89,6 @@ function extractList(raw) {
   return Array.isArray(arr) ? arr : [];
 }
 
-// Ekstrak totalPages dari response Nimegami
 function extractTotalPages(raw) {
   const data = raw?.data || raw;
   return data?.totalPages || data?.total_pages || data?.lastPage || raw?.totalPages || 1;
@@ -99,11 +96,9 @@ function extractTotalPages(raw) {
 
 // ─── ADAPTER FUNCTIONS ───────────────────────────────────
 
-// getLatest → /api/latest (beranda)
 async function getLatest(page = 1) {
   try {
     const raw  = await api.home();
-    // Nimegami home: field anime_list (snake_case)
     const data = raw?.data || raw;
     const list = data?.anime_list || data?.animeList || data?.latestList
       || data?.ongoingList || data?.ongoing || data?.latest
@@ -115,7 +110,6 @@ async function getLatest(page = 1) {
   }
 }
 
-// searchAnime → /api/search
 async function searchAnime(keyword, page = 1) {
   if (!keyword) return [];
   try {
@@ -129,11 +123,21 @@ async function searchAnime(keyword, page = 1) {
 }
 
 // getDetail → /api/detail?url=slug
-// Nimegami detail response: { title, slug, poster/image, type, status, score, synopsis/description,
-//   genres, episodeList/episodes, japanese, aired, studio/studios, totalEpisode, duration, ... }
+//
+// Nimegami REAL response (confirmed debug):
+// { status, creator, source,
+//   detail: { poster, title, synopsis, info: {...}, genres: [...] },
+//   streams_by_episode: { "Episode 1": [{name,resolution,url},...], ... },
+//   download_groups: { "Judul": [{name,resolution,url},...] }
+// }
+// Episode list di-build dari Object.keys(streams_by_episode)
+// Endpoint episode: animeslug__ep__N  (decoded di getWatch)
 async function getDetail(slugOrEndpoint) {
-  // Bersihkan slug: hapus prefix path jika ada
-  const slug = String(slugOrEndpoint).replace(/^\/?detail\//, '').replace(/^\/+|\/+$/g, '');
+  // Decode jika endpoint adalah format watch __ep__
+  const cleanInput = String(slugOrEndpoint).replace(/^\/?detail\//, '').replace(/^\/+|\/+$/g, '');
+  // Kalau ini episode endpoint (slug__ep__N), strip bagian episode-nya
+  const slug = cleanInput.includes('__ep__') ? cleanInput.split('__ep__')[0] : cleanInput;
+
   let raw;
   try {
     raw = await api.detail(slug);
@@ -141,230 +145,198 @@ async function getDetail(slugOrEndpoint) {
     console.error('[getDetail] fetch error:', err.message);
     throw err;
   }
-  if (!raw || raw.ok === false) {
-    throw new Error(`Anime tidak ditemukan: ${slug}`);
-  }
-  const d = raw?.data || raw;
-  if (!d || (!d.title && !d.slug && !d.poster)) {
+
+  // Data anime ada di raw.detail
+  const d = raw?.detail || raw?.data || raw;
+  if (!d || (!d.title && !d.poster)) {
     throw new Error(`Anime tidak ditemukan: ${slug}`);
   }
 
-  // ── Info nested object (Nimegami struktur real) ────────
-  // Nimegami kirim: { poster, title, synopsis, info: { judul, judul_alternatif,
-  //   durasi_per_episode, rating, studio, kategori, musim_rilis, type, series, subtitle },
-  //   genres: [{ name, slug, url }], streams_by_episode: [...] }
+  // ── Info nested object ────────────────────────────────
   const info = (d.info && typeof d.info === 'object') ? d.info : {};
 
-  // ── Genre ──────────────────────────────────────────────
+  // ── Genre ─────────────────────────────────────────────
   const genreRaw = d.genres || d.genreList || d.genre_list || [];
   const genreArr = genreRaw.map(g => {
     if (typeof g === 'string') return g;
     return g.name || g.title || g.slug || '';
   }).filter(Boolean);
 
-  // ── Slug anime ─────────────────────────────────────────
-  const animeSlug = d.slug || d.animeSlug || slug;
-
-  // ── Episode list ───────────────────────────────────────
-  const epRaw = d.episodeList || d.episodes || d.episode_list || [];
-  const episodes = Array.isArray(epRaw) ? epRaw.map(ep => {
-    const epSlug = ep.slug || ep.episodeSlug || ep.url || '';
-    const epNum  = ep.number || ep.episode || ep.episodeNumber
-      || (epSlug.match(/(?:episode-|ep-)(\d+(?:\.\d+)?)/i)?.[1]) || '';
-
-    let endpoint;
-    if (epSlug && epSlug.includes(animeSlug)) {
-      endpoint = epSlug;
-    } else if (epSlug) {
-      endpoint = epSlug;
-    } else {
-      endpoint = `${animeSlug}-episode-${epNum}`;
-    }
-
+  // ── Episode list dari streams_by_episode ──────────────
+  // streams_by_episode = { "Episode 1": [...], "Episode 2": [...] }
+  const streamsByEp = raw?.streams_by_episode || {};
+  const epKeys = Object.keys(streamsByEp);
+  const episodes = epKeys.map(epLabel => {
+    const numMatch = epLabel.match(/(\d+(?:\.\d+)?)$/);
+    const epNum = numMatch ? numMatch[1] : epLabel;
+    const endpoint = `${slug}__ep__${epNum}`;
     return {
-      title   : ep.title || ep.name || `Episode ${epNum}`,
+      title   : epLabel,
       url     : endpoint,
       endpoint: endpoint,
-      date    : ep.date || ep.releaseDate || ep.aired || '',
+      date    : '',
       number  : String(epNum),
     };
-  }) : [];
+  });
 
-  // ── Synopsis ───────────────────────────────────────────
+  // ── Synopsis ──────────────────────────────────────────
   const synopsisRaw = d.synopsis || d.description || d.sinopsis || '';
-  const description = Array.isArray(synopsisRaw?.paragraphs) && synopsisRaw.paragraphs.length
-    ? synopsisRaw.paragraphs.join(' ')
-    : (typeof synopsisRaw === 'string' ? synopsisRaw : '');
+  const description = typeof synopsisRaw === 'string' ? synopsisRaw
+    : (Array.isArray(synopsisRaw?.paragraphs) ? synopsisRaw.paragraphs.join(' ') : '');
 
-  // ── Studio ─────────────────────────────────────────────
-  // Nimegami: info.studio (string) atau d.studios (array)
+  // ── Studio ────────────────────────────────────────────
   const studioRaw = info.studio || d.studios || d.studio || '';
   const studio = Array.isArray(studioRaw)
     ? studioRaw.map(s => s.name || s.title || s).filter(Boolean).join(', ')
     : String(studioRaw);
 
-  // ── Flatten fields dari nested info ───────────────────
-  const infoJudul  = info.judul            || d.title         || '';
-  const infoAlt    = info.judul_alternatif  || d.japanese     || '';
-  const infoDurasi = info.durasi_per_episode || d.duration    || '?';
-  const infoRating = info.rating            || d.score        || 'N/A';
-  const infoType   = info.type              || d.type         || 'TV';
-  const infoMusim  = info.musim_rilis       || d.season       || '';
-  const infoKat    = info.kategori          || d.type         || 'TV';
+  // ── Downloads dari download_groups ───────────────────
+  // download_groups: { "Judul": [{name, resolution, url},...] }
+  const downloadGroups = raw?.download_groups || {};
+  const download = [];
+  for (const [, links] of Object.entries(downloadGroups)) {
+    if (!Array.isArray(links)) continue;
+    const byRes = {};
+    for (const l of links) {
+      const res = l.resolution || '?';
+      if (!byRes[res]) byRes[res] = [];
+      byRes[res].push({ host: l.name || 'Download', url: l.url || '' });
+    }
+    for (const [res, hosts] of Object.entries(byRes)) {
+      download.push({ format: 'MP4', resolution: res, links: hosts.filter(h => h.url) });
+    }
+  }
 
   return {
-    title      : d.title || infoJudul || '',
+    title      : d.title || info.judul || '',
     image      : d.poster || d.image || d.thumbnail || d.cover || '',
     description,
-    animeId    : animeSlug,
-    slug       : animeSlug,
+    animeId    : slug,
+    slug       : slug,
     info       : {
-      judul              : infoJudul,
-      judul_alternatif   : infoAlt,
-      japanese           : infoAlt,
-      type               : infoType,
-      kategori           : infoKat,
-      status             : d.status || info.status || 'Ongoing',
-      total_episode      : d.totalEpisode || d.total_episode || d.episodes_count || episodes.length || '?',
-      score              : infoRating,
-      rating             : infoRating,
-      duration           : infoDurasi,
-      durasi_per_episode : infoDurasi,
-      season             : infoMusim,
-      musim_rilis        : infoMusim,
-      released           : d.aired || d.releaseDate || d.release_date || '',
+      judul              : info.judul            || d.title  || '',
+      judul_alternatif   : info.judul_alternatif || '',
+      japanese           : info.judul_alternatif || '',
+      type               : info.type             || info.kategori || 'TV',
+      kategori           : info.kategori         || info.type     || 'TV',
+      status             : d.status              || info.status   || 'Ongoing',
+      total_episode      : episodes.length       || '?',
+      score              : info.rating           || 'N/A',
+      rating             : info.rating           || 'N/A',
+      duration           : info.durasi_per_episode || '?',
+      durasi_per_episode : info.durasi_per_episode || '?',
+      season             : info.musim_rilis      || '',
+      musim_rilis        : info.musim_rilis      || '',
+      released           : d.aired || d.releaseDate || '',
       producer           : d.producers || d.producer || '',
       studio,
-      subtitle           : info.subtitle  || d.subtitle  || 'Indonesia',
-      series             : info.series    || d.series    || '',
+      subtitle           : info.subtitle  || 'Indonesia',
+      series             : info.series    || '',
       genre              : genreArr.join(', '),
     },
     genre    : genreArr,
     episodes,
     batchSlug: '',
-    download : [],
+    download,
   };
 }
 
-// getWatch → /api/watch?url=episodeSlug
-// Nimegami watch endpoint: GET /detail/:episodeSlug
-// Endpoint episode Nimegami adalah slug lengkap, misal: naruto-sub-indo-episode-1
-async function getWatch(episodeSlug) {
-  const slug = String(episodeSlug).replace(/^\/?detail\//, '').replace(/^\/+|\/+$/g, '');
+// getWatch → /api/watch?url=episodeEndpoint
+//
+// episodeEndpoint format: "animeslug__ep__N"  (dibuat oleh getDetail)
+// Fetch ke /detail/animeslug, lalu ambil streams dari streams_by_episode["Episode N"]
+async function getWatch(episodeEndpoint) {
+  const input = String(episodeEndpoint).replace(/^\/+|\/+$/g, '');
+
+  // Decode endpoint: animeslug__ep__N
+  let animeSlug, epNum;
+  if (input.includes('__ep__')) {
+    [animeSlug, epNum] = input.split('__ep__');
+  } else {
+    // Legacy / fallback: coba parse dari slug episode lama (misal: naruto-sub-indo-episode-1)
+    const match = input.match(/^(.+?)-episode-(\d+(?:\.\d+)?)$/i);
+    if (match) {
+      animeSlug = match[1];
+      epNum     = match[2];
+    } else {
+      animeSlug = input;
+      epNum     = '1';
+    }
+  }
+
   let raw;
   try {
-    raw = await api.detail(slug);
+    raw = await api.detail(animeSlug);
   } catch (err) {
     console.error('[getWatch] fetch error:', err.message);
     throw err;
   }
-  const d = raw?.data || raw || {};
 
-  // ── Streams ────────────────────────────────────────────
-  // Nimegami actual: streams_by_episode: [{ name, resolution, url }]
-  const streams = [];
+  const d = raw?.detail || raw?.data || raw || {};
 
-  // streams_by_episode (confirmed from debug logs)
-  const streamsByEp = d.streams_by_episode || d.streamsByEpisode || [];
-  for (const s of streamsByEp) {
-    const url = s.url || s.link || s.href || '';
-    if (url) {
-      streams.push({
-        server  : `${s.name || 'Server'} (${s.resolution || ''})`.trim().replace(/\(\)$/, '').trim(),
-        url,
-        serverId: s.resolution || '',
-      });
-    }
-  }
+  // ── Streams dari streams_by_episode["Episode N"] ──────
+  const streamsByEp = raw?.streams_by_episode || {};
+  const epLabel = `Episode ${epNum}`;
+  // Coba exact match dulu, lalu fallback ke key pertama yang mengandung nomor tsb
+  const epStreams = streamsByEp[epLabel]
+    || streamsByEp[Object.keys(streamsByEp).find(k => k.match(new RegExp(`\\b${epNum}\\b`)))]
+    || [];
 
-  // Default streaming URL fallback
-  if (!streams.length) {
-    const defUrl = d.defaultStreamingUrl || d.streamingLink || d.streamUrl;
-    if (defUrl) streams.push({ server: 'Default', url: defUrl, serverId: '' });
-  }
+  const streams = epStreams.map(s => ({
+    server  : `${s.name || 'Server'} (${s.resolution || ''})`.replace(/\(\s*\)$/, '').trim(),
+    url     : s.url || '',
+    serverId: s.resolution || '',
+  })).filter(s => s.url);
 
-  // Server list fallback
-  if (!streams.length) {
-    const serverList = d.servers || d.streamingServers || d.server_list || [];
-    for (const srv of serverList) {
-      const url = srv.url || srv.link || srv.href || srv.streamUrl || '';
-      if (url) {
-        streams.push({
-          server  : srv.serverName || srv.name || srv.title || 'Server',
-          url,
-          serverId: srv.serverId || srv.id || '',
-        });
-      }
-    }
-  }
-
-  // Mirror list fallback
-  if (!streams.length) {
-    const mirrorList = d.mirrorList || d.mirrors || d.mirror_list || [];
-    for (const q of mirrorList) {
-      const mirrors = q.mirrors || q.links || q.servers || [];
-      for (const m of mirrors) {
-        const url = m.url || m.link || m.href || '';
-        if (url) {
-          streams.push({
-            server  : `${m.name || m.title || 'Mirror'} (${q.quality || q.resolution || ''})`,
-            url,
-            serverId: '',
-          });
-        }
-      }
-    }
-  }
-
-  // Iframe / embed fallback terakhir
-  if (!streams.length && (d.iframeUrl || d.embed || d.embedUrl)) {
-    streams.push({ server: 'Player', url: d.iframeUrl || d.embed || d.embedUrl, serverId: '' });
-  }
-
-  // ── Downloads ──────────────────────────────────────────
+  // ── Downloads dari download_groups ───────────────────
+  const downloadGroups = raw?.download_groups || {};
   const downloads = [];
-  const dlList = d.downloads || d.downloadList || d.download_list || [];
-  for (const dl of dlList) {
-    const format = dl.format || dl.quality || 'MP4';
-    const res    = dl.resolution || dl.quality || '';
-    const links  = (dl.links || dl.hosts || dl.mirrors || []).map(l => ({
-      host: l.host || l.name || l.title || 'Download',
-      url : l.url  || l.link || l.href  || '',
-    })).filter(l => l.url);
-    if (links.length) downloads.push({ format, resolution: res, links });
+  for (const [, links] of Object.entries(downloadGroups)) {
+    if (!Array.isArray(links)) continue;
+    const byRes = {};
+    for (const l of links) {
+      const res = l.resolution || '?';
+      if (!byRes[res]) byRes[res] = [];
+      byRes[res].push({ host: l.name || 'Download', url: l.url || '' });
+    }
+    for (const [res, hosts] of Object.entries(byRes)) {
+      downloads.push({ format: 'MP4', resolution: res, links: hosts.filter(h => h.url) });
+    }
   }
 
-  // ── Navigasi episode ────────────────────────────────────
-  const buildEpNav = (ep) => {
-    if (!ep) return null;
-    const epSlug = ep.slug || ep.url || ep.episodeSlug || '';
-    return {
-      title   : ep.title || `Episode ${ep.episode || ep.number || ''}`,
-      endpoint: epSlug,
-    };
-  };
+  // ── Prev/Next episode ────────────────────────────────
+  const epNums = Object.keys(streamsByEp).map(k => {
+    const m = k.match(/(\d+(?:\.\d+)?)$/);
+    return m ? parseFloat(m[1]) : null;
+  }).filter(n => n !== null).sort((a, b) => a - b);
+
+  const curNum  = parseFloat(epNum);
+  const prevNum = epNums.find(n => n < curNum && epNums.filter(x => x < curNum).includes(n) && n === Math.max(...epNums.filter(x => x < curNum)));
+  const nextNum = epNums.find(n => n > curNum && n === Math.min(...epNums.filter(x => x > curNum)));
+
+  const makeNav = (num) => num != null ? {
+    title   : `Episode ${num}`,
+    endpoint: `${animeSlug}__ep__${num}`,
+  } : null;
 
   return {
-    title    : d.title || d.animeTitle || '',
-    animeId  : d.animeSlug || d.slug || slug,
+    title    : d.title || '',
+    animeId  : animeSlug,
     streams,
     downloads,
-    prevEp   : buildEpNav(d.prevEpisode || d.prev_episode || d.prevEp),
-    nextEp   : buildEpNav(d.nextEpisode || d.next_episode || d.nextEp),
+    prevEp   : makeNav(prevNum != null ? prevNum : null),
+    nextEp   : makeNav(nextNum != null ? nextNum : null),
   };
 }
 
-// getScrapedSchedule → tidak ada di Nimegami, return empty
 async function getScrapedSchedule() {
   return [];
 }
 
-// getScrapedTrending → ambil dari home
 async function getScrapedTrending() {
   try {
     const raw  = await api.home();
     const data = raw?.data || raw;
-    // Nimegami home: bisa punya popularList, trendingList, ongoingList, dll
     const list = data?.anime_list || data?.popularList || data?.trendingList
       || data?.popular || data?.trending || data?.animeList
       || data?.latestList || data?.ongoingList || data?.ongoing || [];
@@ -377,18 +349,13 @@ async function getScrapedTrending() {
 }
 
 module.exports = {
-  // Adapter (dipakai route frontend)
   getLatest,
   searchAnime,
   getDetail,
   getWatch,
   getScrapedSchedule,
   getScrapedTrending,
-
-  // Raw API (dipakai route langsung di index.js)
   api,
-
-  // Helper
   normalizeItem,
   extractList,
   extractTotalPages,
