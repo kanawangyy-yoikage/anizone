@@ -1,7 +1,7 @@
 // ─── ANIZONE API CONFIG ───────────────────────────────────
-// Sumber: www.sankavollerei.web.id/anime/nimegami (Nimegami)
+// Sumber: sankavollerei.web.id/anime/animasu (animasu)
 const BASE      = 'https://www.sankavollerei.web.id';
-const ANIME_API = 'https://www.sankavollerei.web.id/anime/nimegami';
+const ANIME_API = 'https://www.sankavollerei.web.id/anime/animasu';
 const MAL_API   = 'https://api.myanimelist.net/v2';
 
 const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';

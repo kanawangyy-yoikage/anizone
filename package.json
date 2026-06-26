@@ -1,7 +1,7 @@
 {
   "name": "anizone",
-  "version": "5.0.0",
-  "description": "AniZone - Nimegami edition",
+  "version": "2.0.0",
+  "description": "AniZone - Platform Anime Sub Indo",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",

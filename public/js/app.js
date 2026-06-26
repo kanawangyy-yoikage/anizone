@@ -400,8 +400,7 @@ async function loadSchedule() {
 
 function scheduleCard(a) {
   const title = (a.title || '').length > 40 ? a.title.substring(0,38)+'...' : (a.title || '');
-  const aUrl = (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.url || a.endpoint || '');
-  const onclick = aUrl ? `loadDetail('${aUrl}')` : `handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;
+  const onclick = a.url ? `loadDetail('${a.url}')` : `handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;
   return `
     <div class="schedule-card" onclick="${onclick}">
       <div class="schedule-card-img">
@@ -760,7 +759,7 @@ async function loadDetail(url) {
       </div>`;
 
     document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
-      let num = ep.number || ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1] || (ep.title.match(/\d+/g)||[i+1]).slice(-1)[0];
+      let num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1] || (ep.title.match(/\d+/g)||[i+1]).slice(-1)[0];
       return `<div class="ep-box" title="${ep.title}" onclick="loadVideo('${ep.url}')" style="animation-delay:${Math.min(i*0.02,0.3)}s">${num}</div>`;
     }).join('');
 
@@ -780,20 +779,10 @@ async function loadVideo(url) {
     const player  = document.getElementById('video-player');
     const servers = document.getElementById('server-options');
     if (data.streams && data.streams.length > 0) {
-      // Load first available stream
-      const firstStream = data.streams[0];
-      if (firstStream.url) {
-        player.src = firstStream.url;
-      } else if (firstStream.serverId) {
-        fetch(`${API_BASE}/server/${encodeURIComponent(firstStream.serverId)}`)
-          .then(r => r.json()).then(d => { if (d.url) player.src = d.url; }).catch(() => {});
-      }
-      servers.innerHTML = data.streams.map((s, i) => {
-        const sid  = s.serverId || '';
-        const surl = s.url || '';
-        const attr = sid ? `data-serverid="${sid}"` : `data-url="${surl}"`;
-        return `<button class="server-tag ${i===0?'active':''}" ${attr} onclick="changeServerAuto(this)">${s.server}</button>`;
-      }).join('');
+      player.src = data.streams[0].url;
+      servers.innerHTML = data.streams.map((s, i) =>
+        `<button class="server-tag ${i===0?'active':''}" onclick="changeServer('${s.url}',this)">${s.server}</button>`
+      ).join('');
     } else {
       alert('Maaf, stream belum tersedia untuk episode ini.');
     }
@@ -832,23 +821,6 @@ function changeServer(url, btn) {
   document.getElementById('video-player').src = url;
   document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-}
-
-async function changeServerAuto(btn) {
-  document.querySelectorAll('.server-tag').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const player   = document.getElementById('video-player');
-  const url      = btn.dataset.url      || '';
-  const serverId = btn.dataset.serverid || '';
-  if (url) {
-    player.src = url;
-  } else if (serverId) {
-    try {
-      const r = await fetch(`${API_BASE}/server/${encodeURIComponent(serverId)}`);
-      const d = await r.json();
-      if (d.url) player.src = d.url;
-    } catch {}
-  }
 }
 
 function goHome() { switchTab('home'); }

@@ -1,10 +1,10 @@
 // ─── ANIME MODULE ────────────────────────────────────────
-// Kategori, detail, tonton, pencarian, ongoing, completed, A-Z unlimited.
-// Nimegami edition — endpoint: slug (bukan id/slug)
+// Kategori, detail, tonton, pencarian, popular, movies,
+// ongoing, completed, animelist A-Z, characters.
 
 // ── State paginasi ────────────────────────────────────────
 const _catState = {
-  mode      : 'genre',
+  mode      : 'genre',   // 'genre'|'popular'|'movies'|'ongoing'|'completed'|'animelist'|'character'
   slug      : '',
   letter    : 'A',
   page      : 1,
@@ -12,20 +12,24 @@ const _catState = {
   loading   : false,
 };
 
-// ── Halaman Kategori ──────────────────────────────────────
+// ── Halaman Kategori — render tab bar ─────────────────────
 async function renderCategoryPage() {
   const view = document.getElementById('anime-view');
   if (view.dataset.rendered === 'true') return;
   view.dataset.rendered = 'true';
 
   view.innerHTML = `
+    <!-- Tab bar navigasi -->
     <div class="anime-tab-bar" id="animeTabBar">
       <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">Genre</button>
+      <button class="anime-tab" onclick="switchAnimeTab('popular',this)">Populer</button>
+      <button class="anime-tab" onclick="switchAnimeTab('movies',this)">Movie</button>
       <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">Ongoing</button>
       <button class="anime-tab" onclick="switchAnimeTab('completed',this)">Selesai</button>
-      <button class="anime-tab" onclick="switchAnimeTab('movie',this)">Movie</button>
       <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">A–Z</button>
+      <button class="anime-tab" onclick="switchAnimeTab('characters',this)">Karakter</button>
     </div>
+    <!-- Konten tiap tab -->
     <div id="anime-tab-content"></div>`;
 
   switchAnimeTab('genre', view.querySelector('.anime-tab'));
@@ -42,39 +46,37 @@ function switchAnimeTab(mode, btn) {
 
   switch (mode) {
     case 'genre'     : loadGenreTab(c);      break;
-    case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');  break;
-    case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');  break;
-    case 'movie'     : loadListTab(c, 'movie',     'Anime Movie');    break;
+    case 'popular'   : loadListTab(c, 'popular',   'Anime Populer');   break;
+    case 'movies'    : loadListTab(c, 'movies',    'Anime Movie');      break;
+    case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');    break;
+    case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');    break;
     case 'animelist' : loadAnimeListTab(c);  break;
+    case 'characters': loadCharactersTab(c); break;
   }
 }
 
 // ── Tab Genre ─────────────────────────────────────────────
 async function loadGenreTab(c) {
   try {
-    const raw  = await fetch(`${API_BASE}/genres`).then(r => r.json());
-    // Nimegami genre list: data.genreList atau data (array)
-    const data = raw?.data || raw;
-    const list = data?.genreList || data?.genres || data?.list
-      || (Array.isArray(data) ? data : []);
-    if (!list.length) {
-      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>';
-      return;
-    }
+    const genres = await fetch(`${API_BASE}/genres`).then(r => r.json());
+    const list = Array.isArray(genres) ? genres : (genres.data || genres.genres || []);
+    if (!list.length) { c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>'; return; }
+
     c.innerHTML = `
       <div class="genre-pill-bar" id="genrePillBar">
         ${list.map((g, i) => {
-          const name = g.name || g.title || g.genre || (typeof g === 'string' ? g : '') || g.slug || '';
-          const slug = g.slug || g.genreId || g.id || name.toLowerCase().replace(/\s+/g, '-');
+          const name = g.name || g.genre || g.title || g.slug || '';
+          const slug = g.slug || name.toLowerCase().replace(/\s+/g, '-');
           return `<button class="genre-pill ${i===0?'active':''}" data-slug="${slug}"
             onclick="loadGenreResult('${name.replace(/'/g,"\\'")}','${slug}',this)">${name}</button>`;
         }).join('')}
       </div>
       <div id="genre-result-container" style="padding:0 16px 80px"></div>`;
 
+    // Auto-load genre pertama
     const first = list[0];
-    const name  = first?.name || first?.title || first?.genre || (typeof first === 'string' ? first : '') || first?.slug || '';
-    const slug  = first?.slug || first?.genreId || first?.id || name.toLowerCase().replace(/\s+/g, '-');
+    const name = first.name || first.genre || first.title || first.slug || '';
+    const slug = first.slug || name.toLowerCase().replace(/\s+/g, '-');
     loadGenreResult(name, slug, c.querySelector('.genre-pill'));
   } catch {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Gagal memuat genre.</p>';
@@ -92,9 +94,9 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
   try {
-    const raw  = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
-    const list = extractListNime(raw);
-    const totalPages = extractTotalPages(raw);
+    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
+    const list = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
+    const totalPages = data.totalPages || data.total_pages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -103,7 +105,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
     }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
-      <div class="anime-grid">${list.map(animeCardNime).join('')}</div>
+      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
       ${paginationHtml(page, totalPages, `loadGenreResult('${genre.replace(/'/g,"\\'")}','${slug}',document.querySelector('.genre-pill.active')`)}`;
     lazyLoadScores(c);
   } catch {
@@ -111,14 +113,14 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   }
 }
 
-// ── Tab List (ongoing/completed/movie) ────────────────────
+// ── Tab List (popular/movies/ongoing/completed) ───────────
 async function loadListTab(c, endpoint, title, page = 1) {
   _catState.page = page;
   c.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
   try {
     const raw  = await fetch(`${API_BASE}/${endpoint}?page=${page}`).then(r => r.json());
-    const list = extractListNime(raw);
-    const totalPages = extractTotalPages(raw);
+    const list = extractList(raw);
+    const totalPages = raw.totalPages || raw.total_pages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -129,7 +131,7 @@ async function loadListTab(c, endpoint, title, page = 1) {
       <div style="padding:14px 16px 10px">
         <div class="section-header"><div class="bar-accent"></div><h2>${title}</h2></div>
       </div>
-      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardNime).join('')}</div>
+      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardCat).join('')}</div>
       ${paginationHtml(page, totalPages, `loadListTab(document.getElementById('anime-tab-content'),'${endpoint}','${title}'`)}`;
     lazyLoadScores(c);
   } catch {
@@ -138,139 +140,138 @@ async function loadListTab(c, endpoint, title, page = 1) {
 }
 
 // ── Tab A-Z ───────────────────────────────────────────────
-let _azCache = null;
-
 async function loadAnimeListTab(c) {
-  const letters = ['Semua','#','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
   c.innerHTML = `
     <div class="az-bar" id="azBar">
-      ${letters.map(l => `<button class="az-btn ${l==='Semua'?'active':''}" onclick="loadAZResult('${l}',this)">${l}</button>`).join('')}
+      ${letters.map(l => `<button class="az-btn ${l==='A'?'active':''}" onclick="loadAZResult('${l}',1,this)">${l}</button>`).join('')}
     </div>
-    <div id="az-result" style="padding:0 0 80px"><div class="spinner" style="margin:40px auto"></div></div>`;
-
-  if (!_azCache) {
-    try {
-      const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
-      // Nimegami anime-list: data = [{ startWith, animeList:[...] }] atau flat array
-      const data = raw?.data || raw;
-      _azCache = data?.anime_list || data?.list || data?.animeList
-        || (Array.isArray(data) ? data : []);
-    } catch {
-      document.getElementById('az-result').innerHTML =
-        '<p style="text-align:center;color:var(--text-muted)">Gagal memuat data.</p>';
-      return;
-    }
-  }
-  loadAZResult('Semua', c.querySelector('.az-btn.active'));
+    <div id="az-result" style="padding:0 16px 80px"></div>`;
+  loadAZResult('A', 1, c.querySelector('.az-btn'));
 }
 
-function loadAZResult(letter, btn) {
+async function loadAZResult(letter, page, btn) {
   document.querySelectorAll('.az-btn').forEach(b => b.classList.remove('active'));
   btn?.classList.add('active');
   _catState.letter = letter;
+  _catState.page   = page;
 
   const c = document.getElementById('az-result');
   if (!c) return;
-  if (!_azCache) { c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>'; return; }
+  c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
-  let list;
-  const isGrouped = Array.isArray(_azCache) && _azCache[0]?.animeList;
+  try {
+    const raw  = await fetch(`${API_BASE}/animelist?letter=${letter}&page=${page}`).then(r => r.json());
+    const list = extractList(raw);
+    const totalPages = raw.totalPages || raw.total_pages || 1;
+    _catState.totalPages = totalPages;
 
-  if (letter === 'Semua') {
-    if (isGrouped) {
-      list = _azCache.flatMap(g => g.animeList || []).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-    } else {
-      list = Array.isArray(_azCache) ? _azCache : [];
+    if (!list.length) {
+      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
+      return;
     }
-  } else {
-    if (isGrouped) {
-      const group = _azCache.find(g => (g.startWith || '').toUpperCase() === letter.toUpperCase());
-      list = group?.animeList || [];
-    } else {
-      if (letter === '#') {
-        list = (_azCache || []).filter(a => /^\d/.test(a.title || ''));
-      } else {
-        list = (_azCache || []).filter(a => (a.title || '').toUpperCase().startsWith(letter.toUpperCase()));
-      }
+    c.innerHTML = `
+      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime — ${letter}</h2></div>
+      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
+      ${paginationHtml(page, totalPages, `loadAZResult('${letter}',`,`document.querySelector('.az-btn.active')`)}`;
+    lazyLoadScores(c);
+  } catch {
+    c.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat.</p>';
+  }
+}
+
+// ── Tab Karakter ──────────────────────────────────────────
+async function loadCharactersTab(c) {
+  c.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
+  try {
+    const raw  = await fetch(`${API_BASE}/characters`).then(r => r.json());
+    const list = Array.isArray(raw) ? raw : (raw.data || raw.characters || []);
+
+    if (!list.length) {
+      c.innerHTML = `<div class="empty-state"><h2>Data karakter tidak tersedia</h2></div>`;
+      return;
     }
+    c.innerHTML = `
+      <div style="padding:14px 16px 10px">
+        <div class="section-header"><div class="bar-accent"></div><h2>Tipe Karakter</h2></div>
+      </div>
+      <div class="char-grid" id="charGrid">
+        ${list.map(ch => {
+          const name = ch.name || ch.title || ch.character || '';
+          const slug = ch.slug || name.toLowerCase().replace(/\s+/g, '-');
+          const count = ch.count || ch.total || '';
+          return `
+            <button class="char-card" onclick="loadCharacterAnime('${name.replace(/'/g,"\\'")}','${slug}')">
+              
+              <div class="char-name">${name}</div>
+              ${count ? `<div class="char-count">${count} anime</div>` : ''}
+            </button>`;
+        }).join('')}
+      </div>
+      <div id="char-anime-result" style="padding:0 16px 80px"></div>`;
+  } catch {
+    c.innerHTML = `<div class="empty-state"><h2>Gagal memuat karakter</h2></div>`;
   }
+}
 
-  if (!list.length) {
-    c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
-    return;
+async function loadCharacterAnime(name, slug, page = 1) {
+  const c = document.getElementById('char-anime-result');
+  if (!c) return;
+  c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
+  // Scroll ke hasil
+  c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const raw  = await fetch(`${API_BASE}/character/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
+    const list = extractList(raw);
+    const totalPages = raw.totalPages || raw.total_pages || 1;
+
+    if (!list.length) {
+      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
+      return;
+    }
+    c.innerHTML = `
+      <div class="section-header mt-large"><div class="bar-accent"></div><h2>Karakter: ${name}</h2></div>
+      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
+      ${paginationHtml(page, totalPages, `loadCharacterAnime('${name.replace(/'/g,"\\'")}','${slug}'`)}`;
+    lazyLoadScores(c);
+  } catch {
+    c.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat.</p>';
   }
-
-  const label = letter === 'Semua' ? 'Semua Anime' : `Anime — ${letter}`;
-  c.innerHTML = `
-    <div class="section-header mt-large" style="padding:0 16px">
-      <div class="bar-accent"></div>
-      <h2>${label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2>
-    </div>
-    <div class="az-list">
-      ${list.map((a, i) => {
-        // Nimegami A-Z item: { title, slug, poster/image }
-        const slug = a.slug || a.url || a.animeSlug || a.endpoint || '';
-        return `<button class="az-list-item" onclick="loadDetailBySlug('${slug}')">
-          <span class="az-list-num">${i + 1}</span>
-          <span class="az-list-title">${a.title || ''}</span>
-        </button>`;
-      }).join('')}
-    </div>`;
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function extractListNime(raw) {
-  // Nimegami pakai snake_case: anime_list
-  const data = raw?.data || raw;
-  const arr = data?.anime_list || data?.animeList || data?.animes
-    || data?.list || data?.results
-    || (Array.isArray(data) ? data : []);
+function extractList(raw) {
+  const arr = raw.animes || raw.animeList || raw.data?.animes || raw.data?.animeList
+    || raw.data || (Array.isArray(raw) ? raw : []);
   return Array.isArray(arr) ? arr : [];
 }
 
-function extractTotalPages(raw) {
-  const data = raw?.data || raw;
-  return data?.totalPages || data?.total_pages || data?.lastPage || raw?.totalPages || 1;
-}
-
-// Card untuk list Nimegami — endpoint adalah slug langsung
-function animeCardNime(a) {
-  const img   = a.poster || a.image || a.thumbnail || a.cover || '';
+function animeCardCat(a) {
+  const img   = a.image || a.poster || a.thumbnail || '';
   const title = a.title || '';
   const score = a.score || a.rating || '?';
   const ep    = a.episode || a.episodes || '';
-  // Nimegami: slug sebagai endpoint (bukan animeId/slug)
-  const slug  = a.slug || a.url || a.animeSlug || a.endpoint || '';
-  const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '');
-  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${safeTitle}')`;
-  const badgeText = ep ? `Ep ${ep}` : `⭐ ${score}`;
+  const slug  = a.slug || a.url || a.endpoint || '';
+  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${title.replace(/'/g,"\\'")}')`;
   return `
-    <div class="scroll-card-wrapper">
-      <div class="scroll-card" onclick="${onclick}">
-        <div class="scroll-card-outer">
-          <div class="scroll-card-img">
-            <img src="${img}" alt="${safeTitle}" loading="lazy">
-            <div class="ep-badge" data-mal-title="${safeTitle}">${badgeText}</div>
-          </div>
-        </div>
-        <div class="scroll-card-title">${title}</div>
+    <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
+      <div class="scroll-card-img">
+        <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
+        <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
       </div>
+      <div class="scroll-card-title">${title}</div>
     </div>`;
 }
 
-// Alias untuk kompatibilitas
-function animeCardKura(a)  { return animeCardNime(a); }
-function animeCardCat(a)   { return animeCardNime(a); }
-function extractListKura(r){ return extractListNime(r); }
-
 function paginationHtml(page, totalPages, fnPrefix, extraArg = '') {
   if (totalPages <= 1) return '';
-  const prev = page > 1 ? `<button class="page-btn" onclick="${fnPrefix},${page-1}${extraArg?','+extraArg:''})">&lsaquo; Prev</button>` : '';
-  const next = page < totalPages ? `<button class="page-btn" onclick="${fnPrefix},${page+1}${extraArg?','+extraArg:''}">Next &rsaquo;</button>` : '';
+  const prev = page > 1 ? `<button class="page-btn" onclick="${fnPrefix},${page-1}${extraArg?','+extraArg:''})">‹ Prev</button>` : '';
+  const next = page < totalPages ? `<button class="page-btn" onclick="${fnPrefix},${page+1}${extraArg?','+extraArg:''})">Next ›</button>` : '';
   return `<div class="pagination-bar">${prev}<span class="page-info">Hal ${page} / ${totalPages}</span>${next}</div>`;
 }
 
-// ── goToGenre ─────────────────────────────────────────────
+// ── goToGenre (kompatibilitas dari home) ──────────────────
 async function goToGenre(slug) {
   const view = document.getElementById('anime-view');
   if (view.dataset.rendered !== 'true') {
@@ -278,6 +279,7 @@ async function goToGenre(slug) {
     await renderCategoryPage();
   }
   switchAnimeTab('genre', document.querySelector('.anime-tab'));
+  // Tunggu genre pills muncul
   await new Promise(r => setTimeout(r, 300));
   const btn = document.querySelector(`.genre-pill[data-slug="${slug}"]`);
   if (btn) {
@@ -319,72 +321,77 @@ async function handleSearch(manualQuery = null) {
   openAdvancedSearch(query);
 }
 
-// ── Detail by slug/endpoint ───────────────────────────────
+// ── Detail by slug ────────────────────────────────────────
 async function loadDetailBySlug(slug) {
   if (!slug) return;
+  loader(true);
   try {
-    await loadDetail(slug);
-  } catch (e) {
-    loader(false);
-    console.error('[loadDetailBySlug]', e.message);
-    showToast('Gagal memuat detail anime. Coba lagi.', 'error');
-  }
+    // Coba lewat /api/anime/:slug dulu (langsung ke animasu API)
+    const data = await fetch(`${API_BASE}/anime/${encodeURIComponent(slug)}`).then(r => r.json());
+    const d    = data.detail || data.data || data;
+    const url  = d.url || d.href || slug;
+    await loadDetail(url);
+  } catch { loader(false); }
 }
 
 // ── Detail Anime ──────────────────────────────────────────
 async function loadDetail(url) {
   loader(true);
   try {
-    const res  = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`);
-    const data = await res.json();
-    if (!res.ok || !data || !data.title) throw new Error('Detail tidak ditemukan: ' + url);
+    const data = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(url)}`).then(r => r.json());
     ALL_VIEWS.forEach(v => hide(v));
     if (window.innerWidth < 900) hide('bottomNav');
     show('detail-view');
 
     const info      = data.info || {};
-    const isEps     = data.episodes?.length > 0;
-    const newestUrl = isEps ? data.episodes[0].url : '';
-    const oldestUrl = isEps ? data.episodes[data.episodes.length - 1].url : '';
+    const isEps      = data.episodes?.length > 0;
+    const newestUrl  = isEps ? data.episodes[0].url : '';
+    const oldestUrl  = isEps ? data.episodes[data.episodes.length - 1].url : '';
 
     let newestNum = '?';
     if (isEps) {
-      const ep0 = data.episodes[0];
-      newestNum = ep0.number || (ep0.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]) || data.episodes.length;
+      const m = data.episodes[0].title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i);
+      if (m) { newestNum = m[1]; }
+      else {
+        const n = data.episodes[0].title.match(/\d+/g);
+        newestNum = n ? n[n.length - 1] : data.episodes.length;
+      }
     }
 
+    // Fetch MAL data paralel dengan detail scraper
     const malData = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(data.title)}`)
       .then(r => r.json()).catch(() => null);
 
+    // Mapping helpers
     const ratingMap = { g:'G - Semua Umur', pg:'PG - Anak-anak', pg_13:'PG-13 - Remaja', r:'R - 17+', 'r+':'R+ - Dewasa', rx:'Rx - Hentai' };
     const statusMap = { currently_airing:'Ongoing', finished_airing:'Selesai', not_yet_aired:'Belum Tayang' };
     const seasonLabelMap = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
 
+    // Merge — MAL prioritas, scraper sebagai fallback
     const status     = (malData?.status ? statusMap[malData.status] || malData.status : null) || info.status || 'Ongoing';
-    const type       = info.type || info.tipe || 'TV';
-    const totalEps   = malData?.num_episodes || info.total_episode || '?';
-    const duration   = malData?.duration || info.duration || info.durasi || 'Unknown';
+    const type       = info.tipe || info.type || 'TV';
+    const totalEps   = malData?.num_episodes || info.total_episode || info.episode || '?';
+    const duration   = malData?.duration || info.durasi || info.duration || 'Unknown';
     const score      = malData?.mean || info.score || info.skor || info.rating || 'N/A';
-    const description = malData?.synopsis || data.description || 'Tidak ada deskripsi tersedia.';
+    const description = malData?.synopsis || data.description || info.synopsis || 'Tidak ada deskripsi tersedia.';
     const titleJP    = malData?.alternative_titles?.ja || info.japanese || '';
     const titleEN    = malData?.title_english || malData?.alternative_titles?.en || '';
     const rating     = malData?.rating ? (ratingMap[malData.rating] || malData.rating.toUpperCase()) : '';
-    const studios    = malData?.studios?.map(s => s.name).join(', ') || info.studio || '';
+    const studios    = malData?.studios?.map(s => s.name).join(', ') || '';
     const source     = malData?.source ? malData.source.replace(/_/g, ' ') : '';
     const rank       = malData?.rank ? `#${malData.rank}` : '';
     const popularity = malData?.popularity ? `#${malData.popularity}` : '';
 
     const genreText = info.genre || info.genres || '';
-    const genres = genreText ? genreText.split(',').map(g => g.trim()).filter(Boolean)
-      : (malData?.genres?.map(g => g.name) || ['Anime']);
+    const genres = genreText ? genreText.split(',').map(g => g.trim()).filter(Boolean) : (malData?.genres?.map(g => g.name) || ['Anime']);
 
     let seasonInfo = '';
     if (malData?.start_season) {
       const s = malData.start_season;
       seasonInfo = `${seasonLabelMap[s.season] || s.season} ${s.year}`.trim();
     } else {
-      const musim = info.season || info.musim || '';
-      const rilis = info.released || info.dirilis || '';
+      const musim = info.musim || info.season || '';
+      const rilis = info.dirilis || info.released || '';
       seasonInfo = `${musim} ${rilis}`.trim() || 'Unknown Date';
     }
 
@@ -394,6 +401,7 @@ async function loadDetail(url) {
     window._currentAnime = { url, title: data.title, image: data.image, score, episodes: data.episodes || [] };
     if (typeof GESTURES !== 'undefined') GESTURES.setEpisodeList(data.episodes || [], null);
 
+    // Build metadata grid
     const metaRows = [
       { label: 'STATUS',       html: `<span class="meta-pill">${status.toUpperCase()}</span>` },
       { label: 'TOTAL EPS',    html: `<span class="meta-value">${totalEps}</span>` },
@@ -427,7 +435,7 @@ async function loadDetail(url) {
             <span class="badge score">⭐ ${score}</span>
             <span class="badge type">${type}</span>
           </div>
-          <div class="detail-genres">${genres.map(g => `<span class="genre-tag" onclick="goToGenre('${g.toLowerCase().replace(/\s+/g,'-')}')">${g}</span>`).join('')}</div>
+          <div class="detail-genres">${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
           <div class="detail-season">${seasonInfo.toUpperCase()}</div>
           <p class="detail-synopsis">${description}</p>
           <div class="detail-actions">
@@ -459,7 +467,7 @@ async function loadDetail(url) {
     const animeImage = data.image || '';
     const animeScore = score || '?';
     document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
-      const num = ep.number || ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
+      const num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
         || (ep.title.match(/\d+/g) || [i + 1]).slice(-1)[0];
       const epLabel = escapeStr(`${animeTitle} - Ep ${num}`);
       return `<div class="ep-box" title="${ep.title}" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
@@ -483,14 +491,10 @@ async function loadDetail(url) {
     }
 
     await renderBookmarkBtn(url, data.title, data.image, score);
-  } catch (e) {
-    console.error('[loadDetail]', e.message);
-    showToast('Gagal memuat detail anime.', 'error');
-  } finally { loader(false); }
+  } catch (e) { console.error(e); } finally { loader(false); }
 }
 
 // ── Tonton Episode ────────────────────────────────────────
-// url = episode slug Nimegami (misal: naruto-sub-indo-episode-1)
 async function loadVideo(url) {
   loader(true);
   try {
@@ -515,10 +519,9 @@ async function loadVideo(url) {
         return `<button class="server-tag ${i === 0 ? 'active' : ''}" ${attr} onclick="changeServerAuto(this)">${s.server}</button>`;
       }).join('');
     } else {
-      showToast('Stream belum tersedia untuk episode ini.', 'warning');
+      alert('Maaf, stream belum tersedia untuk episode ini.');
     }
 
-    // Download section
     const dlSection = document.getElementById('download-section');
     const dlList    = document.getElementById('download-list');
     if (data.downloads?.length > 0) {
@@ -542,19 +545,7 @@ async function loadVideo(url) {
     } else {
       dlSection.style.display = 'none';
     }
-
-    // Prev/Next episode navigation
-    const navContainer = document.getElementById('episode-nav') || null;
-    if (navContainer) {
-      navContainer.innerHTML = `
-        ${data.prevEp ? `<button class="ep-nav-btn" onclick="loadVideo('${data.prevEp.endpoint}')">‹ ${data.prevEp.title}</button>` : '<span></span>'}
-        ${data.nextEp ? `<button class="ep-nav-btn" onclick="loadVideo('${data.nextEp.endpoint}')">  ${data.nextEp.title} ›</button>` : ''}
-      `;
-    }
-  } catch (e) {
-    console.error('[loadVideo]', e.message);
-    showToast('Gagal memuat stream.', 'error');
-  } finally { loader(false); }
+  } catch {} finally { loader(false); }
 }
 
 async function loadStreamSrc(player, stream) {
@@ -602,6 +593,6 @@ function markEpisodeComplete() {
   if (typeof showToast === 'function') showToast('Episode ditandai selesai!');
 }
 
-// Alias kompatibilitas
+// Kompatibilitas lama
 function renderCategoryPage_old() { renderCategoryPage(); }
 function loadCategory(genre, slug, btn) { loadGenreResult(genre, slug, btn); }
