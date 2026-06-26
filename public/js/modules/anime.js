@@ -94,10 +94,17 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
   try {
-    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
-    const list = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
-    const totalPages = data.totalPages || data.total_pages || 1;
-    _catState.totalPages = totalPages;
+    const pages = await Promise.all([1,2,3].map(p =>
+      fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json()).catch(() => ({}))
+    ));
+    let list = [];
+    pages.forEach(data => {
+      const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
+      animes
+        .filter(a => ['TV','Movie','Special'].includes(a.type))
+        .forEach(a => list.push(a));
+    });
+    list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
 
     if (!list.length) {
       c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
@@ -105,8 +112,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
     }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
-      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
-      ${paginationHtml(page, totalPages, `loadGenreResult('${genre.replace(/'/g,"\\'")}','${slug}',document.querySelector('.genre-pill.active')`)}`;
+      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>`;
     lazyLoadScores(c);
   } catch {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted)">Gagal memuat.</p>';
@@ -254,18 +260,13 @@ function animeCardCat(a) {
   const ep    = a.episode || a.episodes || '';
   const slug  = a.slug || a.url || a.endpoint || '';
   const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${title.replace(/'/g,"\\'")}')`;
-  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card-wrapper" onclick="${onclick}">
-      <div class="scroll-card">
-        <div class="scroll-card-outer">
-          <div class="scroll-card-img">
-            <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
-            <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
-          </div>
-        </div>
-        <div class="scroll-card-title">${shortTitle}</div>
+    <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
+      <div class="scroll-card-img">
+        <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
+        <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
       </div>
+      <div class="scroll-card-title">${title}</div>
     </div>`;
 }
 
