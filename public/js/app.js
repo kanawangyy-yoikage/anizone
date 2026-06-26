@@ -8,9 +8,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const API_BASE = '/api';
-const MAL_SCORE_CACHE = new Map(); // title -> MAL mean score
-const MAL_DATA_CACHE  = new Map(); // title -> full MAL node data
+// API_BASE, MAL_SCORE_CACHE, MAL_DATA_CACHE → lihat config.js
 
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
@@ -73,31 +71,7 @@ async function getFavorites() {
 
 // ─── HOME SECTIONS CONFIG ────────────────────────────
 
-const HOME_SECTIONS = [
-  { title: "Sedang Hangat",  mode: "latest" },
-  { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
-  { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
-  { title: "Romance & Drama", queries: ["kanojo","romance","heroine","uso"] },
-  { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
-  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
-  { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
-];
-
-const GENRE_KEYWORDS = {
-  "Action":         ["action","shounen","fight","jujutsu","kimetsu"],
-  "Adventure":      ["adventure","journey","world","isekai"],
-  "Comedy":         ["comedy","slice of life","laugh","bocchi"],
-  "Romance":        ["romance","love","kanojo","couple"],
-  "School":         ["school","gakuen","classroom","student"],
-  "Slice of Life":  ["slice of life","daily","chill","camp"],
-  "Horror":         ["horror","scary","ghost","zombie","terror"],
-  "Live Action":    ["live action","real","dorama"],
-  "Sport":       ["olahraga","sports","athlete","tournament"],
-  "Shoujo Ai":      ["shoujo ai","yuri","girls love","lesbian"],
-  "Shounen Ai":     ["shounen ai","yaoi","boys love","bromance"],
-  "Donghua":        ["donghua","chinese","tiongkok","manhua"],
-};
-const KATEGORI_LIST = Object.keys(GENRE_KEYWORDS);
+// HOME_SECTIONS, GENRE_KEYWORDS, KATEGORI_LIST → lihat config.js
 let sliderInterval;
 
 // ─── THEME ───────────────────────────────────────────
@@ -606,7 +580,11 @@ async function loadCategory(genre, btn) {
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
       <div class="anime-grid">
-        ${combined.map(a => animeCard(a)).join('')}
+        ${combined.map(a => `
+          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
+            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge" data-mal-title="${(a.title||'').replace(/"/g,'')}">⭐ ${a.score||'?'}</div></div>
+            <div class="scroll-card-title">${a.title}</div>
+          </div>`).join('')}
       </div>`;
     lazyLoadScores(c);
   } catch {} finally { loader(false); }
@@ -631,19 +609,10 @@ async function loadFavorites() {
 }
 
 function animeCard(a) {
-  const title = a.title||'';
-  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card-wrapper" onclick="loadDetail('${a.url}')">
-      <div class="scroll-card">
-        <div class="scroll-card-outer">
-          <div class="scroll-card-img">
-            <img src="${a.image}" alt="${title}" loading="lazy">
-            <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">⭐ ${a.score||'?'}</div>
-          </div>
-        </div>
-        <div class="scroll-card-title">${shortTitle}</div>
-      </div>
+    <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
+      <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
+      <div class="scroll-card-title">${a.title}</div>
     </div>`;
 }
 
@@ -671,7 +640,11 @@ async function handleSearch(manualQuery = null) {
       </div>
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
       <div class="anime-grid" style="padding-bottom:80px">
-        ${data.map(a => animeCard(a)).join('')}
+        ${data.map(a => `
+          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
+            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
+            <div class="scroll-card-title">${a.title}</div>
+          </div>`).join('')}
       </div>`;
   } catch {} finally { loader(false); }
 }
