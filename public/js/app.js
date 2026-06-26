@@ -606,11 +606,7 @@ async function loadCategory(genre, btn) {
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
       <div class="anime-grid">
-        ${combined.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge" data-mal-title="${(a.title||'').replace(/"/g,'')}">⭐ ${a.score||'?'}</div></div>
-            <div class="scroll-card-title">${a.title}</div>
-          </div>`).join('')}
+        ${combined.map(a => animeCard(a)).join('')}
       </div>`;
     lazyLoadScores(c);
   } catch {} finally { loader(false); }
@@ -635,10 +631,19 @@ async function loadFavorites() {
 }
 
 function animeCard(a) {
+  const title = a.title||'';
+  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-      <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
-      <div class="scroll-card-title">${a.title}</div>
+    <div class="scroll-card-wrapper" onclick="loadDetail('${a.url}')">
+      <div class="scroll-card">
+        <div class="scroll-card-outer">
+          <div class="scroll-card-img">
+            <img src="${a.image}" alt="${title}" loading="lazy">
+            <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">⭐ ${a.score||'?'}</div>
+          </div>
+        </div>
+        <div class="scroll-card-title">${shortTitle}</div>
+      </div>
     </div>`;
 }
 
@@ -666,11 +671,7 @@ async function handleSearch(manualQuery = null) {
       </div>
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Hasil: "${query}"</h2></div>
       <div class="anime-grid" style="padding-bottom:80px">
-        ${data.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge">⭐ ${a.score||'?'}</div></div>
-            <div class="scroll-card-title">${a.title}</div>
-          </div>`).join('')}
+        ${data.map(a => animeCard(a)).join('')}
       </div>`;
   } catch {} finally { loader(false); }
 }

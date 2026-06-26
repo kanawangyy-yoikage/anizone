@@ -230,16 +230,20 @@ async function loadBookmarks() {
 }
 
 function bookmarkCard(a, s) {
+  const title = a.title||'';
+  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card bm-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none;position:relative">
-      <div class="scroll-card-img">
-        <img src="${a.image}" alt="${a.title}" loading="lazy">
-        <div class="ep-badge">⭐ ${a.score || '?'}</div>
-        <div class="bm-status-badge" style="background:${s.color}">
-          ${s.emoji}
+    <div class="scroll-card-wrapper" onclick="loadDetail('${a.url}')">
+      <div class="scroll-card bm-card">
+        <div class="scroll-card-outer">
+          <div class="scroll-card-img">
+            <img src="${a.image}" alt="${title}" loading="lazy">
+            <div class="ep-badge">⭐ ${a.score || '?'}</div>
+            <div class="bm-status-badge" style="background:${s.color}">${s.emoji}</div>
+          </div>
         </div>
+        <div class="scroll-card-title">${shortTitle}</div>
       </div>
-      <div class="scroll-card-title">${a.title}</div>
     </div>`;
 }
 

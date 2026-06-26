@@ -254,13 +254,18 @@ function animeCardCat(a) {
   const ep    = a.episode || a.episodes || '';
   const slug  = a.slug || a.url || a.endpoint || '';
   const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${title.replace(/'/g,"\\'")}')`;
+  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card" onclick="${onclick}" style="min-width:auto;max-width:none">
-      <div class="scroll-card-img">
-        <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
-        <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
+    <div class="scroll-card-wrapper" onclick="${onclick}">
+      <div class="scroll-card">
+        <div class="scroll-card-outer">
+          <div class="scroll-card-img">
+            <img src="${img}" alt="${title.replace(/"/g,'')}" loading="lazy">
+            <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">${ep ? `Ep ${ep}` : `⭐ ${score}`}</div>
+          </div>
+        </div>
+        <div class="scroll-card-title">${shortTitle}</div>
       </div>
-      <div class="scroll-card-title">${title}</div>
     </div>`;
 }
 
