@@ -44,6 +44,8 @@ async function loadLatestTab() {
       sliderData = await r.json();
     } catch {}
 
+    sliderData = (sliderData || []).filter(a => ['TV', 'Movie', 'Special'].includes(a.type));
+
     if (sliderData?.length > 0) {
       const top10 = sliderData.slice(0, 10);
       renderHeroSlider(top10, container);
