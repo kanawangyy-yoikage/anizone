@@ -198,8 +198,8 @@ async function runAdvSearch(page) {
       results = Array.isArray(r) ? r : (r.data || r.animes || []);
     } else {
       // Pakai advanced-search API
-      const r = await fetch(`${API_BASE}/advanced-search?${params}`).then(r => r.json());
-      const raw = r.animes || r.data?.animes || r.data || (Array.isArray(r) ? r : []);
+      const r = await fetch(`${API_BASE}/search?q=${encodeURIComponent(_filterState.query || '')}`).then(r => r.json());
+      const raw = r.data?.animeList || r.data?.animes || r.animes || r.data || (Array.isArray(r) ? r : []);
       results   = Array.isArray(raw) ? raw : [];
       totalPages = r.totalPages || r.total_pages || 1;
       _filterState.totalPages = totalPages;
@@ -240,7 +240,7 @@ function renderAdvResults(results, page = 1, totalPages = 1) {
     <div class="adv-result-count">${results.length} hasil ditemukan</div>
     <div class="adv-result-grid">
       ${results.map(a => {
-        const slug = a.slug || a.url || a.endpoint || '';
+        const slug = (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.url || a.endpoint || '');
         const onclick = slug
           ? `closeAdvancedSearch();loadDetailBySlug('${slug}')`
           : `closeAdvancedSearch();handleSearch('${(a.title||'').replace(/'/g,"\\'")}')`;

@@ -1,5 +1,6 @@
 // ─── HOME MODULE ─────────────────────────────────────────
 // Mengelola tab Beranda (slider + section), Trending, Jadwal, Berita.
+// Kuramanime edition
 
 let sliderInterval = null;
 
@@ -38,6 +39,7 @@ async function loadLatestTab() {
   loader(true);
   const container = document.getElementById('tab-beranda');
   try {
+    // Ambil data dari ongoing Kuramanime
     let sliderData = [];
     try {
       const r = await fetch(`${API_BASE}/latest`);
@@ -49,20 +51,19 @@ async function loadLatestTab() {
       renderHeroSlider(top10, container);
       loader(false);
 
-      // Continue Watching strip (di bawah hero slider)
       if (typeof CW !== 'undefined') CW.renderContinueWatchingStrip(container);
 
-      // Async enrich slider dengan score & info detail
+      // Enrich slider dengan detail
       top10.forEach(async (item) => {
         try {
-          const r = await fetch(`${API_BASE}/anime/${encodeURIComponent(item.url)}`);
+          const r = await fetch(`${API_BASE}/detail?url=${encodeURIComponent(item.url)}`);
           const d = await r.json();
           if (d?.info) {
-            const score  = d.info.skor || d.info.score || 'N/A';
-            const type   = d.info.tipe || d.info.type  || 'Anime';
-            const musim  = d.info.musim  || d.info.season   || '';
-            const rilis  = d.info.dirilis || d.info.released || '';
-            const year   = `${musim} ${rilis}`.trim() || 'Unknown';
+            const score = d.info.score || d.info.skor || 'N/A';
+            const type  = d.info.type  || d.info.tipe || 'Anime';
+            const musim = d.info.season || d.info.musim || '';
+            const rilis = d.info.released || d.info.dirilis || '';
+            const year  = `${musim} ${rilis}`.trim() || 'Unknown';
             document.querySelectorAll(`.hero-meta[data-url="${item.url}"]`).forEach(el => {
               el.innerHTML = `<span>⭐ ${score}</span> • <span>${type}</span> • <span>${year}</span>`;
             });
@@ -73,24 +74,36 @@ async function loadLatestTab() {
       loader(false);
     }
 
-    // Muat section-section beranda secara paralel (selain "Sedang Hangat")
-    for (let i = 1; i < HOME_SECTIONS.length; i++) {
-      const sec = HOME_SECTIONS[i];
+    // Section beranda: Popular, Ongoing, Movie, Donghua
+    const sections = [
+      { title: 'Populer Saat Ini', endpoint: 'popular' },
+      { title: 'Sedang Tayang',    endpoint: 'ongoing'  },
+      { title: 'Anime Movie',      endpoint: 'movie'    },
+      { title: 'Donghua',          endpoint: 'donghua'  },
+    ];
+
+    for (const sec of sections) {
       (async () => {
-        const results = await Promise.all(
-          sec.queries.map(q =>
-            fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
-          )
-        );
-        let combined = [];
-        results.forEach(list => { if (Array.isArray(list)) combined.push(...list); });
-        combined = removeDuplicates(combined, 'url');
-        if (combined.length > 0) {
-          if (combined.length < 6) combined = [...combined, ...combined, ...combined];
-          renderSection(sec.title, combined.slice(0, 15), container, sec.genreSlug);
-        }
+        try {
+          const raw  = await fetch(`${API_BASE}/${sec.endpoint}?page=1`).then(r => r.json());
+          const list = raw.data?.animeList || raw.data?.animes || raw.data || [];
+          if (Array.isArray(list) && list.length > 0) {
+            const normalized = list.slice(0, 15).map(item => ({
+              title   : item.title || '',
+              url     : (item.animeId && item.slug) ? `${item.animeId}/${item.slug}` : (item.slug || item.url || ''),
+              image   : item.poster || item.image || '',
+              endpoint: (item.animeId && item.slug) ? `${item.animeId}/${item.slug}` : (item.slug || ''),
+              score   : item.score || '',
+              type    : item.type || 'TV',
+              episode : item.episode || item.episodes || '',
+              genres  : item.genres || [],
+            }));
+            renderSection(sec.title, normalized, container, null);
+          }
+        } catch {}
       })();
     }
+
   } catch { loader(false); }
 }
 
@@ -110,7 +123,7 @@ async function loadTrending() {
       </div>
       <div class="trending-list">
         ${data.map((a, i) => `
-          <div class="trending-item" onclick="handleSearch('${(a.title || '').replace(/'/g, "\\'")}')">
+          <div class="trending-item" onclick="loadDetailBySlug('${a.url || ''}')">
             <div class="trending-rank ${i < 3 ? 'top3' : ''}">${a.rank || i + 1}</div>
             <div class="trending-img">
               ${a.image
@@ -121,8 +134,8 @@ async function loadTrending() {
               <div class="trending-title">${a.title}</div>
               <div class="trending-meta">
                 ${a.score    ? `<span class="trending-score">${a.score}</span>` : ''}
-                ${a.genres?.length ? `<span>${a.genres.join(', ')}</span>` : ''}
-                ${a.episodes  ? `<span>${a.episodes} eps</span>` : ''}
+                ${a.genres?.length ? `<span>${Array.isArray(a.genres) ? a.genres.join(', ') : a.genres}</span>` : ''}
+                ${a.episode  ? `<span>${a.episode} eps</span>` : ''}
               </div>
             </div>
           </div>`).join('')}
@@ -138,47 +151,59 @@ async function loadSchedule() {
   container.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
   try {
     const data = await fetch(`${API_BASE}/schedule`).then(r => r.json());
-    if (!data?.length) {
+
+    // Support format MAL (array dengan broadcast.day_of_the_week)
+    // DAN format Kuramanime (array {day/scheduledDay, animeList})
+    let scheduleGroups = {};
+    const dayOrder = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
+    const dayMapEn  = { monday:'Senin', tuesday:'Selasa', wednesday:'Rabu', thursday:'Kamis', friday:'Jumat', saturday:'Sabtu', sunday:'Minggu' };
+    const dayMapId  = { senin:'Senin', selasa:'Selasa', rabu:'Rabu', kamis:'Kamis', jumat:'Jumat', sabtu:'Sabtu', minggu:'Minggu' };
+
+    if (Array.isArray(data) && data.length > 0) {
+      // Format Kuramanime: [{day/scheduledDay, animeList:[...]}]
+      if (data[0]?.animeList || data[0]?.scheduledDay || data[0]?.day) {
+        data.forEach(d => {
+          const rawDay = d.scheduledDay || d.day || '';
+          const day = dayMapId[rawDay.toLowerCase()] || dayMapEn[rawDay.toLowerCase()] || rawDay;
+          if (day) {
+            if (!scheduleGroups[day]) scheduleGroups[day] = [];
+            (d.animeList || []).forEach(a => {
+              scheduleGroups[day].push({
+                title  : a.title || '',
+                url    : (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.url || ''),
+                image  : a.poster || a.image || '',
+                score  : a.score || '',
+              });
+            });
+          }
+        });
+      } else {
+        // Format MAL
+        data.forEach(a => {
+          const day = dayMapEn[a.broadcast?.day_of_the_week];
+          if (day) {
+            if (!scheduleGroups[day]) scheduleGroups[day] = [];
+            scheduleGroups[day].push(a);
+          }
+        });
+      }
+    }
+
+    if (!Object.keys(scheduleGroups).length) {
       container.innerHTML = '<div class="empty-state"><h2>Jadwal tidak tersedia saat ini</h2></div>';
       return;
     }
-
-    const dayMap = {
-      monday:'Senin', tuesday:'Selasa', wednesday:'Rabu',
-      thursday:'Kamis', friday:'Jumat', saturday:'Sabtu', sunday:'Minggu',
-    };
-    const dayOrder = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
-    const grouped  = {};
-    const ungrouped = [];
-
-    data.forEach(a => {
-      const day = dayMap[a.broadcast?.day_of_the_week];
-      if (day) {
-        if (!grouped[day]) grouped[day] = [];
-        grouped[day].push(a);
-      } else {
-        ungrouped.push(a);
-      }
-    });
 
     let html = `<div class="section-header mt-large" style="padding:14px 16px 10px">
       <div class="bar-accent"></div><h2>Jadwal Rilis Anime</h2>
     </div>`;
 
-    if (Object.keys(grouped).length > 0) {
-      dayOrder.forEach(day => {
-        const items = grouped[day] || [];
-        if (!items.length) return;
-        html += `<div style="padding:10px 16px 8px"><span class="schedule-day-badge">${day}</span></div>`;
-        html += `<div class="schedule-grid">${items.map(scheduleCard).join('')}</div>`;
-      });
-      if (ungrouped.length) {
-        html += `<div style="padding:10px 16px 8px"><span class="schedule-day-badge">Lainnya</span></div>`;
-        html += `<div class="schedule-grid">${ungrouped.map(scheduleCard).join('')}</div>`;
-      }
-    } else {
-      html += `<div class="schedule-grid">${data.map(scheduleCard).join('')}</div>`;
-    }
+    dayOrder.forEach(day => {
+      const items = scheduleGroups[day] || [];
+      if (!items.length) return;
+      html += `<div style="padding:10px 16px 8px"><span class="schedule-day-badge">${day}</span></div>`;
+      html += `<div class="schedule-grid">${items.map(scheduleCard).join('')}</div>`;
+    });
 
     container.innerHTML = html;
   } catch {
@@ -245,8 +270,7 @@ async function loadNews() {
 
 // ── Hero Slider ───────────────────────────────────────────
 function renderHeroSlider(data, container) {
-  const loopData = [...data, data[0]]; // tambah satu item untuk efek loop mulus
-
+  const loopData = [...data, data[0]];
   const slidesHtml = loopData.map((a, i) => {
     const eps = a.episode ? `Ep ${(a.episode.match(/\d+(\.\d+)?/) || [''])[0]}` : '';
     return `
@@ -343,18 +367,15 @@ function renderSection(title, data, container, genreSlug) {
     </div>
     <div class="horizontal-scroll">
       ${data.map((a, i) => {
-        const epNum  = a.episode ? (a.episode.match(/\d+(\.\d+)?/) || [''])[0] : '';
-        const epText = epNum ? `EP ${epNum}` : '';
+        const epNum    = a.episode ? (a.episode.match(/\d+(\.\d+)?/) || [''])[0] : '';
+        const epText   = epNum ? `EP ${epNum}` : '';
         const typeText = a.type || 'TV';
         const badgeText = [epText, typeText].filter(Boolean).join(' · ');
         const shortTitle = a.title.length > 35 ? a.title.substring(0, 35) + '...' : a.title;
         const score = a.score && a.score !== 'N/A' && a.score !== '?' ? a.score : null;
-        const status   = a.status   || '';
-        const genres   = a.genres   ? (Array.isArray(a.genres) ? a.genres.slice(0,2).join(', ') : String(a.genres).split(',').slice(0,2).map(g=>g.trim()).join(', ')) : '';
-        const season   = [a.musim || a.season || '', a.dirilis || a.released || a.year || ''].filter(Boolean).join(' ').trim();
-        const statusLabel = status.toLowerCase().includes('ongoing') || status.toLowerCase().includes('tayang')
-          ? 'Ongoing' : status.toLowerCase().includes('complete') || status.toLowerCase().includes('tamat')
-          ? 'Tamat' : status || '';
+        const genres = Array.isArray(a.genres)
+          ? a.genres.slice(0, 2).join(', ')
+          : String(a.genres || '').split(',').slice(0, 2).map(g => g.trim()).join(', ');
 
         return `
         <div class="scroll-card-wrapper"
@@ -362,9 +383,7 @@ function renderSection(title, data, container, genreSlug) {
           data-score="${score || ''}"
           data-type="${typeText}"
           data-url="${a.url}"
-          data-status="${statusLabel}"
-          data-genres="${genres}"
-          data-season="${season}">
+          data-genres="${genres}">
           <div class="scroll-card"
             onclick="loadDetailBySlug('${a.url}')"
             style="animation-delay:${i * 0.04}s">
@@ -383,7 +402,7 @@ function renderSection(title, data, container, genreSlug) {
   lazyLoadScores(div);
 }
 
-// Lazy-load MAL data (score + genres + status + season) untuk semua card
+// Lazy-load MAL score untuk card
 async function lazyLoadScores(container) {
   const badges = container.querySelectorAll('.ep-badge[data-mal-title]');
   for (const badge of badges) {
@@ -403,49 +422,30 @@ async function lazyLoadScores(container) {
         }
       }
       if (!mal || !wrapper) continue;
-
-      // Update data attributes agar bubble bisa baca
       if (mal.mean)    wrapper.dataset.score  = mal.mean;
-
-      // status: "finished_airing" | "currently_airing" | "not_yet_aired"
       if (mal.status) {
         const s = mal.status;
         wrapper.dataset.status =
-          s === 'currently_airing'  ? 'Ongoing' :
-          s === 'finished_airing'   ? 'Tamat'   :
-          s === 'not_yet_aired'     ? 'Segera'  : s;
+          s === 'currently_airing' ? 'Ongoing' :
+          s === 'finished_airing'  ? 'Tamat'   :
+          s === 'not_yet_aired'    ? 'Segera'  : s;
       }
-
-      // genres: array of {id, name}
       if (mal.genres && Array.isArray(mal.genres)) {
         wrapper.dataset.genres = mal.genres.slice(0, 3).map(g => g.name || g).join(', ');
       }
-
-      // season: {year, season} e.g. {year:2024, season:"spring"}
       if (mal.start_season) {
         const seasonMap = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
         const s = mal.start_season;
         wrapper.dataset.season = `${seasonMap[s.season] || s.season} ${s.year}`.trim();
-      } else if (mal.start_date) {
-        wrapper.dataset.season = mal.start_date.slice(0, 7); // "2024-04"
       }
-
-      // rating: pg_13 | r | g | pg | r+ | rx
       if (mal.rating) {
         const rMap = { g:'G', pg:'PG', pg_13:'PG-13', r:'R-17+', 'r+':'R+', rx:'Rx' };
         wrapper.dataset.rating = rMap[mal.rating] || mal.rating.toUpperCase();
       }
-
-      // studios
       if (mal.studios && Array.isArray(mal.studios) && mal.studios.length) {
         wrapper.dataset.studios = mal.studios.slice(0, 2).map(s => s.name || s).join(', ');
       }
-
-      // num_episodes
-      if (mal.num_episodes) {
-        wrapper.dataset.episodes = mal.num_episodes;
-      }
-
+      if (mal.num_episodes) wrapper.dataset.episodes = mal.num_episodes;
     } catch {}
   }
 }

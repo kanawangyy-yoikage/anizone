@@ -1,9 +1,10 @@
 // ─── ANIME MODULE ────────────────────────────────────────
 // Kategori, detail, tonton, pencarian, ongoing, completed, A-Z unlimited.
+// Kuramanime edition — endpoint: id/slug
 
 // ── State paginasi ────────────────────────────────────────
 const _catState = {
-  mode      : 'genre',   // 'genre'|'ongoing'|'completed'|'animelist'
+  mode      : 'genre',
   slug      : '',
   letter    : 'A',
   page      : 1,
@@ -11,21 +12,20 @@ const _catState = {
   loading   : false,
 };
 
-// ── Halaman Kategori — render tab bar ─────────────────────
+// ── Halaman Kategori ──────────────────────────────────────
 async function renderCategoryPage() {
   const view = document.getElementById('anime-view');
   if (view.dataset.rendered === 'true') return;
   view.dataset.rendered = 'true';
 
   view.innerHTML = `
-    <!-- Tab bar navigasi -->
     <div class="anime-tab-bar" id="animeTabBar">
       <button class="anime-tab active" onclick="switchAnimeTab('genre',this)">Genre</button>
       <button class="anime-tab" onclick="switchAnimeTab('ongoing',this)">Ongoing</button>
       <button class="anime-tab" onclick="switchAnimeTab('completed',this)">Selesai</button>
+      <button class="anime-tab" onclick="switchAnimeTab('movie',this)">Movie</button>
       <button class="anime-tab" onclick="switchAnimeTab('animelist',this)">A–Z</button>
     </div>
-    <!-- Konten tiap tab -->
     <div id="anime-tab-content"></div>`;
 
   switchAnimeTab('genre', view.querySelector('.anime-tab'));
@@ -42,8 +42,9 @@ function switchAnimeTab(mode, btn) {
 
   switch (mode) {
     case 'genre'     : loadGenreTab(c);      break;
-    case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');    break;
-    case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');    break;
+    case 'ongoing'   : loadListTab(c, 'ongoing',   'Sedang Tayang');  break;
+    case 'completed' : loadListTab(c, 'completed', 'Anime Selesai');  break;
+    case 'movie'     : loadListTab(c, 'movie',     'Anime Movie');    break;
     case 'animelist' : loadAnimeListTab(c);  break;
   }
 }
@@ -51,25 +52,26 @@ function switchAnimeTab(mode, btn) {
 // ── Tab Genre ─────────────────────────────────────────────
 async function loadGenreTab(c) {
   try {
-    const genres = await fetch(`${API_BASE}/genres`).then(r => r.json());
-    const list = Array.isArray(genres) ? genres : (genres.data?.genreList || genres.data || genres.genres || genres.genreList || []);
-    if (!list.length) { c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>'; return; }
-
+    const raw  = await fetch(`${API_BASE}/genres`).then(r => r.json());
+    const list = raw.data?.genreList || raw.data || (Array.isArray(raw) ? raw : []);
+    if (!list.length) {
+      c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Tidak ada genre.</p>';
+      return;
+    }
     c.innerHTML = `
       <div class="genre-pill-bar" id="genrePillBar">
         ${list.map((g, i) => {
-          const name = g.name || g.genre || g.title || g.slug || '';
-          const slug = g.genreId || g.slug || name.toLowerCase().replace(/\s+/g, '-');
+          const name = g.name || g.title || g.genre || g.slug || '';
+          const slug = g.slug || g.genreId || name.toLowerCase().replace(/\s+/g, '-');
           return `<button class="genre-pill ${i===0?'active':''}" data-slug="${slug}"
             onclick="loadGenreResult('${name.replace(/'/g,"\\'")}','${slug}',this)">${name}</button>`;
         }).join('')}
       </div>
       <div id="genre-result-container" style="padding:0 16px 80px"></div>`;
 
-    // Auto-load genre pertama
     const first = list[0];
-    const name = first.name || first.genre || first.title || first.slug || '';
-    const slug = first.genreId || first.slug || name.toLowerCase().replace(/\s+/g, '-');
+    const name  = first.name || first.title || first.genre || first.slug || '';
+    const slug  = first.slug || first.genreId || name.toLowerCase().replace(/\s+/g, '-');
     loadGenreResult(name, slug, c.querySelector('.genre-pill'));
   } catch {
     c.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Gagal memuat genre.</p>';
@@ -87,9 +89,9 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
   try {
-    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${page}`).then(r => r.json());
-    const list = Array.isArray(data) ? data : (data.data?.animeList || data.animes || data.data || data.anime || data.results || []);
-    const totalPages = data.data?.totalPages || data.totalPages || data.total_pages || 1;
+    const raw  = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}`).then(r => r.json());
+    const list = raw.data?.animeList || raw.data?.animes || raw.data || (Array.isArray(raw) ? raw : []);
+    const totalPages = raw.data?.totalPages || raw.totalPages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -98,7 +100,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
     }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
-      <div class="anime-grid">${list.map(animeCardCat).join('')}</div>
+      <div class="anime-grid">${list.map(animeCardKura).join('')}</div>
       ${paginationHtml(page, totalPages, `loadGenreResult('${genre.replace(/'/g,"\\'")}','${slug}',document.querySelector('.genre-pill.active')`)}`;
     lazyLoadScores(c);
   } catch {
@@ -106,14 +108,14 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   }
 }
 
-// ── Tab List (popular/movies/ongoing/completed) ───────────
+// ── Tab List (ongoing/completed/movie/etc) ────────────────
 async function loadListTab(c, endpoint, title, page = 1) {
   _catState.page = page;
   c.innerHTML = '<div class="spinner" style="margin:60px auto"></div>';
   try {
     const raw  = await fetch(`${API_BASE}/${endpoint}?page=${page}`).then(r => r.json());
-    const list = extractList(raw);
-    const totalPages = raw.data?.totalPages || raw.totalPages || raw.total_pages || 1;
+    const list = extractListKura(raw);
+    const totalPages = raw.data?.totalPages || raw.totalPages || 1;
     _catState.totalPages = totalPages;
 
     if (!list.length) {
@@ -124,7 +126,7 @@ async function loadListTab(c, endpoint, title, page = 1) {
       <div style="padding:14px 16px 10px">
         <div class="section-header"><div class="bar-accent"></div><h2>${title}</h2></div>
       </div>
-      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardCat).join('')}</div>
+      <div class="anime-grid" style="padding:0 16px">${list.map(animeCardKura).join('')}</div>
       ${paginationHtml(page, totalPages, `loadListTab(document.getElementById('anime-tab-content'),'${endpoint}','${title}'`)}`;
     lazyLoadScores(c);
   } catch {
@@ -132,11 +134,11 @@ async function loadListTab(c, endpoint, title, page = 1) {
   }
 }
 
-// ── Tab A-Z (unlimited) ──────────────────────────────────
-let _azCache = null; // cache supaya tidak fetch ulang tiap ganti huruf
+// ── Tab A-Z ───────────────────────────────────────────────
+let _azCache = null;
 
 async function loadAnimeListTab(c) {
-  const letters = ['Semua', '#', 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+  const letters = ['Semua','#','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
   c.innerHTML = `
     <div class="az-bar" id="azBar">
       ${letters.map(l => `<button class="az-btn ${l==='Semua'?'active':''}" onclick="loadAZResult('${l}',this)">${l}</button>`).join('')}
@@ -146,7 +148,8 @@ async function loadAnimeListTab(c) {
   if (!_azCache) {
     try {
       const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
-      _azCache = raw.data?.list || [];
+      // Kuramanime anime-list: data = [{ startWith, animeList:[...] }]
+      _azCache = raw.data?.list || raw.data || [];
     } catch {
       document.getElementById('az-result').innerHTML =
         '<p style="text-align:center;color:var(--text-muted)">Gagal memuat data.</p>';
@@ -167,12 +170,19 @@ function loadAZResult(letter, btn) {
 
   let list;
   if (letter === 'Semua') {
-    // Gabung semua group, urutkan A-Z by title
-    list = _azCache.flatMap(g => g.animeList || [])
-      .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    // Jika array of group
+    if (Array.isArray(_azCache) && _azCache[0]?.animeList) {
+      list = _azCache.flatMap(g => g.animeList || []).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else {
+      list = Array.isArray(_azCache) ? _azCache : [];
+    }
   } else {
-    const group = _azCache.find(g => g.startWith?.toUpperCase() === letter.toUpperCase());
-    list = group?.animeList || [];
+    if (Array.isArray(_azCache) && _azCache[0]?.animeList) {
+      const group = _azCache.find(g => (g.startWith || '').toUpperCase() === letter.toUpperCase());
+      list = group?.animeList || [];
+    } else {
+      list = (_azCache || []).filter(a => (a.title || '').toUpperCase().startsWith(letter === '#' ? /\d/ : letter));
+    }
   }
 
   if (!list.length) {
@@ -182,36 +192,41 @@ function loadAZResult(letter, btn) {
 
   const label = letter === 'Semua' ? 'Semua Anime' : `Anime — ${letter}`;
   c.innerHTML = `
-    <div class="section-header mt-large" style="padding:0 16px"><div class="bar-accent"></div><h2>${label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2></div>
+    <div class="section-header mt-large" style="padding:0 16px">
+      <div class="bar-accent"></div>
+      <h2>${label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${list.length} anime)</span></h2>
+    </div>
     <div class="az-list">
       ${list.map((a, i) => {
-        const slug = a.animeId || a.slug || a.url || '';
-        const title = a.title || '';
-        return `<button class="az-list-item" onclick="loadDetailBySlug('${slug}')">
+        // Kuramanime A-Z item: { title, animeId, slug }
+        const endpoint = (a.animeId && a.slug) ? `${a.animeId}/${a.slug}` : (a.slug || a.animeId || a.url || '');
+        return `<button class="az-list-item" onclick="loadDetailBySlug('${endpoint}')">
           <span class="az-list-num">${i + 1}</span>
-          <span class="az-list-title">${title}</span>
+          <span class="az-list-title">${a.title || ''}</span>
         </button>`;
       }).join('')}
     </div>`;
 }
 
-// ── Tab Karakter dihapus (tidak didukung Otakudesu API) ──
-
 // ── Helpers ───────────────────────────────────────────────
-function extractList(raw) {
-  const arr = raw.data?.animeList || raw.animes || raw.animeList
-    || raw.data?.animes || raw.data || (Array.isArray(raw) ? raw : []);
+function extractListKura(raw) {
+  const arr = raw.data?.animeList || raw.data?.animes || raw.data?.list
+    || raw.data || (Array.isArray(raw) ? raw : []);
   return Array.isArray(arr) ? arr : [];
 }
 
-function animeCardCat(a) {
-  const img   = a.image || a.poster || a.thumbnail || '';
+// Card untuk list Kuramanime (id/slug endpoint)
+function animeCardKura(a) {
+  const img   = a.poster || a.image || a.thumbnail || '';
   const title = a.title || '';
   const score = a.score || a.rating || '?';
   const ep    = a.episode || a.episodes || '';
-  const slug  = a.animeId || a.slug || a.url || a.endpoint || '';
+  // Kuramanime: animeId + slug untuk endpoint
+  const endpoint = (a.animeId && a.slug)
+    ? `${a.animeId}/${a.slug}`
+    : (a.slug || a.url || a.animeId || a.endpoint || '');
   const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '');
-  const onclick = slug ? `loadDetailBySlug('${slug}')` : `handleSearch('${safeTitle}')`;
+  const onclick = endpoint ? `loadDetailBySlug('${endpoint}')` : `handleSearch('${safeTitle}')`;
   const badgeText = ep ? `Ep ${ep}` : `⭐ ${score}`;
   return `
     <div class="scroll-card-wrapper">
@@ -227,6 +242,9 @@ function animeCardCat(a) {
     </div>`;
 }
 
+// Alias untuk kompatibilitas
+function animeCardCat(a) { return animeCardKura(a); }
+
 function paginationHtml(page, totalPages, fnPrefix, extraArg = '') {
   if (totalPages <= 1) return '';
   const prev = page > 1 ? `<button class="page-btn" onclick="${fnPrefix},${page-1}${extraArg?','+extraArg:''})">‹ Prev</button>` : '';
@@ -234,7 +252,7 @@ function paginationHtml(page, totalPages, fnPrefix, extraArg = '') {
   return `<div class="pagination-bar">${prev}<span class="page-info">Hal ${page} / ${totalPages}</span>${next}</div>`;
 }
 
-// ── goToGenre (kompatibilitas dari home) ──────────────────
+// ── goToGenre ─────────────────────────────────────────────
 async function goToGenre(slug) {
   const view = document.getElementById('anime-view');
   if (view.dataset.rendered !== 'true') {
@@ -242,7 +260,6 @@ async function goToGenre(slug) {
     await renderCategoryPage();
   }
   switchAnimeTab('genre', document.querySelector('.anime-tab'));
-  // Tunggu genre pills muncul
   await new Promise(r => setTimeout(r, 300));
   const btn = document.querySelector(`.genre-pill[data-slug="${slug}"]`);
   if (btn) {
@@ -284,7 +301,7 @@ async function handleSearch(manualQuery = null) {
   openAdvancedSearch(query);
 }
 
-// ── Detail by slug ────────────────────────────────────────
+// ── Detail by slug/endpoint ───────────────────────────────
 async function loadDetailBySlug(slug) {
   if (!slug) return;
   try {
@@ -308,54 +325,48 @@ async function loadDetail(url) {
     show('detail-view');
 
     const info      = data.info || {};
-    const isEps      = data.episodes?.length > 0;
-    const newestUrl  = isEps ? data.episodes[0].url : '';
-    const oldestUrl  = isEps ? data.episodes[data.episodes.length - 1].url : '';
+    const isEps     = data.episodes?.length > 0;
+    const newestUrl = isEps ? data.episodes[0].url : '';
+    const oldestUrl = isEps ? data.episodes[data.episodes.length - 1].url : '';
 
     let newestNum = '?';
     if (isEps) {
-      const m = data.episodes[0].title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i);
-      if (m) { newestNum = m[1]; }
-      else {
-        const n = data.episodes[0].title.match(/\d+/g);
-        newestNum = n ? n[n.length - 1] : data.episodes.length;
-      }
+      const ep0 = data.episodes[0];
+      newestNum = ep0.number || (ep0.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]) || data.episodes.length;
     }
 
-    // Fetch MAL data paralel dengan detail scraper
     const malData = await fetch(`${API_BASE}/mal/anime?title=${encodeURIComponent(data.title)}`)
       .then(r => r.json()).catch(() => null);
 
-    // Mapping helpers
     const ratingMap = { g:'G - Semua Umur', pg:'PG - Anak-anak', pg_13:'PG-13 - Remaja', r:'R - 17+', 'r+':'R+ - Dewasa', rx:'Rx - Hentai' };
     const statusMap = { currently_airing:'Ongoing', finished_airing:'Selesai', not_yet_aired:'Belum Tayang' };
     const seasonLabelMap = { winter:'Winter', spring:'Spring', summer:'Summer', fall:'Fall' };
 
-    // Merge — MAL prioritas, scraper sebagai fallback
     const status     = (malData?.status ? statusMap[malData.status] || malData.status : null) || info.status || 'Ongoing';
-    const type       = info.tipe || info.type || 'TV';
-    const totalEps   = malData?.num_episodes || info.total_episode || info.episode || '?';
-    const duration   = malData?.duration || info.durasi || info.duration || 'Unknown';
+    const type       = info.type || info.tipe || 'TV';
+    const totalEps   = malData?.num_episodes || info.total_episode || '?';
+    const duration   = malData?.duration || info.duration || info.durasi || 'Unknown';
     const score      = malData?.mean || info.score || info.skor || info.rating || 'N/A';
-    const description = malData?.synopsis || data.description || info.synopsis || 'Tidak ada deskripsi tersedia.';
+    const description = malData?.synopsis || data.description || 'Tidak ada deskripsi tersedia.';
     const titleJP    = malData?.alternative_titles?.ja || info.japanese || '';
     const titleEN    = malData?.title_english || malData?.alternative_titles?.en || '';
     const rating     = malData?.rating ? (ratingMap[malData.rating] || malData.rating.toUpperCase()) : '';
-    const studios    = malData?.studios?.map(s => s.name).join(', ') || '';
+    const studios    = malData?.studios?.map(s => s.name).join(', ') || info.studio || '';
     const source     = malData?.source ? malData.source.replace(/_/g, ' ') : '';
     const rank       = malData?.rank ? `#${malData.rank}` : '';
     const popularity = malData?.popularity ? `#${malData.popularity}` : '';
 
     const genreText = info.genre || info.genres || '';
-    const genres = genreText ? genreText.split(',').map(g => g.trim()).filter(Boolean) : (malData?.genres?.map(g => g.name) || ['Anime']);
+    const genres = genreText ? genreText.split(',').map(g => g.trim()).filter(Boolean)
+      : (malData?.genres?.map(g => g.name) || ['Anime']);
 
     let seasonInfo = '';
     if (malData?.start_season) {
       const s = malData.start_season;
       seasonInfo = `${seasonLabelMap[s.season] || s.season} ${s.year}`.trim();
     } else {
-      const musim = info.musim || info.season || '';
-      const rilis = info.dirilis || info.released || '';
+      const musim = info.season || info.musim || '';
+      const rilis = info.released || info.dirilis || '';
       seasonInfo = `${musim} ${rilis}`.trim() || 'Unknown Date';
     }
 
@@ -365,7 +376,6 @@ async function loadDetail(url) {
     window._currentAnime = { url, title: data.title, image: data.image, score, episodes: data.episodes || [] };
     if (typeof GESTURES !== 'undefined') GESTURES.setEpisodeList(data.episodes || [], null);
 
-    // Build metadata grid
     const metaRows = [
       { label: 'STATUS',       html: `<span class="meta-pill">${status.toUpperCase()}</span>` },
       { label: 'TOTAL EPS',    html: `<span class="meta-value">${totalEps}</span>` },
@@ -431,7 +441,7 @@ async function loadDetail(url) {
     const animeImage = data.image || '';
     const animeScore = score || '?';
     document.getElementById('episode-grid').innerHTML = data.episodes.map((ep, i) => {
-      const num = ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
+      const num = ep.number || ep.title.match(/(?:Episode|Eps|Ep)\s*(\d+(\.\d+)?)/i)?.[1]
         || (ep.title.match(/\d+/g) || [i + 1]).slice(-1)[0];
       const epLabel = escapeStr(`${animeTitle} - Ep ${num}`);
       return `<div class="ep-box" title="${ep.title}" style="animation-delay:${Math.min(i * 0.02, 0.3)}s">
@@ -462,6 +472,7 @@ async function loadDetail(url) {
 }
 
 // ── Tonton Episode ────────────────────────────────────────
+// url = "animeId/slug/episodeNumber"
 async function loadVideo(url) {
   loader(true);
   try {
@@ -486,9 +497,10 @@ async function loadVideo(url) {
         return `<button class="server-tag ${i === 0 ? 'active' : ''}" ${attr} onclick="changeServerAuto(this)">${s.server}</button>`;
       }).join('');
     } else {
-      alert('Maaf, stream belum tersedia untuk episode ini.');
+      showToast('Stream belum tersedia untuk episode ini.', 'warning');
     }
 
+    // Download section
     const dlSection = document.getElementById('download-section');
     const dlList    = document.getElementById('download-list');
     if (data.downloads?.length > 0) {
@@ -512,7 +524,19 @@ async function loadVideo(url) {
     } else {
       dlSection.style.display = 'none';
     }
-  } catch {} finally { loader(false); }
+
+    // Prev/Next episode navigation
+    const navContainer = document.getElementById('episode-nav') || null;
+    if (navContainer) {
+      navContainer.innerHTML = `
+        ${data.prevEp ? `<button class="ep-nav-btn" onclick="loadVideo('${data.prevEp.endpoint}')">‹ ${data.prevEp.title}</button>` : '<span></span>'}
+        ${data.nextEp ? `<button class="ep-nav-btn" onclick="loadVideo('${data.nextEp.endpoint}')">  ${data.nextEp.title} ›</button>` : ''}
+      `;
+    }
+  } catch (e) {
+    console.error('[loadVideo]', e.message);
+    showToast('Gagal memuat stream.', 'error');
+  } finally { loader(false); }
 }
 
 async function loadStreamSrc(player, stream) {
@@ -560,6 +584,6 @@ function markEpisodeComplete() {
   if (typeof showToast === 'function') showToast('Episode ditandai selesai!');
 }
 
-// Kompatibilitas lama
+// Alias kompatibilitas
 function renderCategoryPage_old() { renderCategoryPage(); }
 function loadCategory(genre, slug, btn) { loadGenreResult(genre, slug, btn); }
