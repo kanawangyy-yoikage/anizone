@@ -83,14 +83,16 @@ async function loadLatestTab() {
             const r = await fetch(`${API_BASE}/genre/${encodeURIComponent(sec.genreSlug)}?page=1`);
             const data = await r.json();
             const animes = data.animes || data || [];
-            combined = animes.map(a => ({
-              title:   a.title   || '',
-              image:   a.poster  || a.image || '',
-              url:     a.slug    || a.url   || '',
-              score:   a.score   || '?',
-              episode: a.episode || '',
-              type:    a.type    || 'TV',
-            }));
+            combined = animes
+              .filter(a => ['TV', 'Movie', 'Special'].includes(a.type))
+              .map(a => ({
+                title:   a.title   || '',
+                image:   a.poster  || a.image || '',
+                url:     a.slug    || a.url   || '',
+                score:   a.score   || '?',
+                episode: a.episode || '',
+                type:    a.type    || 'TV',
+              }));
           }
           if (combined.length > 0) {
             if (combined.length < 6) combined = [...combined, ...combined, ...combined];
