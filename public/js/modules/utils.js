@@ -38,12 +38,18 @@ function emptyState(icon, title, desc) {
 
 // Template kartu anime (digunakan di favorit & riwayat)
 function animeCard(a) {
+  const title = a.title||'';
+  const shortTitle = title.length > 35 ? title.substring(0,35)+'...' : title;
   return `
-    <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-      <div class="scroll-card-img">
-        <img src="${a.image}" alt="${a.title}" loading="lazy">
-        <div class="ep-badge">⭐ ${a.score || '?'}</div>
+    <div class="scroll-card-wrapper" onclick="loadDetail('${a.url}')">
+      <div class="scroll-card">
+        <div class="scroll-card-outer">
+          <div class="scroll-card-img">
+            <img src="${a.image}" alt="${title}" loading="lazy">
+            <div class="ep-badge" data-mal-title="${title.replace(/"/g,'')}">⭐ ${a.score||'?'}</div>
+          </div>
+        </div>
+        <div class="scroll-card-title">${shortTitle}</div>
       </div>
-      <div class="scroll-card-title">${a.title}</div>
     </div>`;
 }
