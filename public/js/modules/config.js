@@ -41,3 +41,19 @@ const GENRE_KEYWORDS = {
 };
 
 const KATEGORI_LIST = Object.keys(GENRE_KEYWORDS);
+
+// Mapping nama genre (KATEGORI_LIST) → slug API sankavollerei
+const GENRE_SLUG_MAP = {
+  'Action'       : 'aksi',
+  'Adventure'    : 'petualangan',
+  'Comedy'       : 'komedi',
+  'Drama'        : 'drama',
+  'Fantasy'      : 'fantasi',
+  'Isekai'       : 'isekai',
+  'Magic'        : 'sihir',
+  'Romance'      : 'romansa',
+  'School'       : 'sekolahan',
+  'Sci-Fi'       : 'sci-fi',
+  'Slice of Life': 'slice-of-life',
+  'Sports'       : 'olahraga',
+};
