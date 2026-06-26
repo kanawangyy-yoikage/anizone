@@ -82,19 +82,25 @@ async function loadLatestTab() {
         try {
           let combined = [];
           if (sec.genreSlug) {
-            const r = await fetch(`${API_BASE}/genre/${encodeURIComponent(sec.genreSlug)}?page=1`);
-            const data = await r.json();
-            const animes = data.animes || data || [];
-            combined = animes
-              .filter(a => ['TV', 'Movie', 'Special'].includes(a.type))
-              .map(a => ({
-                title:   a.title   || '',
-                image:   a.poster  || a.image || '',
-                url:     a.slug    || a.url   || '',
-                score:   a.score   || '?',
-                episode: a.episode || '',
-                type:    a.type    || 'TV',
-              }));
+            const pages = await Promise.all([1,2,3].map(p =>
+              fetch(`${API_BASE}/genre/${encodeURIComponent(sec.genreSlug)}?page=${p}`).then(r => r.json()).catch(() => ({}))
+            ));
+            pages.forEach(data => {
+              const animes = data.animes || data || [];
+              if (Array.isArray(animes)) {
+                animes
+                  .filter(a => ['TV','Movie','Special'].includes(a.type))
+                  .forEach(a => combined.push({
+                    title:   a.title   || '',
+                    image:   a.poster  || a.image || '',
+                    url:     a.slug    || a.url   || '',
+                    score:   a.score   || '?',
+                    episode: a.episode || '',
+                    type:    a.type    || 'TV',
+                  }));
+              }
+            });
+            combined = removeDuplicates(combined, 'url');
           }
           if (combined.length > 0) {
             if (combined.length < 6) combined = [...combined, ...combined, ...combined];
