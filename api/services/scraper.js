@@ -145,34 +145,35 @@ async function getDetail(slugOrEndpoint) {
     throw new Error(`Anime tidak ditemukan: ${slug}`);
   }
   const d = raw?.data || raw;
-  if (!d || (!d.title && !d.slug)) {
+  if (!d || (!d.title && !d.slug && !d.poster)) {
     throw new Error(`Anime tidak ditemukan: ${slug}`);
   }
 
-  // Genre list — Nimegami bisa kirim array of string atau array of object
+  // ── Info nested object (Nimegami struktur real) ────────
+  // Nimegami kirim: { poster, title, synopsis, info: { judul, judul_alternatif,
+  //   durasi_per_episode, rating, studio, kategori, musim_rilis, type, series, subtitle },
+  //   genres: [{ name, slug, url }], streams_by_episode: [...] }
+  const info = (d.info && typeof d.info === 'object') ? d.info : {};
+
+  // ── Genre ──────────────────────────────────────────────
   const genreRaw = d.genres || d.genreList || d.genre_list || [];
   const genreArr = genreRaw.map(g => {
     if (typeof g === 'string') return g;
     return g.name || g.title || g.slug || '';
   }).filter(Boolean);
 
-  // Slug anime (untuk build endpoint episode)
+  // ── Slug anime ─────────────────────────────────────────
   const animeSlug = d.slug || d.animeSlug || slug;
 
-  // Episode list
-  // Nimegami episodeList item: { title, slug/episodeSlug, number/episode, date }
+  // ── Episode list ───────────────────────────────────────
   const epRaw = d.episodeList || d.episodes || d.episode_list || [];
-  const episodes = epRaw.map(ep => {
-    // Episode slug bisa berupa full slug atau hanya number
-    const epSlug  = ep.slug || ep.episodeSlug || ep.url || '';
-    const epNum   = ep.number || ep.episode || ep.episodeNumber
+  const episodes = Array.isArray(epRaw) ? epRaw.map(ep => {
+    const epSlug = ep.slug || ep.episodeSlug || ep.url || '';
+    const epNum  = ep.number || ep.episode || ep.episodeNumber
       || (epSlug.match(/(?:episode-|ep-)(\d+(?:\.\d+)?)/i)?.[1]) || '';
 
-    // Endpoint watch: gunakan episode slug jika tersedia (sudah full),
-    // atau build dari animeSlug + episode number
     let endpoint;
     if (epSlug && epSlug.includes(animeSlug)) {
-      // Slug sudah full (misal: naruto-sub-indo-episode-1)
       endpoint = epSlug;
     } else if (epSlug) {
       endpoint = epSlug;
@@ -187,42 +188,60 @@ async function getDetail(slugOrEndpoint) {
       date    : ep.date || ep.releaseDate || ep.aired || '',
       number  : String(epNum),
     };
-  });
+  }) : [];
 
-  // Synopsis
-  const synopsis = d.synopsis || d.description || d.sinopsis || '';
-  const description = Array.isArray(synopsis?.paragraphs) && synopsis.paragraphs.length
-    ? synopsis.paragraphs.join(' ')
-    : (typeof synopsis === 'string' ? synopsis : '');
+  // ── Synopsis ───────────────────────────────────────────
+  const synopsisRaw = d.synopsis || d.description || d.sinopsis || '';
+  const description = Array.isArray(synopsisRaw?.paragraphs) && synopsisRaw.paragraphs.length
+    ? synopsisRaw.paragraphs.join(' ')
+    : (typeof synopsisRaw === 'string' ? synopsisRaw : '');
 
-  // Studio
-  const studioRaw = d.studios || d.studio || '';
+  // ── Studio ─────────────────────────────────────────────
+  // Nimegami: info.studio (string) atau d.studios (array)
+  const studioRaw = info.studio || d.studios || d.studio || '';
   const studio = Array.isArray(studioRaw)
     ? studioRaw.map(s => s.name || s.title || s).filter(Boolean).join(', ')
     : String(studioRaw);
 
+  // ── Flatten fields dari nested info ───────────────────
+  const infoJudul  = info.judul            || d.title         || '';
+  const infoAlt    = info.judul_alternatif  || d.japanese     || '';
+  const infoDurasi = info.durasi_per_episode || d.duration    || '?';
+  const infoRating = info.rating            || d.score        || 'N/A';
+  const infoType   = info.type              || d.type         || 'TV';
+  const infoMusim  = info.musim_rilis       || d.season       || '';
+  const infoKat    = info.kategori          || d.type         || 'TV';
+
   return {
-    title      : d.title || '',
+    title      : d.title || infoJudul || '',
     image      : d.poster || d.image || d.thumbnail || d.cover || '',
     description,
     animeId    : animeSlug,
     slug       : animeSlug,
     info       : {
-      japanese     : d.japanese || d.japaneseTitle || d.title_japanese || '',
-      type         : d.type || 'TV',
-      status       : d.status || 'Ongoing',
-      total_episode: d.totalEpisode || d.total_episode || d.episodes_count || episodes.length || '?',
-      score        : d.score || d.rating || 'N/A',
-      duration     : d.duration || '?',
-      season       : d.season || '',
-      released     : d.aired || d.releaseDate || d.release_date || '',
-      producer     : d.producers || d.producer || '',
+      judul              : infoJudul,
+      judul_alternatif   : infoAlt,
+      japanese           : infoAlt,
+      type               : infoType,
+      kategori           : infoKat,
+      status             : d.status || info.status || 'Ongoing',
+      total_episode      : d.totalEpisode || d.total_episode || d.episodes_count || episodes.length || '?',
+      score              : infoRating,
+      rating             : infoRating,
+      duration           : infoDurasi,
+      durasi_per_episode : infoDurasi,
+      season             : infoMusim,
+      musim_rilis        : infoMusim,
+      released           : d.aired || d.releaseDate || d.release_date || '',
+      producer           : d.producers || d.producer || '',
       studio,
-      genre        : genreArr.join(', '),
+      subtitle           : info.subtitle  || d.subtitle  || 'Indonesia',
+      series             : info.series    || d.series    || '',
+      genre              : genreArr.join(', '),
     },
     genre    : genreArr,
     episodes,
-    batchSlug: '',  // Nimegami tidak punya batch, kosongkan
+    batchSlug: '',
     download : [],
   };
 }
@@ -241,50 +260,68 @@ async function getWatch(episodeSlug) {
   }
   const d = raw?.data || raw || {};
 
-  // Streams — Nimegami: servers/streamingServers/mirrorList/streamingLink
+  // ── Streams ────────────────────────────────────────────
+  // Nimegami actual: streams_by_episode: [{ name, resolution, url }]
   const streams = [];
 
-  // Default streaming URL
-  if (d.defaultStreamingUrl || d.streamingLink || d.streamUrl) {
-    const defUrl = d.defaultStreamingUrl || d.streamingLink || d.streamUrl;
-    if (defUrl) streams.push({ server: 'Default', url: defUrl, serverId: '' });
-  }
-
-  // Server list
-  const serverList = d.servers || d.streamingServers || d.server_list || [];
-  for (const srv of serverList) {
-    const url = srv.url || srv.link || srv.href || srv.streamUrl || '';
+  // streams_by_episode (confirmed from debug logs)
+  const streamsByEp = d.streams_by_episode || d.streamsByEpisode || [];
+  for (const s of streamsByEp) {
+    const url = s.url || s.link || s.href || '';
     if (url) {
       streams.push({
-        server  : srv.serverName || srv.name || srv.title || 'Server',
+        server  : `${s.name || 'Server'} (${s.resolution || ''})`.trim().replace(/\(\)$/, '').trim(),
         url,
-        serverId: srv.serverId || srv.id || '',
+        serverId: s.resolution || '',
       });
     }
   }
 
-  // Mirror list
-  const mirrorList = d.mirrorList || d.mirrors || d.mirror_list || [];
-  for (const q of mirrorList) {
-    const mirrors = q.mirrors || q.links || q.servers || [];
-    for (const m of mirrors) {
-      const url = m.url || m.link || m.href || '';
+  // Default streaming URL fallback
+  if (!streams.length) {
+    const defUrl = d.defaultStreamingUrl || d.streamingLink || d.streamUrl;
+    if (defUrl) streams.push({ server: 'Default', url: defUrl, serverId: '' });
+  }
+
+  // Server list fallback
+  if (!streams.length) {
+    const serverList = d.servers || d.streamingServers || d.server_list || [];
+    for (const srv of serverList) {
+      const url = srv.url || srv.link || srv.href || srv.streamUrl || '';
       if (url) {
         streams.push({
-          server  : `${m.name || m.title || 'Mirror'} (${q.quality || q.resolution || ''})`,
+          server  : srv.serverName || srv.name || srv.title || 'Server',
           url,
-          serverId: '',
+          serverId: srv.serverId || srv.id || '',
         });
       }
     }
   }
 
-  // Streaming iframe / embed fallback
+  // Mirror list fallback
+  if (!streams.length) {
+    const mirrorList = d.mirrorList || d.mirrors || d.mirror_list || [];
+    for (const q of mirrorList) {
+      const mirrors = q.mirrors || q.links || q.servers || [];
+      for (const m of mirrors) {
+        const url = m.url || m.link || m.href || '';
+        if (url) {
+          streams.push({
+            server  : `${m.name || m.title || 'Mirror'} (${q.quality || q.resolution || ''})`,
+            url,
+            serverId: '',
+          });
+        }
+      }
+    }
+  }
+
+  // Iframe / embed fallback terakhir
   if (!streams.length && (d.iframeUrl || d.embed || d.embedUrl)) {
     streams.push({ server: 'Player', url: d.iframeUrl || d.embed || d.embedUrl, serverId: '' });
   }
 
-  // Downloads — Nimegami: downloads / downloadList
+  // ── Downloads ──────────────────────────────────────────
   const downloads = [];
   const dlList = d.downloads || d.downloadList || d.download_list || [];
   for (const dl of dlList) {
@@ -297,7 +334,7 @@ async function getWatch(episodeSlug) {
     if (links.length) downloads.push({ format, resolution: res, links });
   }
 
-  // Navigasi episode (prev/next)
+  // ── Navigasi episode ────────────────────────────────────
   const buildEpNav = (ep) => {
     if (!ep) return null;
     const epSlug = ep.slug || ep.url || ep.episodeSlug || '';
