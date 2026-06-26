@@ -8,7 +8,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// API_BASE, MAL_SCORE_CACHE, MAL_DATA_CACHE → lihat config.js
+const API_BASE = '/api';
+const MAL_SCORE_CACHE = new Map(); // title -> MAL mean score
+const MAL_DATA_CACHE  = new Map(); // title -> full MAL node data
 
 // ─── FIRESTORE: HISTORY & FAVORITES ──────────────────
 
@@ -71,7 +73,31 @@ async function getFavorites() {
 
 // ─── HOME SECTIONS CONFIG ────────────────────────────
 
-// HOME_SECTIONS, GENRE_KEYWORDS, KATEGORI_LIST → lihat config.js
+const HOME_SECTIONS = [
+  { title: "Sedang Hangat",  mode: "latest" },
+  { title: "Isekai & Fantasy", queries: ["isekai","reincarnation","world","maou"] },
+  { title: "Action Hits",    queries: ["kimetsu","jujutsu","piece","bleach","hunter","shingeki"] },
+  { title: "Romance & Drama", queries: ["kanojo","romance","heroine","uso"] },
+  { title: "School Life",    queries: ["school","gakuen","classroom","high school"] },
+  { title: "Magic & Adventure", queries: ["magic","adventure","dragon","dungeon"] },
+  { title: "Comedy & Chill", queries: ["comedy","slice of life","bocchi","spy"] },
+];
+
+const GENRE_KEYWORDS = {
+  "Action":         ["action","shounen","fight","jujutsu","kimetsu"],
+  "Adventure":      ["adventure","journey","world","isekai"],
+  "Comedy":         ["comedy","slice of life","laugh","bocchi"],
+  "Romance":        ["romance","love","kanojo","couple"],
+  "School":         ["school","gakuen","classroom","student"],
+  "Slice of Life":  ["slice of life","daily","chill","camp"],
+  "Horror":         ["horror","scary","ghost","zombie","terror"],
+  "Live Action":    ["live action","real","dorama"],
+  "Sport":       ["olahraga","sports","athlete","tournament"],
+  "Shoujo Ai":      ["shoujo ai","yuri","girls love","lesbian"],
+  "Shounen Ai":     ["shounen ai","yaoi","boys love","bromance"],
+  "Donghua":        ["donghua","chinese","tiongkok","manhua"],
+};
+const KATEGORI_LIST = Object.keys(GENRE_KEYWORDS);
 let sliderInterval;
 
 // ─── THEME ───────────────────────────────────────────
@@ -568,23 +594,33 @@ async function loadCategory(genre, btn) {
   btn?.classList.add('active');
   loader(true);
   try {
-    const queries = GENRE_KEYWORDS[genre] || [genre];
-    let combined = [];
-    const results = await Promise.all(queries.map(q =>
-      fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
+    const slug = GENRE_SLUG_MAP[genre] || genre.toLowerCase().replace(/ /g, '-');
+    const pages = await Promise.all([1,2,3].map(p =>
+      fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json()).catch(() => ({}))
     ));
-    results.forEach(l => { if (Array.isArray(l)) combined.push(...l); });
+    let combined = [];
+    pages.forEach(data => {
+      const animes = data.animes || data || [];
+      if (Array.isArray(animes)) {
+        animes
+          .filter(a => ['TV','Movie','Special'].includes(a.type))
+          .forEach(a => combined.push({
+            title:   a.title   || '',
+            image:   a.poster  || a.image || '',
+            url:     a.slug    || a.url   || '',
+            score:   a.score   || '?',
+            episode: a.episode || '',
+            type:    a.type    || 'TV',
+          }));
+      }
+    });
     combined = removeDuplicates(combined, 'url');
     const c = document.getElementById('category-results-container');
     if (!combined.length) { c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px;">Tidak ada anime ditemukan.</p>'; return; }
     c.innerHTML = `
       <div class="section-header mt-large"><div class="bar-accent"></div><h2>Anime ${genre}</h2></div>
       <div class="anime-grid">
-        ${combined.map(a => `
-          <div class="scroll-card" onclick="loadDetail('${a.url}')" style="min-width:auto;max-width:none">
-            <div class="scroll-card-img"><img src="${a.image}" alt="${a.title}" loading="lazy"><div class="ep-badge" data-mal-title="${(a.title||'').replace(/"/g,'')}">⭐ ${a.score||'?'}</div></div>
-            <div class="scroll-card-title">${a.title}</div>
-          </div>`).join('')}
+        ${combined.map(a => animeCard(a)).join('')}
       </div>`;
     lazyLoadScores(c);
   } catch {} finally { loader(false); }
