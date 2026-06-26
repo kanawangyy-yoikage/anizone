@@ -83,8 +83,9 @@ function normalizeItem(item) {
 
 // Ekstrak list dari berbagai format response Nimegami
 function extractList(raw) {
+  // Nimegami pakai snake_case: anime_list
   const data = raw?.data || raw;
-  const arr = data?.animeList || data?.anime_list || data?.list
+  const arr = data?.anime_list || data?.animeList || data?.list
     || data?.animes || data?.results
     || (Array.isArray(data) ? data : []);
   return Array.isArray(arr) ? arr : [];
@@ -102,10 +103,10 @@ function extractTotalPages(raw) {
 async function getLatest(page = 1) {
   try {
     const raw  = await api.home();
-    // Nimegami home: data bisa berisi ongoingList, latestList, atau animeList
+    // Nimegami home: field anime_list (snake_case)
     const data = raw?.data || raw;
-    const list = data?.ongoingList || data?.latestList || data?.animeList
-      || data?.ongoing || data?.latest
+    const list = data?.anime_list || data?.animeList || data?.latestList
+      || data?.ongoingList || data?.ongoing || data?.latest
       || extractList(raw);
     return Array.isArray(list) ? list.map(normalizeItem) : [];
   } catch (err) {
@@ -327,9 +328,9 @@ async function getScrapedTrending() {
     const raw  = await api.home();
     const data = raw?.data || raw;
     // Nimegami home: bisa punya popularList, trendingList, ongoingList, dll
-    const list = data?.popularList || data?.trendingList || data?.popular
-      || data?.trending || data?.ongoingList || data?.ongoing
-      || data?.animeList || data?.latestList || [];
+    const list = data?.anime_list || data?.popularList || data?.trendingList
+      || data?.popular || data?.trending || data?.animeList
+      || data?.latestList || data?.ongoingList || data?.ongoing || [];
     const arr = Array.isArray(list) ? list : (list?.animeList || []);
     return arr.slice(0, 20).map(normalizeItem);
   } catch (err) {

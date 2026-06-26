@@ -153,7 +153,7 @@ async function loadAnimeListTab(c) {
       const raw = await fetch(`${API_BASE}/unlimited`).then(r => r.json());
       // Nimegami anime-list: data = [{ startWith, animeList:[...] }] atau flat array
       const data = raw?.data || raw;
-      _azCache = data?.list || data?.animeList || data?.anime_list
+      _azCache = data?.anime_list || data?.list || data?.animeList
         || (Array.isArray(data) ? data : []);
     } catch {
       document.getElementById('az-result').innerHTML =
@@ -220,8 +220,9 @@ function loadAZResult(letter, btn) {
 
 // ── Helpers ───────────────────────────────────────────────
 function extractListNime(raw) {
+  // Nimegami pakai snake_case: anime_list
   const data = raw?.data || raw;
-  const arr = data?.animeList || data?.anime_list || data?.animes
+  const arr = data?.anime_list || data?.animeList || data?.animes
     || data?.list || data?.results
     || (Array.isArray(data) ? data : []);
   return Array.isArray(arr) ? arr : [];

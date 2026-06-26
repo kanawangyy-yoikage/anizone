@@ -86,7 +86,7 @@ async function loadLatestTab() {
       (async () => {
         try {
           const raw  = await fetch(`${API_BASE}/${sec.endpoint}?page=1`).then(r => r.json());
-          const list = raw.data?.animeList || raw.data?.animes || raw.data || [];
+          const list = raw.data?.anime_list || raw.data?.animeList || raw.data?.animes || raw?.anime_list || raw.data || [];
           if (Array.isArray(list) && list.length > 0) {
             const normalized = list.slice(0, 15).map(item => ({
               title   : item.title || '',
