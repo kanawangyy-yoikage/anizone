@@ -1,4 +1,22 @@
-// ─── ANIME MODULE ────────────────────────────────────────
+// ─── ANIME MODULE ───────────────────────────────────────
+const _animeGenreCache = new Map();
+const _animeDelay = ms => new Promise(r => setTimeout(r, ms));
+
+async function fetchGenrePagesAnime(slug, pages = 3) {
+  if (_animeGenreCache.has(slug)) return _animeGenreCache.get(slug);
+  let list = [];
+  for (let p = 1; p <= pages; p++) {
+    try {
+      const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json());
+      const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
+      if (Array.isArray(animes)) animes.forEach(a => list.push(a));
+      if (p < pages) await _animeDelay(300);
+    } catch {}
+  }
+  list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
+  _animeGenreCache.set(slug, list);
+  return list;
+}─
 // Kategori, detail, tonton, pencarian, popular, movies,
 // ongoing, completed, animelist A-Z, characters.
 
@@ -94,15 +112,7 @@ async function loadGenreResult(genre, slug, btn, page = 1) {
   c.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
 
   try {
-    const pages = await Promise.all([1,2,3].map(p =>
-      fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json()).catch(() => ({}))
-    ));
-    let list = [];
-    pages.forEach(data => {
-      const animes = Array.isArray(data) ? data : (data.animes || data.data || data.anime || data.results || []);
-      if (Array.isArray(animes)) animes.forEach(a => list.push(a));
-    });
-    list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
+    const list = await fetchGenrePagesAnime(slug, 3);
 
     if (!list.length) {
       c.innerHTML = '<p style="text-align:center;color:var(--text-muted);margin-top:20px">Tidak ada anime ditemukan.</p>';
