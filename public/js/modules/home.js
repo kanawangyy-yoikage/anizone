@@ -77,18 +77,26 @@ async function loadLatestTab() {
     for (let i = 1; i < HOME_SECTIONS.length; i++) {
       const sec = HOME_SECTIONS[i];
       (async () => {
-        const results = await Promise.all(
-          sec.queries.map(q =>
-            fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => [])
-          )
-        );
-        let combined = [];
-        results.forEach(list => { if (Array.isArray(list)) combined.push(...list); });
-        combined = removeDuplicates(combined, 'url');
-        if (combined.length > 0) {
-          if (combined.length < 6) combined = [...combined, ...combined, ...combined];
-          renderSection(sec.title, combined.slice(0, 15), container, sec.genreSlug);
-        }
+        try {
+          let combined = [];
+          if (sec.genreSlug) {
+            const r = await fetch(`${API_BASE}/genre/${encodeURIComponent(sec.genreSlug)}?page=1`);
+            const data = await r.json();
+            const animes = data.animes || data || [];
+            combined = animes.map(a => ({
+              title:   a.title   || '',
+              image:   a.poster  || a.image || '',
+              url:     a.slug    || a.url   || '',
+              score:   a.score   || '?',
+              episode: a.episode || '',
+              type:    a.type    || 'TV',
+            }));
+          }
+          if (combined.length > 0) {
+            if (combined.length < 6) combined = [...combined, ...combined, ...combined];
+            renderSection(sec.title, combined.slice(0, 15), container, sec.genreSlug);
+          }
+        } catch {}
       })();
     }
   } catch { loader(false); }
