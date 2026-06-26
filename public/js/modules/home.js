@@ -6,28 +6,25 @@ const _genreCache = new Map(); // slug -> anime[]
 
 const _delay = ms => new Promise(r => setTimeout(r, ms));
 
-async function fetchGenrePages(slug, pages = 3) {
+async function fetchGenrePages(slug) {
   if (_genreCache.has(slug)) return _genreCache.get(slug);
   let combined = [];
-  for (let p = 1; p <= pages; p++) {
-    try {
-      const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=${p}`).then(r => r.json());
-      const animes = data.animes || data || [];
-      if (Array.isArray(animes)) {
-        animes
-          .filter(a => ['TV','Movie','Special'].includes(a.type))
-          .forEach(a => combined.push({
-            title:   a.title   || '',
-            image:   a.poster  || a.image || '',
-            url:     a.slug    || a.url   || '',
-            score:   a.score   || '?',
-            episode: a.episode || '',
-            type:    a.type    || 'TV',
-          }));
-      }
-      if (p < pages) await _delay(300);
-    } catch {}
-  }
+  try {
+    const data = await fetch(`${API_BASE}/genre/${encodeURIComponent(slug)}?page=1`).then(r => r.json());
+    const animes = data.animes || data || [];
+    if (Array.isArray(animes)) {
+      animes
+        .filter(a => ['TV','Movie','Special'].includes(a.type))
+        .forEach(a => combined.push({
+          title:   a.title   || '',
+          image:   a.poster  || a.image || '',
+          url:     a.slug    || a.url   || '',
+          score:   a.score   || '?',
+          episode: a.episode || '',
+          type:    a.type    || 'TV',
+        }));
+    }
+  } catch {}
   combined = [...new Map(combined.map(a => [a.url, a])).values()];
   _genreCache.set(slug, combined);
   return combined;
@@ -111,9 +108,7 @@ async function loadLatestTab() {
       (async () => {
         try {
           if (!sec.genreSlug) return;
-          // delay antar section biar tidak bombardir API sekaligus
-          await _delay((i - 1) * 500);
-          const combined = await fetchGenrePages(sec.genreSlug, 3);
+          const combined = await fetchGenrePages(sec.genreSlug);
           if (combined.length > 0) {
             const display = combined.length < 6 ? [...combined, ...combined, ...combined] : combined;
             renderSection(sec.title, display.slice(0, 15), container, sec.genreSlug);
