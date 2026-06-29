@@ -13,7 +13,8 @@ async function fetchGenrePagesAnime(slug) {
   list = [...new Map(list.map(a => [a.slug || a.url, a])).values()];
   _animeGenreCache.set(slug, list);
   return list;
-}─
+}
+
 // Kategori, detail, tonton, pencarian, popular, movies,
 // ongoing, completed, animelist A-Z, characters.
 
